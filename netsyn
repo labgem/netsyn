@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+
+##########
+# Import #
+##########
+
+import argparse
+import os
+import shutil
+import logging
+import re
+import sys
+
+import yaml
+from BoxManager import GetINSDCFiles, ClusteringIntoFamilies, SyntenyFinder, DataExport
+
+#############
+# Functions #
+#############
+
+def checkArguments(parser):
+    '''
+    Arguments checking.
+    '''
+    args = parser.parse_args()
+
+    if not args.RedundancyRemoval == 'FALSE':
+        if args.RedundancyRemovalLabel == 'FALSE' and args.RedundancyRemovalTaxonomy == 'FALSE':
+            parser.error('Missing RedundancyRemovalLabel or RedundancyRemovalTaxonomy')
+    
+    if not args.RedundancyRemovalLabel == 'FALSE' and not args.RedundancyRemovalTaxonomy == 'FALSE':
+        parser.error('RedundancyRemovalLabel or RedundancyRemovalTaxonomy are incompatible')
+        
+    if not args.RedundancyRemovalLabel == 'FALSE' or not args.RedundancyRemovalTaxonomy == 'FALSE':
+        args.RedundancyRemoval = 'TRUE'
+        
+    if not args.RedundancyRemovalTaxonomy == 'FALSE':
+        args.RedundancyRemovalTaxonomy = '&'+args.RedundancyRemovalTaxonomy
+        
+    return args
+
+def argumentsParser():
+    '''
+    Arguments parsing.
+    '''
+    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',################################
+                                 epilog = '''All's well that ends well.''', #################################################################
+                                 usage = '''netsyn -i <UniProtAC.list> -po <User> -pn <ProjectName>''', ######################################################################
+                                 formatter_class = argparse.RawTextHelpFormatter)
+  
+    group1 = parser.add_argument_group('General settings')
+    group1.add_argument('-i', '--InputFile', type = str, 
+                        required = True, help = 'Protein accession list or file of corresponding (cf: wiki).')
+    group1.add_argument('-po', '--ProjectOwner', type = str, required = True,
+                        help = 'The project owner.')
+    group1.add_argument('-pn', '--ProjectName', type = str, required = True,
+                        help = 'The project name.')
+    group1.add_argument('-pd', '--ProjectDescription', type = str,
+                        default = 'No description', help = 'The project description.\nDefault value: No description.')
+    group1.add_argument('-insdc', '--INSDCRepertory', type = str,
+                        help = 'Directory containing the INSDC files.')
+    group1.add_argument('-md', '--MetaDataFile', type = str,
+                        help = 'File containing the metadata.')                    
+                        
+    group4 = parser.add_argument_group('Clustering settings')
+    group4.add_argument('-mc', '--MinCoverage', type = float,
+                        default = 0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
+    group4.add_argument('-id', '--Ident', type = int,
+                        default = 0.3, help='Sequence identity.\nDefault value: 0.3.')
+                        
+    group3 = parser.add_argument_group('Synteny settings')
+    group3.add_argument('-ws', '--WindowSize', type = int,
+                        default = 11, help = 'Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
+    group3.add_argument('-sg', '--SyntenyGap', type = int, default = 3,
+                        help = 'Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
+    group3.add_argument('-st', '--ScoreType', type = int,
+                        default = 1, choices = [1,2], help = 'Default score = 1 or Weighted score = 2')
+    group3.add_argument('-sf', '--SyntenyFilter', type = str, default = 'off',
+                        choices = ['on','off'],  help = 'Keep synteny near target genes.\nDefault value: off.')
+    group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type = float,
+                        default = 0, help = 'Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+                        
+    group6 = parser.add_argument_group('Graph Analysis settings')
+    group6.add_argument('-cm', '--ClusteringMethod', type = str,
+                        choices = ['Multiple','MCL','EdgeBetweeness','Louvain','WalkTrap'],
+                        default = 'MCL', help = 'Clustering method choose in : Multiple (All), MCL (small graph), EdgeBetweeness (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
+    group6.add_argument('-rr', '--RedundancyRemoval', type = str,
+                        default = 'FALSE', choices = ['FALSE','TRUE'], help = 'Should the pipeline compute a graph contracting same cluster same label.\nDefault value: FALSE.')
+    group6.add_argument('-rrl', '--RedundancyRemovalLabel', type = str,
+                        default = 'FALSE', help = 'Label of the column on which the redundancy will be computed (Only with --RedundancyRemoval TRUE)')
+    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type = str, choices = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
+                        default = 'FALSE', help = 'Taxonomic rank on which the redundancy will be computed (Only with --RedundancyRemoval TRUE)')
+
+    group7 = parser.add_argument_group('logger')
+    group7.add_argument( '--log_level',
+                         type = str,
+                         nargs = '?',
+                         default = 'INFO',
+                         help = 'log level',
+                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required = False )
+    group7.add_argument( '--log_file',
+                         type = str,
+                         nargs = '?',
+                         help = 'log file (use the stderr by default)',
+                         required = False )
+
+    args = checkArguments(parser)
+    return(args)
+
+def parametersLogger(args):
+    '''
+    Logger setting.
+    '''
+    logging_std_format = '[%(levelname)s] %(message)s'
+    logging_debug_format = '%(asctime)s [%(levelname)s] [%(threadName)s - %(name)s] %(message)s'
+    log_level = args.log_level.upper()
+    if (log_level == 'DEBUG'):
+        logging_std_format = logging_debug_format
+    logging_datefmt = '%Y/%m/%d - %H:%M:%S'
+    if (args.log_file != None):
+        logging.basicConfig(format = logging_std_format,
+                             datefmt = logging_datefmt,
+                             filename = args.log_file,
+                             filemode = 'w',
+                             level = log_level)
+    else:
+        logging.basicConfig(format = logging_std_format,
+                             datefmt = logging_datefmt,
+                             level = log_level)
+
+def orderDefinition():
+    '''
+    Setting the code execution order.
+    '''
+    global args
+    # logger = logging.getLogger(orderDefinition.__name__)
+    if args.INSDCRepertory:
+        order = ['ClusteringIntoFamilies', 'SyntenyFinder', 'DataExport']
+    else:
+        order = ['GetINSDCFiles', 'ClusteringIntoFamilies', 'SyntenyFinder', 'DataExport']
+    # logger.debug('Execution order: {}'.format(order))
+    return order
+
+def createYamlSettingsFile(args):
+    '''
+    YAML settings file creation. Used for resumption of analysis.
+    '''
+    global SETTINGSFILENAME
+    global ORDERBOX
+    YAML_File = {}
+    gap = 1 if args.MetaDataFile else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
+    with open(SETTINGSFILENAME, 'w') as outfile:
+        YAML_File['General informations'] = {}
+        YAML_File['General informations']['InputFile'] = args.InputFile
+        YAML_File['General informations']['ProjectOwner'] = args.ProjectOwner
+        YAML_File['General informations']['ProjectName'] = args.ProjectName
+        YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
+        YAML_File['General informations']['INSDCRepertory'] = args.INSDCRepertory
+        YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
+        YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
+
+        YAML_File[ORDERBOX[1+gap]] = {}
+        YAML_File[ORDERBOX[1+gap]]['MinCoverage'] = args.MinCoverage
+        YAML_File[ORDERBOX[1+gap]]['Ident'] = args.Ident
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[1+gap])
+
+        YAML_File[ORDERBOX[2+gap]] = {}
+        YAML_File[ORDERBOX[2+gap]]['WindowSize'] = args.WindowSize
+        YAML_File[ORDERBOX[2+gap]]['SyntenyGap'] = args.SyntenyGap
+        YAML_File[ORDERBOX[2+gap]]['SyntenyFilter'] = args.SyntenyFilter
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2+gap])
+
+        YAML_File[ORDERBOX[3+gap]] = {}
+        YAML_File[ORDERBOX[3+gap]]['ScoreType'] = args.ScoreType
+        YAML_File[ORDERBOX[3+gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
+        YAML_File[ORDERBOX[3+gap]]['ClusteringMethod'] = args.ClusteringMethod
+        YAML_File[ORDERBOX[3+gap]]['RedundancyRemoval'] = args.RedundancyRemoval
+        YAML_File[ORDERBOX[3+gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
+        YAML_File[ORDERBOX[3+gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3+gap])
+
+def writtingYAML(YAML_to_write, outfile, block):
+    '''
+    YAML file writting.
+    '''
+    stream = yaml.dump(YAML_to_write, default_flow_style=False)
+    if block == 'General informations':
+        outfile.write('# ~~~~~ {}\n'.format('General informations'))
+    elif block == ORDERBOX[1]:
+        outfile.write('# ~~~~~ {}\n'.format(ORDERBOX[1]))
+    else:
+        outfile.write('# ~~~~~ Parameters for ' + block + '\n')
+    outfile.write(stream)
+    outfile.write('\n')
+    return({})
+
+def getBoxToResum(args):
+    '''
+    detection of settings modification
+    make the association with box
+    '''
+    global SETTINGSFILENAME
+    with open(SETTINGSFILENAME, 'r') as file:
+        oldSettings = yaml.load(file)
+    newsettings = vars(args)
+    for boxKey in oldSettings:
+        for parameterKey in oldSettings[boxKey]:
+            if not newsettings[parameterKey] == oldSettings[boxKey][parameterKey]:
+                logger.debug('New settings detected')
+                return boxKey
+    return None
+
+def getLastBoxDone():
+    '''
+    Get name box executed.
+    '''
+    global REPORTFILENAME
+    global ORDERBOX
+    logger = logging.getLogger(getLastBoxDone.__name__)
+    if os.path.isfile(REPORTFILENAME):
+        with open(REPORTFILENAME, 'r') as file:
+            nameBox = file.read()
+            return nameBox
+        if not nameBox in ORDERBOX:
+            logger.error('File of report wrong.')
+            exit(1)
+    return None
+
+def resumptionFrom(nameBoxToResum, nameBoxDone):
+    '''
+    Returns the name of the box from which to resume the analysis.
+    '''
+    global ORDERBOX
+    logger = logging.getLogger(resumptionFrom.__name__)
+    logger.debug(ORDERBOX)
+    logger.debug('{} ,{}'.format(nameBoxToResum, nameBoxDone))
+    if nameBoxDone:
+        indexBoxDone = ORDERBOX.index(nameBoxDone)
+    else:
+        indexBoxDone = -1
+    if nameBoxToResum:
+        indexBoxToResum = ORDERBOX.index(nameBoxToResum)
+    else:
+        indexBoxToResum = -1
+    if indexBoxDone == (len(ORDERBOX)-1):
+        ''' Last analysis completed '''
+        logger.debug('Last analysis completed')
+        if indexBoxToResum == -1:
+            ''' Not new analysis '''
+            logger.debug('Not new analysis')
+            return None
+        else:
+            ''' New Analysis '''
+            logger.debug('New Analysis')
+            return ORDERBOX[indexBoxToResum]
+    else:
+        ''' Last analysis not completed '''
+        logger.debug('Last analysis not completed')
+        if indexBoxToResum >= 0:
+            ''' New Analysis '''
+            logger.debug('New Analysis')
+            if indexBoxToResum <= indexBoxDone+1:
+                ''' New Analysis '''
+                logger.debug('New Analysis')
+                return ORDERBOX[indexBoxToResum]
+            else:
+                ''' Error Recovery '''
+                logger.debug('Error Recovery')
+                return ORDERBOX[indexBoxDone+1]
+        else:
+            ''' Error Recovery '''
+            logger.debug('Error Recovery')
+            return ORDERBOX[indexBoxDone+1]
+
+## Swiss functions : to move into library ?!?
+def boxesManager(runFrom, resultsDirectory, analysisNumber):
+    '''
+    Allows execution from a box.
+    '''
+    global ORDERBOX
+    global args
+    logger = logging.getLogger(boxesManager.__name__)
+    boxesToRun = [ORDERBOX[i] for i in range(ORDERBOX.index(runFrom), len(ORDERBOX))]
+    logger.debug('Boxes to run: {}'.format(boxesToRun))
+    for nameBox in boxesToRun:
+        runBox(nameBox, resultsDirectory, analysisNumber)
+        checkingAfterRun(nameBox, resultsDirectory, analysisNumber)
+        updateLastBoxDone(nameBox)
+
+def updateLastBoxDone(nameBox):
+    '''
+    Updating report file.
+    '''
+    global REPORTFILENAME
+    with open(REPORTFILENAME, 'w') as file:
+        file.write(nameBox)
+
+def getAnalysisNumber():
+    '''
+    Defining of the number of analisys.
+    Defining of results directory name for the current analysis.
+    '''
+    global WORKDIRECTORY
+    global args
+    number = 0
+    string = r'{}_Results_[0-9]+$'.format(args.ProjectName)
+    existingAnalyzes = [f for f in os.listdir(WORKDIRECTORY) if re.search(string, f)]
+    if existingAnalyzes:
+        number = max([i.split('_')[2] for i in existingAnalyzes])
+    analysisNumber = (number + 1)
+    resultsDirectory = '{}/{}_Results_{}'.format(WORKDIRECTORY, args.ProjectName, analysisNumber)
+    return analysisNumber, resultsDirectory
+
+def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
+    '''
+    Checkpoints before executing box.
+    '''
+    global TMPDIRECTORY
+    global WORKDIRECTORY
+    global args
+    logger = logging.getLogger(checkingAfterRun.__name__)
+    pointsToCheck = {
+        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/DowloadCompleted.check'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'ClusteringIntoFamilies' : [{'value' : '{}/ClusteringIntoFamilies/ALL.faa'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/GenomicContexts.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/TaxonomyLineage.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/ProteinFamilies.json'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/Clustering.json'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'DataExport' : [{'value' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
+                  {'value' : '{}/{}_Results_{}.html'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
+                  {'value' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'}]
+    }
+    if not boxName in pointsToCheck:
+        logger.critical('No checkpoints for {}'.format(boxName))
+        exit(1)
+    if pointsToCheck[boxName]:
+        error = False
+        for checkpoint in pointsToCheck[boxName]:
+            if checkpoint['type'] == 'file':
+                if not os.path.isfile(checkpoint['value']):
+                    error = True
+                    logger.error('{} missing.'.format(checkpoint['value']))
+            elif checkpoint['type'] == 'directory':
+                if not os.path.isdir(checkpoint['value']):
+                    error = True
+                    logger.error('{} missing.'.format(checkpoint['value']))
+            else:
+                logger.error('Checkpoints for {}, unsupported type ({})'.format(boxName, checkpoint['type']))
+                exit(1)
+        if error:
+            logger.error('Checkpoints not validated after executing of {}. {} missing.'.format(boxName, checkpoint['value']))
+            exit(1)
+    else:
+        logger.error('Checkpoints is None for {}'.format(boxName))
+        exit(1)
+
+def runBox(nameBox, resultsDirectory, analysisNumber):
+    '''
+    Running box.
+    '''
+    global args
+    logger = logging.getLogger(runBox.__name__)
+    if nameBox == 'GetINSDCFiles':
+        logger = logging.getLogger('runGetINSDCFiles')
+        GetINSDCFiles.run(logger)
+    elif nameBox == 'ClusteringIntoFamilies':
+        logger = logging.getLogger('runClusteringIntoFamilies')
+        ClusteringIntoFamilies.run(logger)
+    elif nameBox == 'SyntenyFinder':
+        logger = logging.getLogger('runSyntenyFinder')
+        SyntenyFinder.run(logger)
+    elif nameBox == 'DataExport':
+        logger = logging.getLogger('runDataExport')
+        DataExport.run(logger)
+    else:
+        logger.critical('No execution planned for {}'.format(runBox))
+        exit(1)
+####################
+# Script execution #
+####################
+
+if __name__ == '__main__':
+    '''
+    + Avoir deux versions de ce script une public et une maison (MicroScope)
+    + faire une fonction 
+    |    reading arguments
+    |    detection of settings modification
+    |    make the association with box
+    |    execution (or not) from box
+    |____implique d'avoir un stockage des settings pour la comparaison (format YAML)
+    + Simplifier le fichier de setting car juste interne a l'exe ??? ou alors tourner les com' pour un info (~doc)
+    + tester l'input a chaque execution du script
+    + avoir une fonction qui creee le sqeltt du repertoire de travail (box1 creee sont propre repertoire de travail ???)
+    + fonction qui test si une box a deja ete executee
+    + fichier de rapport (etape 1 bien executee ...) ''idee : vraiment utile ou juste un test sur de fichier suffi''
+    '''
+    ######################
+    # Parse command line #
+    ######################
+    args = argumentsParser()
+    ##########
+    # Logger #
+    ##########
+    parametersLogger(args)
+    logger = logging.getLogger('main')
+    ###################
+    # Global variable #
+    ###################
+    WORKDIRECTORY = args.ProjectName
+    TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
+    SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
+    REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
+    INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
+    ORDERBOX = orderDefinition()
+    ############
+    # Switches #
+    ############
+    if not os.path.isfile(SETTINGSFILENAME):
+        '''Pas de dernier setting == premiere analyse'''
+        logger.info('New NetSyn project: {}'.format(WORKDIRECTORY))
+        if os.path.isdir(WORKDIRECTORY):
+            shutil.rmtree(WORKDIRECTORY)
+        os.mkdir(WORKDIRECTORY)
+        os.mkdir(TMPDIRECTORY)
+        analysisNumber, resultsDirectory = getAnalysisNumber()
+        shutil.copyfile(args.InputFile, INPUTLIST)
+        runFromBox = ORDERBOX[0]
+        nameBoxToResum = None
+        nameBoxDone = None
+    else:
+        '''Fichier de setting == analyse deja lance'''
+        nameBoxToResum = getBoxToResum(args)
+        if nameBoxToResum == 'General informations':
+            logger.error('Already existing project. Please start a new project.')
+            exit(1)
+        else:
+            logger.info('NetSyn project recovery: {}'.format(WORKDIRECTORY))
+        nameBoxDone = getLastBoxDone()
+        runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
+        analysisNumber, resultsDirectory = getAnalysisNumber()
+    createYamlSettingsFile(args)
+    if runFromBox:
+        '''Execution a partir de la boite x''' 
+        logger.debug('Box from which resume: {}'.format(nameBoxToResum))
+        logger.debug('Last box done: {}'.format(nameBoxDone))
+        logger.debug('Run from: {}'.format(runFromBox))
+        boxesManager(runFromBox, resultsDirectory, analysisNumber) # Fonction de fin d'execution d'une box
+    else:
+        '''Nous avons deja des resultats'''
+        logger.debug('Box from which resume: {}'.format(nameBoxToResum))
+        logger.debug('Last box done: {}'.format(nameBoxDone))
+        logger.debug('Run from: {}'.format(runFromBox))
+        logger.info('Already existing analysis.')
