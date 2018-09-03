@@ -363,7 +363,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
         logger = logging.getLogger('runGetINSDCFiles')
-        GetINSDCFiles.run(logger)
+        GetINSDCFiles.run(args.InputFile, TMPDIRECTORY, MAXGCSIZE, logger)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
         ClusteringIntoFamilies.run(logger)
@@ -382,18 +382,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
 
 if __name__ == '__main__':
     '''
-    + Avoir deux versions de ce script une public et une maison (MicroScope)
-    + faire une fonction 
-    |    reading arguments
-    |    detection of settings modification
-    |    make the association with box
-    |    execution (or not) from box
-    |____implique d'avoir un stockage des settings pour la comparaison (format YAML)
-    + Simplifier le fichier de setting car juste interne a l'exe ??? ou alors tourner les com' pour un info (~doc)
     + tester l'input a chaque execution du script
-    + avoir une fonction qui creee le sqeltt du repertoire de travail (box1 creee sont propre repertoire de travail ???)
-    + fonction qui test si une box a deja ete executee
-    + fichier de rapport (etape 1 bien executee ...) ''idee : vraiment utile ou juste un test sur de fichier suffi''
     '''
     ######################
     # Parse command line #
@@ -404,15 +393,16 @@ if __name__ == '__main__':
     ##########
     parametersLogger(args)
     logger = logging.getLogger('main')
-    ###################
-    # Global variable #
-    ###################
+    ##############
+    # Constantes #
+    ##############
     WORKDIRECTORY = args.ProjectName
     TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
     SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
     REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
     INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
     ORDERBOX = orderDefinition()
+    MAXGCSIZE = 11
     ############
     # Switches #
     ############
