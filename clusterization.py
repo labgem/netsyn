@@ -1,13 +1,13 @@
-from Bio import SeqIO
 import xml.etree.ElementTree as ET
 import re
 import os
 import shutil
 import sys
 import json
+import subprocess
 import urllib3
 import certifi
-import subprocess
+from Bio import SeqIO
 
 # if FORMAT_INSDC == "ncbi_embl":
 #     afile = "ncbi_files/acineto.embl"
@@ -54,6 +54,8 @@ IN_PSEUDO = False
 parserINSDCfile = {}
 
 def parse_info(d_file):
+    ''' returns information about the file to parse it correctly
+    '''
     global TYPE_PARSING, FIELD_PROTEIN_ID
     TYPE_PARSING = d_file["nucFileFormat"]
     FIELD_PROTEIN_ID = d_file["protACfield"]
@@ -112,7 +114,7 @@ def search_for_taxonID(given_taxon, aFeature):
     if given_taxon != "NA":
         print("provided")
         taxon_id = given_taxon
-    else :
+    else:
         print("must be in the file")
         taxon_id = get_from_dbxref(aFeature, "taxon")
     return taxon_id
@@ -133,7 +135,7 @@ def get_contig_info(aFeature, parser_contig_content, given_taxon):
             "taxon_id": taxon_id,
             "size": [aFeature.location.start.real+1,
                      aFeature.location.end.real
-                     ]
+                    ]
             }
     else:
         print("We have a problem")
@@ -339,7 +341,7 @@ def create_d_input(lines):
     d_input = {}
     for aline in lines[1:]: # skips the first line, with headers
         aline = aline.strip().split("\t")
-        d_input.setdefault(aline[4], {}).setdefault(aline[2], {}).setdefault("target_list",[]).append(aline[0])
+        d_input.setdefault(aline[4], {}).setdefault(aline[2], {}).setdefault("target_list", []).append(aline[0])
         d_input[aline[4]]["protACfield"] = aline[1]
         d_input[aline[4]]["nucFileFormat"] = aline[3]
 
@@ -431,7 +433,7 @@ def get_lineage(xml):
     scientificName = root.find('taxon').get('scientificName')
     rank = False
     if root.find('taxon').get('rank'):
-            rank = root.find('taxon').get('rank')
+        rank = root.find('taxon').get('rank')
     taxId = root.find('taxon').get('taxId')
     lineage_full[scientificName] = {'rank' : rank, 'taxId' : taxId}
 
@@ -449,11 +451,11 @@ def get_lineage(xml):
 def get_taxo_from_web(taxonID):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
-    http = urllib3.PoolManager(cert_reqs = 'CERT_REQUIRED', ca_certs = certifi.where())
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
     xml = http.request('GET', 'https://www.ebi.ac.uk/ena/data/view/Taxon:' + str(taxonID) + '&display=xml')
     taxonLineage = get_lineage(xml.data.decode('utf-8'))
     return taxonLineage
-    
+
 def get_desired_lineage(lineage_full):
     ''' takes the ranks of interest through the taxonomic lineage
     '''
@@ -556,8 +558,8 @@ def mmseqs_createdb(prefix):
     '''
     suffix = "faa"
     multiFasta = concat_by_dot(prefix, suffix)
-    with open('mmseqs_createdb.log','w') as file:
-        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, "ALL.DB"], stdout=file , stderr=file)
+    with open('mmseqs_createdb.log', 'w') as file:
+        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, "ALL.DB"], stdout=file, stderr=file)
         print('exit code: {}'.format(db_creation.returncode))
     return 0
 
@@ -572,14 +574,14 @@ def mmseqs_clustering(prefix, clust_mode, cov, ident, cov_mode, cascaded):
     dataBase = concat_by_dot(prefix, suffixDB)
     outputCluster = concat_by_dot(prefix, suffixCluster)
     with open('mmseqs_clustering.log', 'w') as file:
-        cluster_creation = subprocess.run(["mmseqs", "cluster", dataBase,
-                                           outputCluster, "MMseqsTMP",
-                                           "--min-seq-id", str(ident),
-                                           "--cov-mode", str(cov_mode),
-                                           "-c", str(cov),
-                                           "--cluster-mode", str(clust_mode)#,
-                                           #"--cascaded", str(cascaded)
-                                           ], stdout=file , stderr=file)
+        subprocess.run(["mmseqs", "cluster", dataBase,
+                        outputCluster, "MMseqsTMP",
+                        "--min-seq-id", str(ident),
+                        "--cov-mode", str(cov_mode),
+                        "-c", str(cov),
+                        "--cluster-mode", str(clust_mode)#,
+                        #"--cascaded", str(cascaded)
+                       ], stdout=file, stderr=file)
     return 0
 
 def mmseqs_createTSV(prefix):
@@ -592,9 +594,9 @@ def mmseqs_createTSV(prefix):
     inputCluster = concat_by_dot(prefix, suffixCluster)
     outputTSV = concat_by_dot(prefix, suffixTSV)
     with open('mmseqs_createtsv.log', 'w') as file:
-        tsv_creation = subprocess.run(["mmseqs", "createtsv", inputDB,
-                                           inputDB, inputCluster, outputTSV],
-                                          stdout=file , stderr=file)
+        subprocess.run(["mmseqs", "createtsv", inputDB,
+                        inputDB, inputCluster, outputTSV
+                       ], stdout=file, stderr=file)
     return 0
 
 def mmseqs_runner(params):
@@ -606,7 +608,30 @@ def mmseqs_runner(params):
     mmseqs_createTSV(params["prefix"])
     return 0
 
-def run(input_file):
+def regroup_families(prefix):
+    ''' creates a dictionary to store families obtained by MMseqs2
+    '''
+    suffix = "tsv"
+    INC_FAMILY = 1
+    family_in_progress = []
+    families = {}
+    with open(concat_by_dot(prefix, suffix), "r") as file:
+        lines = file.readlines()
+    for aline in lines:
+        aline = aline.strip().split("\t")
+        if aline[0] in family_in_progress:
+            family_in_progress.append(aline[1])
+        else:
+            fam_name = "_".join(["family", str(INC_FAMILY)])
+            if family_in_progress != []:
+                families[fam_name] = family_in_progress
+                INC_FAMILY += 1
+            family_in_progress = [aline[1]]
+    fam_name = "_".join(["family", str(INC_FAMILY)])
+    families[fam_name] = family_in_progress
+    return families
+
+def main(input_file):
     ''' main script to run the second box of NetSyn2
     '''
     with open(input_file) as infile:
@@ -620,7 +645,7 @@ def run(input_file):
 
     write_multiFasta(aFileParsed)
     write_json(aFileParsed, "GC.json")
-    
+
     taxonIDS_list = get_taxonIDs(aFileParsed)
     taxonomicLineage = get_taxonLineage(taxonIDS_list)
     write_json(taxonomicLineage, "TaxonomyLineage.json") # write TaxonomyLineage.json file
@@ -635,7 +660,10 @@ def run(input_file):
         }
     mmseqs_runner(params)
 
+    families = regroup_families(params["prefix"])
+    write_json(families, "Families.json")
+
     print("END")
 
 if __name__ == "__main__":
-    run(sys.argv[1])
+    main(sys.argv[1])
