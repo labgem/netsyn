@@ -253,8 +253,7 @@ def sliding_window(parser_contig_content, BEGIN_CONTIG, MAX_GC, target_list):
     return parser_contig_content, BEGIN_CONTIG
 
 def skip_duplicates(iterable, key=lambda x: x):
-    ''' removes duplicates from a list without modifying the order of the
-    elements
+    ''' removes duplicates from a list keeping the order of the elements
     Uses a generator
     '''
     # on va mettre l’empreinte unique de chaque élément dans ce set
@@ -459,7 +458,7 @@ def get_taxo_from_web(taxonID):
 def get_desired_lineage(lineage_full):
     ''' takes the ranks of interest through the taxonomic lineage
     '''
-    desired_rank = {
+    desired_ranks = {
         'superkingdom' : 1,
         'phylum' : 5,
         'class' : 8,
@@ -471,15 +470,15 @@ def get_desired_lineage(lineage_full):
     desired_lineage = []
 
     for scientificName in lineage_full:
-        if lineage_full[scientificName]['rank'] in desired_rank:
+        if lineage_full[scientificName]['rank'] in desired_ranks:
             rank = lineage_full[scientificName]['rank']
-            level = desired_rank[rank]
+            level = desired_ranks[rank]
             taxId = lineage_full[scientificName]['taxId']
             desired_lineage.append([level, rank, scientificName, taxId])
-            del desired_rank[rank]
-    if not desired_rank == {}:
-        for rank in desired_rank:
-            level = desired_rank[rank]
+            del desired_ranks[rank]
+    if not desired_ranks == {}:
+        for rank in desired_ranks:
+            level = desired_ranks[rank]
             scientificName = 'NA'
             taxId = 'NA'
             desired_lineage.append([level, rank, scientificName, taxId])
@@ -543,9 +542,7 @@ def get_taxonLineage(taxonIDs):
         res_taxo = get_taxo_from_web(ataxon)
         desired_taxo = get_desired_lineage(res_taxo)
         new_lineage = store_into_dico(ataxon, desired_taxo)
-        all_lineages.update(new_lineage)
-        # new_lineage = turn_into_dico(ataxon, desired_taxo, all_lineages)
-        # all_lineages.update(check_new_lineage(all_lineages, new_lineage))
+        all_lineages.update(new_lineage) # no risk of overwriting
     return all_lineages
 
 def concat_by_dot(prefix, suffix):
