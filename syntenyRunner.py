@@ -7,7 +7,8 @@ MICSYNTENY_CP = os.environ.get('MICSYNTENY_CP')
 GC_SIZE_USER = 3
 HALF_SIZE_USER = int(GC_SIZE_USER/2)
 GAP_USER = GC_SIZE_USER
-MIN_SYNT_SIZE = 1
+MIN_SYNTENY_SIZE = 1
+FILTERING = "OFF"
 
 def get_target_list(lines):
     target_list = []
@@ -32,8 +33,9 @@ def select_user_list(target_list, contig_dict):
             max(index-HALF_SIZE_USER, 0): min(index+HALF_SIZE_USER+1,
                                               len(contig_dict["cds_to_keep"]))]
         gc_user_list.extend(gc_chunk)
-        for acds in gc_chunk:
-            cds_target[acds] = contig_dict["cds_to_keep"][index]
+        cds_target[contig_dict["cds_to_keep"][index]] = gc_chunk
+        # for acds in gc_chunk:
+        #     cds_target.setdefault(acds, {}).setdefault("target", []).append(contig_dict["cds_to_keep"][index])
     return gc_user_list, cds_target
 
 def remove_cds_from_dict(list_to_delete, contig_dict):
@@ -79,29 +81,43 @@ def write_json(aFileParsed, filename):
     return 0
 
 def write_ALL_nodes(cds_target_dict, gc_user_dict):
+    target_cds_posRel = {}
     INC_pos = 1
+    all_targets_ordered = sorted(cds_target_dict.keys())
+    contigs_size = [len(gc_user_dict[acontig]["cds_to_keep"])
+                    for acontig in gc_user_dict]
+    all_contig = dict(zip(gc_user_dict.keys(), contigs_size))
+
     with open("ALL.nodes", "w") as file:
-        for acontig in gc_user_dict:
-            previous_target = None
-            for acds in gc_user_dict[acontig]["cds_to_keep"]:
-                target_new = cds_target_dict[acds]
-                if not previous_target:
-                    previous_target = target_new
-                elif target_new != previous_target:
-                    INC_pos += GC_SIZE_USER
-                    previous_target = target_new
-                start_stop_pos = gc_user_dict[acontig][acds]["position"]
-                frame = gc_user_dict[acontig][acds]["frame"]
-                file.write("\t".join([
-                           "@".join([acds, target_new]),
-                           str(INC_pos),
-                           str(start_stop_pos[0]),
-                           str(start_stop_pos[1]),
-                           frame,
-                           "414"]))
-                file.write("\n")
-                INC_pos += 1
-    return 0
+        for atarget in all_targets_ordered:
+            for acontig in all_contig:
+                if atarget in gc_user_dict[acontig]["cds_to_keep"]:
+                    target_cds_posRel[atarget] = []
+                    for acds in cds_target_dict[atarget]:
+
+                        print(acds, INC_pos)
+                        print(len(list(acds)), len(list(str(INC_pos))))
+                        target_cds_posRel[atarget].extend(
+                            list(zip((acds,), (str(INC_pos),))))
+                        print(target_cds_posRel[atarget])
+                        start, stop = gc_user_dict[acontig][acds]["position"]
+                        frame = gc_user_dict[acontig][acds]["frame"]
+                        file.write("\t".join([
+                                    "@".join([acds, atarget]),
+                                    str(INC_pos),
+                                    str(start),
+                                    str(stop),
+                                    frame,
+                                    "414"]))
+                        file.write("\n")
+                        INC_pos += 1
+
+            if all_contig[acontig] > 1:
+                all_contig[acontig] = all_contig[acontig]-1
+            else:
+                del all_contig[acontig]
+            INC_pos += GC_SIZE_USER
+    return target_cds_posRel
 
 def write_ALL_roles(cds_target_dict, real_fam_dict):
     with open("ALL.roles", "w") as file:
@@ -122,7 +138,7 @@ def write_ALL_roles(cds_target_dict, real_fam_dict):
 
 def run_synteny():
     with open("synteny.log", "w") as file:
-        subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP, "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles", "ALL", "-gap", str(GAP_USER), "-size", str(MIN_SYNT_SIZE), ">/dev/null", "||", "exit $?"], stdout=file, stderr=file)
+        subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP, "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles", "ALL", "-gap", str(GAP_USER), "-size", str(MIN_SYNTENY_SIZE), ">/dev/null", "||", "exit $?"], stdout=file, stderr=file)
     return 0
 
 def main(gcFile, families, targets):
@@ -138,10 +154,14 @@ def main(gcFile, families, targets):
     fam_user_dict = get_desired_fam(gc_user_dict, fam_dict)
     real_fam_dict = {key:value for (key,value) in fam_user_dict.items() if len(value) > 1}
 
-    write_ALL_nodes(cds_target_dict, gc_user_dict)
+    posRel_dict = write_ALL_nodes(cds_target_dict, gc_user_dict)
+    for acds in posRel_dict:
+        print(acds, posRel_dict[acds])
     write_ALL_roles(cds_target_dict, real_fam_dict)
     
     run_synteny()
+
+    
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2], sys.argv[3])
