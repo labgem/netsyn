@@ -80,7 +80,7 @@ def write_json(aFileParsed, filename):
         json.dump(aFileParsed, jsonFile, indent=4)
     return 0
 
-def write_ALL_nodes(cds_target_dict, gc_user_dict):
+def set_relative_position(cds_target_dict, gc_user_dict):
     target_cds_posRel = {}
     INC_pos = 1
     all_targets_ordered = sorted(cds_target_dict.keys())
@@ -88,36 +88,39 @@ def write_ALL_nodes(cds_target_dict, gc_user_dict):
                     for acontig in gc_user_dict]
     all_contig = dict(zip(gc_user_dict.keys(), contigs_size))
 
-    with open("ALL.nodes", "w") as file:
-        for atarget in all_targets_ordered:
-            for acontig in all_contig:
-                if atarget in gc_user_dict[acontig]["cds_to_keep"]:
-                    target_cds_posRel[atarget] = []
-                    for acds in cds_target_dict[atarget]:
+    for atarget in all_targets_ordered:
+        for acontig in all_contig:
+            if atarget in gc_user_dict[acontig]["cds_to_keep"]:
+                target_cds_posRel[atarget] = []
+                for acds in cds_target_dict[atarget]:
+                    target_cds_posRel[atarget].extend(
+                        list(zip((acds,), (str(INC_pos),))))
+                    INC_pos += 1
+        if all_contig[acontig] > 1:
+            all_contig[acontig] = all_contig[acontig]-1
+        else:
+            del all_contig[acontig]
+        INC_pos += GC_SIZE_USER
+    return target_cds_posRel
 
-                        print(acds, INC_pos)
-                        print(len(list(acds)), len(list(str(INC_pos))))
-                        target_cds_posRel[atarget].extend(
-                            list(zip((acds,), (str(INC_pos),))))
-                        print(target_cds_posRel[atarget])
+
+def write_ALL_nodes(gc_user_dict, posRel_dict):
+    with open("ALL.nodes", "w") as file:
+        for atarget in sorted(posRel_dict.keys()):
+            for acontig in gc_user_dict:
+                if atarget in gc_user_dict[acontig]["cds_to_keep"]:
+                    for acds, aposRel in posRel_dict[atarget]:
                         start, stop = gc_user_dict[acontig][acds]["position"]
                         frame = gc_user_dict[acontig][acds]["frame"]
                         file.write("\t".join([
                                     "@".join([acds, atarget]),
-                                    str(INC_pos),
+                                    str(aposRel),
                                     str(start),
                                     str(stop),
                                     frame,
                                     "414"]))
                         file.write("\n")
-                        INC_pos += 1
-
-            if all_contig[acontig] > 1:
-                all_contig[acontig] = all_contig[acontig]-1
-            else:
-                del all_contig[acontig]
-            INC_pos += GC_SIZE_USER
-    return target_cds_posRel
+    return 0
 
 def write_ALL_roles(cds_target_dict, real_fam_dict):
     with open("ALL.roles", "w") as file:
@@ -154,9 +157,10 @@ def main(gcFile, families, targets):
     fam_user_dict = get_desired_fam(gc_user_dict, fam_dict)
     real_fam_dict = {key:value for (key,value) in fam_user_dict.items() if len(value) > 1}
 
-    posRel_dict = write_ALL_nodes(cds_target_dict, gc_user_dict)
-    for acds in posRel_dict:
-        print(acds, posRel_dict[acds])
+    posRel_dict = set_relative_position(cds_target_dict, gc_user_dict)
+    for atarget in posRel_dict:
+        print(atarget, "\t~~\t", posRel_dict[atarget])
+    write_ALL_nodes(gc_user_dict, posRel_dict)
     write_ALL_roles(cds_target_dict, real_fam_dict)
     
     run_synteny()
