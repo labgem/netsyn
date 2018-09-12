@@ -34,8 +34,6 @@ def select_user_list(target_list, contig_dict):
                                               len(contig_dict["cds_to_keep"]))]
         gc_user_list.extend(gc_chunk)
         cds_target[contig_dict["cds_to_keep"][index]] = gc_chunk
-        # for acds in gc_chunk:
-        #     cds_target.setdefault(acds, {}).setdefault("target", []).append(contig_dict["cds_to_keep"][index])
     return gc_user_list, cds_target
 
 def remove_cds_from_dict(list_to_delete, contig_dict):
@@ -67,7 +65,7 @@ def get_desired_fam(gc_user_dict, real_fam_dict):
         for acont in gc_user_dict:
             desired_families.setdefault(
                 afam,
-                list(set(real_fam_dict[afam]) & 
+                list(set(real_fam_dict[afam]) &
                      set(gc_user_dict[acont]["cds_to_keep"])))
             if desired_families[afam] == []:
                 del desired_families[afam]
@@ -96,10 +94,10 @@ def set_relative_position(cds_target_dict, gc_user_dict):
                     target_cds_posRel[atarget].extend(
                         list(zip((acds,), (str(INC_pos),))))
                     INC_pos += 1
-        if all_contig[acontig] > 1:
-            all_contig[acontig] = all_contig[acontig]-1
-        else:
-            del all_contig[acontig]
+            if all_contig[acontig] > 1:
+                all_contig[acontig] = all_contig[acontig]-1
+            else:
+                del all_contig[acontig]
         INC_pos += GC_SIZE_USER
     return target_cds_posRel
 
@@ -113,36 +111,56 @@ def write_ALL_nodes(gc_user_dict, posRel_dict):
                         start, stop = gc_user_dict[acontig][acds]["position"]
                         frame = gc_user_dict[acontig][acds]["frame"]
                         file.write("\t".join([
-                                    "@".join([acds, atarget]),
-                                    str(aposRel),
-                                    str(start),
-                                    str(stop),
-                                    frame,
-                                    "414"]))
+                            "@".join([acds, atarget]),
+                            str(aposRel),
+                            str(start),
+                            str(stop),
+                            frame,
+                            "414"]))
                         file.write("\n")
     return 0
 
-def write_ALL_roles(cds_target_dict, real_fam_dict):
+def store_roles(real_fam_dict, cds_target_dict):
+    roles_storage = []
+    INC_roles = 1
+    for afam in real_fam_dict:
+        for member1 in real_fam_dict[afam][:-1]:
+            idx = real_fam_dict[afam].index(member1)
+            for member2 in real_fam_dict[afam][idx+1:]:
+                target1 = [atarget for atarget in cds_target_dict if member1
+                           in cds_target_dict[atarget]]
+                target2 = [atarget for atarget in cds_target_dict if member2
+                           in cds_target_dict[atarget]]
+                for atarget1 in target1:
+                    for atarget2 in target2:
+                        roles_storage.append((INC_roles, member1, atarget1,
+                                             member2, atarget2))
+                        INC_roles += 1
+    return roles_storage
+    
+
+
+def write_ALL_roles(roles_storage):
     with open("ALL.roles", "w") as file:
-        INC_roles = 1
-        for afam in real_fam_dict:
-            for member1 in real_fam_dict[afam][:-1]:
-                idx = real_fam_dict[afam].index(member1)
-                for member2 in real_fam_dict[afam][idx+1:]:
-                    target1 = cds_target_dict[member1]
-                    target2 = cds_target_dict[member2]
-                    file.write(" ".join([
-                                str(INC_roles),
-                                "@".join([member1, target1]),
-                                "@".join([member2, target2])
-                                ]))
-                    file.write("\n")
-                    INC_roles += 1
+        for arole in roles_storage:
+            file.write(" ".join([
+                        str(arole[0]),
+                        "@".join([arole[1], arole[2]]),
+                        "@".join([arole[3], arole[4]])
+                        ]))
+            file.write("\n")
+    return 0
 
 def run_synteny():
     with open("synteny.log", "w") as file:
-        subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP, "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles", "ALL", "-gap", str(GAP_USER), "-size", str(MIN_SYNTENY_SIZE), ">/dev/null", "||", "exit $?"], stdout=file, stderr=file)
+        subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP,
+                        "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles",
+                        "ALL", "-gap", str(GAP_USER), "-size",
+                        str(MIN_SYNTENY_SIZE), ">/dev/null", "||", "exit $?"],
+                       stdout=file, stderr=file)
     return 0
+
+
 
 def main(gcFile, families, targets):
     with open(targets, "r") as target_data:
@@ -155,14 +173,13 @@ def main(gcFile, families, targets):
 
     gc_user_dict, cds_target_dict = get_desired_gc(target_list, gc_dict)
     fam_user_dict = get_desired_fam(gc_user_dict, fam_dict)
-    real_fam_dict = {key:value for (key,value) in fam_user_dict.items() if len(value) > 1}
-
+    real_fam_dict = {key:value for (key, value) in fam_user_dict.items() if len(value) > 1}
     posRel_dict = set_relative_position(cds_target_dict, gc_user_dict)
-    for atarget in posRel_dict:
-        print(atarget, "\t~~\t", posRel_dict[atarget])
+    roles_storage = store_roles(real_fam_dict, cds_target_dict)
+    print(roles_storage)
+
     write_ALL_nodes(gc_user_dict, posRel_dict)
-    write_ALL_roles(cds_target_dict, real_fam_dict)
-    
+    write_ALL_roles(roles_storage)
     run_synteny()
 
     
