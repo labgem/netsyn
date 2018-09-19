@@ -2,8 +2,11 @@ import os
 import sys
 import json
 import subprocess
+#from py4j.java_gateway import JavaGateway
 
-MICSYNTENY_CP = os.environ.get('MICSYNTENY_CP')
+MICSYNTENY_CP = "/".join([sys.path[0], "jaSynt"]) # equivalent cmd : os.path.dirname(os.path.abspath(__file__))
+#MICSYNTENY_CP = os.getenv('MICSYNTENY_CP')
+print(MICSYNTENY_CP)
 GC_SIZE_USER = 5
 HALF_SIZE_USER = int(GC_SIZE_USER/2)
 GAP_USER = 3
@@ -151,6 +154,14 @@ def write_ALL_roles(roles_storage):
     return 0
 
 def run_synteny():
+#     gateway = JavaGateway()
+# #    gateway = java_gateway.launch_gateway()                        # connect to the JVM
+#     java_object = gateway.jvm.synteny.synteny()  # invoke constructor
+#     print(java_object)
+#     # other_object = java_object.main("ALL.nodes", "ALL.nodes", "ALL.roles",
+#     #                                 "ALL", "-gap", str(GAP_USER), "-size",
+#     #                                 str(MIN_SYNTENY_SIZE))
+#     return 0
     with open("synteny.log", "w") as file:
         subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP,
                         "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles",
@@ -347,7 +358,7 @@ def main(gcFile, families, targets):
     real_fam_dict = {key:value for (key, value) in fam_user_dict.items() if len(value) > 1}
     posRel_dict = set_relative_position(cds_target_dict, gc_user_dict)
     roles_storage = store_roles(real_fam_dict, cds_target_dict)
-
+    
     write_ALL_nodes(gc_user_dict, posRel_dict)
     write_ALL_roles(roles_storage)
     run_synteny()
@@ -364,11 +375,13 @@ def main(gcFile, families, targets):
     synton_desc = get_syntons_info(short_synton_db)
 
     syntenies_scores = score_calculation(conserved_synteny, synton_desc)
-    print(syntenies_scores)
     #write_scores(mean_score, weighted_score,) # pas utile d'éditer le fichier
                                                # ALL.SYNTON.DB car pas de
                                                # nouvelle entrée dans la base
                                                # de données
+    print("\n", synton_desc)
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2], sys.argv[3])
+    #print("\t".join([var for var in globals() if var[0] != "_"]))
+
