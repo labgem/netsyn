@@ -556,7 +556,7 @@ def mmseqs_createdb(prefix):
     suffix = "faa"
     multiFasta = concat_by_dot(prefix, suffix)
     with open('mmseqs_createdb.log', 'w') as file:
-        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, "ALL.DB"], stdout=file, stderr=file)
+        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, "ALL.DB"], stdout=file, stderr=file, check=True)
         print('exit code: {}'.format(db_creation.returncode))
     return 0
 
@@ -578,7 +578,7 @@ def mmseqs_clustering(prefix, clust_mode, cov, ident, cov_mode, cascaded):
                         "-c", str(cov),
                         "--cluster-mode", str(clust_mode)#,
                         #"--cascaded", str(cascaded)
-                       ], stdout=file, stderr=file)
+                       ], stdout=file, stderr=file, check=True)
     return 0
 
 def mmseqs_createTSV(prefix):
@@ -593,7 +593,7 @@ def mmseqs_createTSV(prefix):
     with open('mmseqs_createtsv.log', 'w') as file:
         subprocess.run(["mmseqs", "createtsv", inputDB,
                         inputDB, inputCluster, outputTSV
-                       ], stdout=file, stderr=file)
+                       ], stdout=file, stderr=file, check=True)
     return 0
 
 def mmseqs_runner(params):

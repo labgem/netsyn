@@ -2,11 +2,12 @@ import os
 import sys
 import json
 import subprocess
-#from py4j.java_gateway import JavaGateway
+from py4j.java_gateway import JavaGateway
 
-MICSYNTENY_CP = "/".join([sys.path[0], "jaSynt"]) # equivalent cmd : os.path.dirname(os.path.abspath(__file__))
+MICSYNTENY_CP = "/".join([sys.path[0], "synteny"])
+#MICSYNTENY_CP = "/".join([sys.path[0], "jaSynt"]) # equivalent cmd : os.path.dirname(os.path.abspath(__file__))
 #MICSYNTENY_CP = os.getenv('MICSYNTENY_CP')
-print(MICSYNTENY_CP)
+#print(MICSYNTENY_CP)
 GC_SIZE_USER = 5
 HALF_SIZE_USER = int(GC_SIZE_USER/2)
 GAP_USER = 3
@@ -154,21 +155,24 @@ def write_ALL_roles(roles_storage):
     return 0
 
 def run_synteny():
-#     gateway = JavaGateway()
-# #    gateway = java_gateway.launch_gateway()                        # connect to the JVM
-#     java_object = gateway.jvm.synteny.synteny()  # invoke constructor
-#     print(java_object)
-#     # other_object = java_object.main("ALL.nodes", "ALL.nodes", "ALL.roles",
-#     #                                 "ALL", "-gap", str(GAP_USER), "-size",
-#     #                                 str(MIN_SYNTENY_SIZE))
-#     return 0
+    LOCAL_FILE_PATH = os.path.abspath(os.path.dirname(__file__))
+    SYNTENYJAR = "/".join([LOCAL_FILE_PATH, "jar/synteny.jar"])
     with open("synteny.log", "w") as file:
-        subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP,
-                        "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles",
-                        "ALL", "-gap", str(GAP_USER), "-size",
-                        str(MIN_SYNTENY_SIZE), ">/dev/null", "||", "exit $?"],
-                       stdout=file, stderr=file)
+        synteny_run = subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", SYNTENYJAR,
+                                      "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles",
+                                      "ALL", "-gap", str(GAP_USER), "-size",
+                                      str(MIN_SYNTENY_SIZE)],
+                                     stdout=file, stderr=file, check=True)
+        print('exit {}: {}'.format("synteny_run", synteny_run.returncode))
     return 0
+
+    # with open("synteny.log", "w") as file:
+    #     subprocess.run(["java", "-Xmx16G", "-Xms1G", "-classpath", MICSYNTENY_CP,
+    #                     "synteny.synteny", "ALL.nodes", "ALL.nodes", "ALL.roles",
+    #                     "ALL", "-gap", str(GAP_USER), "-size",
+    #                     str(MIN_SYNTENY_SIZE), ">/dev/null", "||", "exit $?"],
+    #                    stdout=file, stderr=file)
+    # return 0
 
 def get_cpd_role_synton(lines):
     role_synton_cpd = {}
