@@ -321,7 +321,7 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
     global args
     logger = logging.getLogger(checkingAfterRun.__name__)
     pointsToCheck = {
-        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/DowloadCompleted.check'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY), 'type' : 'file'}],
         'ClusteringIntoFamilies' : [{'value' : '{}/ClusteringIntoFamilies/ALL.faa'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/GenomicContexts.json'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/TaxonomyLineage.json'.format(TMPDIRECTORY), 'type' : 'file'},
