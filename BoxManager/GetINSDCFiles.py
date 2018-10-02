@@ -5,6 +5,8 @@ import os
 import shutil
 import logging
 import urllib3
+import gzip
+import re
 #############
 # Functions #
 #############
@@ -28,44 +30,149 @@ def parseInputI(filename): # Fonction a deplacer dans tools ??
                 accessions.append(line.rstrip())
     return header, accessions
 
+def resultsFormat(res, dico):
+    '''
+    Formating ID match and update dico.
+    '''
+    logger = logging.getLogger('{}.{}'.format(resultsFormat.__module__, resultsFormat.__name__))
+    sepColumn = '\t'
+    sepField = ';'
+    isHeader = True
+    for bLine in res.data.splitlines():
+        if isHeader:
+            headers = bLine.decode('utf-8').split(sepColumn)
+            if not headers[0] == 'Entry':
+                logger.critical('"id" column should be in first position.')
+                exit(2)
+            isHeader = False
+        else:
+            for index, column in enumerate(bLine.decode('utf-8').split(sepColumn)):
+                if index == 0:
+                    entry = column
+                    dico[entry] = {}
+                else:
+                    dico[entry][headers[index]] = column.strip(sepField).split(sepField)
+    return dico
 
-def getENAidCorrespondingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
+def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
     '''
     Allows the correspondence between a UniProt accession and nuclotide accessions.
     Batch splitting to lighten the request.
     '''
-    logger = logging.getLogger('{}.{}'.format(getENAidCorrespondingToUniProtid.__module__, getENAidCorrespondingToUniProtid.__name__))
+    logger = logging.getLogger('{}.{}'.format(getENAidMatchingToUniProtid.__module__, getENAidMatchingToUniProtid.__name__))
+    crossReference = {}
     while uniprotAccessions:
         accessions = '+OR+id:'.join(uniprotAccessions[:batchesSize])
+        resStatus = 0
+        remainingTry = 5
+        while not resStatus == 200 and remainingTry > 0:
+            try:
+                logger.info('Matching between UniProt and ENA. Connection to https://www.uniprot.org/, remaining try: {}.'.format(remainingTry))
+                res = PoolManager.request('GET' ,
+                    'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
+                resStatus = res.status
+                remainingTry -= 1
+            except urllib3.exceptions:
+                logger.error('OUPS')
+                exit(1)
+        if not res.status == 200:
+            logger.error('HTTP error {}! Matching between UniProt and ENA failed.'.format(res.status))
+            exit(1)
+        else:
+            logger.info('Connection to https://www.uniprot.org/, success!')
+        crossReference = resultsFormat(res, crossReference)
+        del uniprotAccessions[:batchesSize]
+    return crossReference
+
+def getNucleicFialeName(nucleicAccession):
+    nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
+    if nucleicAcc:
+        return nucleicAcc.group("NucleicFileName")
+    return nucleicAccession
+
+def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
+    '''
+    Download EMBL file from ENA website.
+    '''
+    logger = logging.getLogger('{}.{}'.format(getEMBLfromENA.__module__, getEMBLfromENA.__name__))
+    resStatus = 0
+    remainingTry = 5
+    while not resStatus == 200 and remainingTry > 0:
         try:
-            res = PoolManager.request('GET' ,
-                'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
+            logger.info('{} dowloading. Connection to https://www.ebi.ac.uk/ena, remaining try: {}.'.format(nucleicFilePath, remainingTry))
+            res = PoolManager.request('GET' , 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
+            resStatus = res.status
+            remainingTry -= 1
         except urllib3.exceptions:
             logger.error('OUPS')
             exit(1)
-        print(res.data.decode('utf-8'))
-        del uniprotAccessions[:batchesSize]
+    contentType = res.info()['Content-Type']
+    if not res.status == 200:
+        logger.error('HTTP error {}! {}.embl couldn\'t be downloaded !'.format(res.status, nucleicFilePath))
+        exit(1)
+    elif contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
+        logger.error(res.data.decode('utf-8'))
+        exit(1)
+    else:
+        logger.info('Connection to https://www.uniprot.org/, success!')
+    with open(nucleicFilePath, 'w') as file:
+        if contentType == 'text/plain;charset=UTF-8':
+            file.write(res.data.decode('utf-8'))
+        elif contentType == 'application/x-gzip':
+            file.write(gzip.decompress(res.data).decode('utf-8'))
+        else:
+          logger.critical('Unsupported content type ({}).'.format(contentType))
+          exit(1)
 
-# def getEMBLfromENA(nucleotideAccession, PoolManager, logger):
-    # res = PoolManager.request('GET' , 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleotideAccession))
-
-def run(InputName, tmpDirectory, maxGCsize, logger):
+def run(InputName, TMPDIRECTORY, maxGCsize, logger):
     '''
     Get INSDC files porocessing.
     '''
-    boxName = 'GetINSDCFiles'
-    print(dir(run))
+    global TMPDIRECTORYPROCESS
+    BOXNAME = 'GetINSDCFiles'
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
-    logger.info('{} running...'.format(boxName))
-    tmpDirectory = '{}/{}ProcessFiles'.format(tmpDirectory, boxName)
-    if os.path.isdir(tmpDirectory):
-        shutil.rmtree(tmpDirectory)
-    os.mkdir(tmpDirectory)
+    logger.info('{} running...'.format(BOXNAME))
+    TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
+    OUTPUTPATH = '{}/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORYPROCESS)
+    if not os.path.isdir(TMPDIRECTORYPROCESS):
+        os.mkdir(TMPDIRECTORYPROCESS)
+    if os.path.isfile(OUTPUTPATH):
+        os.remove(OUTPUTPATH)
     header, accessions = parseInputI(InputName)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
+    outputContent = {'HEADER' : ['protein_AC',	'protein_AC_field', 'nucleic_AC', 'nucleic_File_Format', 'nucleic_File_Name']}
     if header == 'UniProtAC':
-        getENAidCorrespondingToUniProtid(accessions, 10, http)
+        crossReference = getENAidMatchingToUniProtid(accessions, 500, http)
+        for entry in crossReference:
+            maxAssemblyLength = 0
+            for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
+                nucleicFilePath = '{}/{}.embl'.format(TMPDIRECTORYPROCESS, getNucleicFialeName(nucleicAccession))
+                if not os.path.isfile(nucleicFilePath):
+                    getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
+                else:
+                    logger.info('{} already existing.')
+                with open(nucleicFilePath, 'r') as file:
+                    m = re.match(r'^ID .*; (?P<length>[0-9]+) BP\.', file.read())
+                    if m:
+                        assemblyLength = int(m.group('length'))
+                    else:
+                        logger.error('{}: improper file format.'.format(nucleicFilePath))
+                        exit(1)
+                if assemblyLength > maxAssemblyLength:
+                    maxAssemblyLength = assemblyLength
+                    outputContent[entry] = [
+                        crossReference[entry]['Cross-reference (embl)'][index],
+                        'protein_id',
+                        nucleicAccession,
+                        'embl',
+                        nucleicFilePath
+                    ]
+        with open(OUTPUTPATH, 'w') as file:
+            for line in ['\t'.join(value) for value in outputContent.values()]:
+                file.write('{}\n'.format(line))
+        logger.info('{} generated.'.format(OUTPUTPATH))
+        logger.info('{} finished!'.format(BOXNAME))
     else:
         logger.error('Input header unrecognized.')
         exit(1)

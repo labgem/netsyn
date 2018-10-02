@@ -149,7 +149,7 @@ def createYamlSettingsFile(args):
     global SETTINGSFILENAME
     global ORDERBOX
     YAML_File = {}
-    gap = 1 if args.MetaDataFile else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
+    gap = 1 if args.INSDCRepertory else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
     with open(SETTINGSFILENAME, 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['InputFile'] = args.InputFile
@@ -160,25 +160,25 @@ def createYamlSettingsFile(args):
         YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
-        YAML_File[ORDERBOX[1+gap]] = {}
-        YAML_File[ORDERBOX[1+gap]]['MinCoverage'] = args.MinCoverage
-        YAML_File[ORDERBOX[1+gap]]['Ident'] = args.Ident
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[1+gap])
+        YAML_File[ORDERBOX[1-gap]] = {}
+        YAML_File[ORDERBOX[1-gap]]['MinCoverage'] = args.MinCoverage
+        YAML_File[ORDERBOX[1-gap]]['Ident'] = args.Ident
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[1-gap])
 
-        YAML_File[ORDERBOX[2+gap]] = {}
-        YAML_File[ORDERBOX[2+gap]]['WindowSize'] = args.WindowSize
-        YAML_File[ORDERBOX[2+gap]]['SyntenyGap'] = args.SyntenyGap
-        YAML_File[ORDERBOX[2+gap]]['SyntenyFilter'] = args.SyntenyFilter
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2+gap])
+        YAML_File[ORDERBOX[2-gap]] = {}
+        YAML_File[ORDERBOX[2-gap]]['WindowSize'] = args.WindowSize
+        YAML_File[ORDERBOX[2-gap]]['SyntenyGap'] = args.SyntenyGap
+        YAML_File[ORDERBOX[2-gap]]['SyntenyFilter'] = args.SyntenyFilter
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2-gap])
 
-        YAML_File[ORDERBOX[3+gap]] = {}
-        YAML_File[ORDERBOX[3+gap]]['ScoreType'] = args.ScoreType
-        YAML_File[ORDERBOX[3+gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
-        YAML_File[ORDERBOX[3+gap]]['ClusteringMethod'] = args.ClusteringMethod
-        YAML_File[ORDERBOX[3+gap]]['RedundancyRemoval'] = args.RedundancyRemoval
-        YAML_File[ORDERBOX[3+gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
-        YAML_File[ORDERBOX[3+gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3+gap])
+        YAML_File[ORDERBOX[3-gap]] = {}
+        YAML_File[ORDERBOX[3-gap]]['ScoreType'] = args.ScoreType
+        YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
+        YAML_File[ORDERBOX[3-gap]]['ClusteringMethod'] = args.ClusteringMethod
+        YAML_File[ORDERBOX[3-gap]]['RedundancyRemoval'] = args.RedundancyRemoval
+        YAML_File[ORDERBOX[3-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
+        YAML_File[ORDERBOX[3-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
+        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
 def writtingYAML(YAML_to_write, outfile, block):
     '''
@@ -321,7 +321,7 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
     global args
     logger = logging.getLogger(checkingAfterRun.__name__)
     pointsToCheck = {
-        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/DowloadCompleted.check'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY), 'type' : 'file'}],
         'ClusteringIntoFamilies' : [{'value' : '{}/ClusteringIntoFamilies/ALL.faa'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/GenomicContexts.json'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/TaxonomyLineage.json'.format(TMPDIRECTORY), 'type' : 'file'},
@@ -401,8 +401,9 @@ if __name__ == '__main__':
     SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
     REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
     INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
-    ORDERBOX = orderDefinition()
     MAXGCSIZE = 11
+    ORDERBOX = orderDefinition()
+    logger.debug('ORDERBOX: {}'.format(ORDERBOX))
     ############
     # Switches #
     ############
