@@ -129,14 +129,16 @@ def get_contig_info(aFeature, parser_contig_content, given_taxon):
     '''
     taxon_id = search_for_taxonID(given_taxon, aFeature)
     if taxon_id != "NA":
-        parser_contig_content = {
+        parser_contig_content.update({
             "organism": get_uniq_value(aFeature, "organism"),
             "strain": get_uniq_value(aFeature, "strain"),
             "taxon_id": taxon_id,
             "size": [aFeature.location.start.real+1,
                      aFeature.location.end.real
-                    ]
-            }
+                    ],
+            "cds_to_keep": [],
+            "window": []
+            })
     else:
         print("We have a problem")
     return parser_contig_content
@@ -169,25 +171,27 @@ def get_pseudo_id():
     INC_PSEUDO += 1
     return ":".join(["PSEUDO", str(INC_PSEUDO)])
 
-def get_pseudo_info(aFeature, parser_contig_content):
+def get_pseudo_info(aFeature, cds_parser, contig_content):
     ''' adds to the window's list information on the pseudogene
     '''
     pseudo_id = get_pseudo_id()
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
-    parser_contig_content[pseudo_id] = {
+    cds_parser[pseudo_id] = {
         "position": [start, stop],
-        "frame": det_frame(str(aFeature.location.strand), start, parser_contig_content.get("size")[1]),
+        "frame": det_frame(str(aFeature.location.strand), start, contig_content.get("size")[1]),
         "product": get_uniq_value(aFeature, "product"),
         "sequence": get_uniq_value(aFeature, "translation")
         }
-    parser_contig_content["window"].append(pseudo_id)
-    return parser_contig_content
+    contig_content["window"].append(pseudo_id)
+    return cds_parser, contig_content
 
-def get_prot_info(aFeature, parser_contig_content):
+def get_prot_info(aFeature, cds_parser, contig_content):
     ''' adds to the window's list information on the protein
     '''
+
+    cds_parser.setdefault(,{})
     ident = get_required_value(get_uniq_value, aFeature, FIELD_PROTEIN_ID)
-    parser_contig_content.setdefault(ident, {})
+    #parser_contig_content.setdefault(ident, {})
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
     ec_nums = (aFeature.qualifiers.get("EC_number") if aFeature.qualifiers.get("EC_number") else "NA")
     parser_contig_content[ident] = {
@@ -278,37 +282,47 @@ def parseAfile(afile, d_afile):
     and pseudogene (if required by the user), and the sliding_window function
     All kept information are stored in a dictionary called parserINSDCfile
     '''
+    global INC_PROT_REF
+    INC_CONTIG_REF 0
+    #INC_TARGETS_LOADED = 0
+
     TYPE_PARSING, FIELD_PROTEIN_ID = parse_info(d_afile)
     with open(afile) as input_file:
         print(afile)
         seqRecordParsed = SeqIO.parse(input_file, TYPE_PARSING)
-        INC_CONTIG_LOADED = 0
         for seqRecord in seqRecordParsed:
-            if INC_CONTIG_LOADED >= len(d_afile)-2:
+            if INC_CONTIG_REF >= len(d_afile)-2:
                 break
             contig_name = seqRecord.id.split(r'.')[0]
             if contig_name in d_afile.keys():
-                INC_CONTIG_LOADED += 1
-                global INC_TARGETS_LOADED
+                INC_CONTIG_REF += 1
                 INC_TARGETS_LOADED = 0 # counter of loaded targets
                 BEGIN_CONTIG = True
-                parserINSDCfile.setdefault(contig_name, {})
+
+                contig_info[INC_CONTIG_REF] = {"contig": contig_name}
+                #parserINSDCfile.setdefault(contig_name, {})
                 for aFeature in seqRecord.features:
                     if aFeature.type == "source": #INFO_CONTIG:
                         print(d_afile[contig_name]["taxonID"])
-                        parserINSDCfile[contig_name] = get_contig_info(aFeature, parserINSDCfile[contig_name], d_afile[contig_name]["taxonID"])
-                        parserINSDCfile[contig_name].setdefault("cds_to_keep", [])
-                        parserINSDCfile[contig_name].setdefault("window", [])
+                        
+                        contig_info[INC_CONTIG_REF] = get_contig_info(aFeature, contig_info[INC_CONTIG_REF], d_afile[contig_name]["taxonID"])
+                        #parserINSDCfile[contig_name] = get_contig_info(aFeature, parserINSDCfile[contig_name], d_afile[contig_name]["taxonID"])
+                        #parserINSDCfile[contig_name].setdefault("cds_to_keep", [])
+                        #parserINSDCfile[contig_name].setdefault("window", [])
                     elif aFeature.type == "CDS":
                         NEW_CDS_ADDED = False
                         if INC_TARGETS_LOADED >= len(d_afile[contig_name]["target_list"]):
                             break
                         if is_pseudogene(aFeature):
                             if PSEUDOGENE: # defined by the user : takes into account pseudogenes
-                                parserINSDCfile[contig_name] = get_pseudo_info(aFeature, parserINSDCfile[contig_name])
+                                cds_info[INC_PROT_REF] ....
+                                cds_info, contig_info[INC_CONTIG_LOADED] = get_pseudo_info(aFeature, cds_info, contig_info[contig_name])
+                                #parserINSDCfile[contig_name] = get_pseudo_info(aFeature, parserINSDCfile[contig_name])
                                 NEW_CDS_ADDED = True
                         else:
-                            parserINSDCfile[contig_name] = get_prot_info(aFeature, parserINSDCfile[contig_name])
+
+                            cds_info = get_prot_info(aFeature, cds_info)
+                            #parserINSDCfile[contig_name] = get_prot_info(aFeature, parserINSDCfile[contig_name])
                             NEW_CDS_ADDED = True
                         if NEW_CDS_ADDED:
                             parserINSDCfile[contig_name], BEGIN_CONTIG = sliding_window(
@@ -370,7 +384,7 @@ def check_inputFile(lines):
             d_check[splitted[0]] = splitted[2]
         if splitted[2] in d_check:
             if splitted[4] != d_check[splitted[2]][0]:
-                print("A nucleotide accession caonnot appear in different nucleotide files")
+                print("A nucleotide accession cannot appear in different nucleotide files")
                 print(lines[lines.index(aline)])
             if splitted[5] != d_check[splitted[2]][1]:
                 if d_check[splitted[2]][1] == "NA":
@@ -484,45 +498,6 @@ def get_desired_lineage(lineage_full):
             desired_lineage.append([level, rank, scientificName, taxId])
     return desired_lineage
 
-# def turn_into_dico(ataxon, desired_taxo, all_lineage):
-#     d_alineage = {}
-#     desired_taxo.sort()
-#     print(desired_taxo, "\n")
-#     IS_SON = False
-#     for alist_info in desired_taxo:
-#         if alist_info[3] != "NA":
-#             if alist_info[0] == 1:
-#                 father = alist_info[3]
-#             elif not father:
-#                 father = "NA"
-#             if IS_SON:
-#                 d_alineage[father]["descendants"].append(alist_info[3])
-#                 IS_SON = False
-#             d_alineage[alist_info[3]] = {
-#                 "scientificName": alist_info[2],
-#                 "level": alist_info[0],
-#                 "rank": alist_info[1],
-#                 "father": father,
-#                 "descendants": []
-#                 }
-#             if desired_taxo.index(alist_info) == len(desired_taxo)-1:
-#                 if ataxon != alist_info[3]:
-#                     d_alineage[alist_info[3]]["descendants"].append(ataxon)
-#             father = alist_info[3]
-#         else:
-#             IS_SON = True
-#     return d_alineage
-#
-# def check_new_lineage(all_lineages, new_lineage):
-#     for new_key in new_lineage:
-#         if new_key in all_lineages:
-#             if new_lineage[new_key] != all_lineages[new_key]:
-#                 for key, value in new_lineage[new_key].items():
-#                     if value != all_lineages[new_key][key]:
-#                         if key != "descendants":
-#                             print("There are divergent lineage taxonomy or gap that might be filled")
-#     return new_lineage
-
 def store_into_dico(ataxon, desired_taxo):
     ''' puts information on taxonomic lineage into a dictionary
     '''
@@ -631,6 +606,15 @@ def regroup_families(prefix):
 def main(input_file):
     ''' main script to run the second box of NetSyn2
     '''
+    PSEUDOGENE = False # Tells if pseudogenes are included in the analysis
+    IN_CONTIG = False
+    IN_PSEUDO = False
+    MAX_GC = 5 # size of the window
+    INC_PSEUDO = 0 # counter of pseusogenes
+    INC_PROT_REF = 0
+    contig_info = {}
+    cds_info = {}
+
     with open(input_file) as infile:
         lines = infile.readlines()
     lines = list(skip_duplicates(lines)) #remove duplicates
@@ -664,3 +648,4 @@ def main(input_file):
 
 if __name__ == "__main__":
     main(sys.argv[1])
+    
