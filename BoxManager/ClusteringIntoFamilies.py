@@ -1,16 +1,20 @@
-#!/usr/bin/env python3
-
+##########
+# Import #
+##########
 import re
 import sys
 import json
-import urllib3
-import certifi
-import xml.etree.ElementTree as ET
-import subprocess
 import os
 import shutil
+import xml.etree.ElementTree as ET
+import subprocess
+import urllib3
+import certifi
+import logging
 from Bio import SeqIO
-
+#############
+# Functions #
+#############
 def skip_duplicates(iterable, key=lambda x: x):
     ''' removes duplicates from a list keeping the order of the elements
     Uses a generator
@@ -83,6 +87,7 @@ def create_d_input(lines):
     taxonID must be provided inside the INSDC file. The user information has the
     priority over INSDC file taxonID
     '''
+    logger = logging.getLogger('{}.{}'.format(create_d_input.__module__, create_d_input.__name__))
     d_input = {}
     for aline in lines[1:]: # skips the first line, with headers
         aline = aline.strip().split("\t")
@@ -99,12 +104,13 @@ def create_d_input(lines):
     return d_input
 
 def check_and_get_input(input):
-    ''' 
+    '''
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
     -*-*-*- faire le check en même temps que la création du dico -*-*-*-
     -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
     '''
+    logger = logging.getLogger('{}.{}'.format(check_and_get_input.__module__, check_and_get_input.__name__))
     with open(input, "r") as infile:
         lines = infile.readlines()
     lines = list(skip_duplicates(lines)) #remove duplicates
@@ -116,6 +122,7 @@ def check_and_get_input(input):
 def get_from_dbxref(aFeature, dbref):
     ''' retrieves the value from the dbxref list
     '''
+    logger = logging.getLogger('{}.{}'.format(get_from_dbxref.__module__, get_from_dbxref.__name__))
     if dbref == "taxon":
         pattern = "taxon:"
     elif dbref == "MaGe":
@@ -123,13 +130,12 @@ def get_from_dbxref(aFeature, dbref):
     elif dbref == "UniProt":
         pattern = "UniProt*"
 
+    result = "NA"
     if aFeature.qualifiers.get('db_xref'):
         for aRef in aFeature.qualifiers.get('db_xref'):
             if re.match(pattern, aRef):
-                return aRef.split(r':')[-1]
-            else:
-                return "NA"
-    return "NA"
+                result = aRef.split(r':')[-1]
+    return result
 
 def get_uniq_value(aFeature, ref):
     ''' makes sure that when there is a value, it is not a sequence of values
@@ -139,6 +145,7 @@ def get_uniq_value(aFeature, ref):
     -*-*-*- select)                                                   -*-*-*-
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
+    logger = logging.getLogger('{}.{}'.format(get_uniq_value.__module__, get_uniq_value.__name__))
     result = aFeature.qualifiers.get(ref)
     if not result:
         try:
@@ -149,8 +156,8 @@ def get_uniq_value(aFeature, ref):
     if len(result) == 1:
         return result[0]
     else:
-        print("warning !!!", result)
-        return 1
+        logger.error('there are several values instead of a uniq value: {}'.format(result))
+        exit(1)
 
 def get_required_value(func, aFeature, *args):
     ''' function called if the value is mandatory (protein ID (ident),
@@ -161,8 +168,10 @@ def get_required_value(func, aFeature, *args):
     -*-*-*- maybe do a try/except evaluation
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
+    logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
     if not func(aFeature, *args) or func(aFeature, *args) == "NA":
-        print("there is a rho rho problem")
+        logger.error('a required value is not provided')
+        exit(1)
     else:
         return func(aFeature, *args)
 
@@ -170,6 +179,7 @@ def search_taxonID(aFeature, given_taxon):
     ''' makes sure that the taxon ID is provided by the user or through the
     INSDC file
     '''
+    logger = logging.getLogger('{}.{}'.format(search_taxonID.__module__, search_taxonID.__name__))
     if given_taxon != "NA":
         #print("taxon_id provided by the user")
         taxon_id = given_taxon
@@ -186,6 +196,7 @@ def get_contig_info(aFeature, contig_content, given_taxon):
     -*-*-*- relied to a taxon ID                                       -*-*-*-
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
+    logger = logging.getLogger('{}.{}'.format(get_contig_info.__module__, get_contig_info.__name__))
     taxon_id = search_taxonID(aFeature, given_taxon)
     if taxon_id != "NA":
         contig_content.update({
@@ -199,16 +210,18 @@ def get_contig_info(aFeature, contig_content, given_taxon):
             "window": []
             })
     else:
-        print("We have a problem")
+        logger.error('We have a problem')
+        exit(1)
     return contig_content
 
 def is_pseudogene(aFeature):
     ''' tests if a CDS is a pseudogene
     '''
-    if "pseudo" in aFeature.qualifiers:
-        return True
-    else:
-        return False
+    return ("pseudo" in aFeature.qualifiers)
+    # if "pseudo" in aFeature.qualifiers:
+    #     return True
+    # else:
+    #     return False
 
 def get_pseudo_id(params):
     ''' creates an identifier for pseudogenes
@@ -217,19 +230,21 @@ def get_pseudo_id(params):
     INC_PSEUDO_REF = params["INC_PSEUDO_REF"]
     return ":".join(["PSEUDO", str(INC_PSEUDO_REF)])
 
-def det_frame(strand, startCDS, endGenome):
+def det_frame(direction, startCDS, endGenome):
     ''' determines the frame of the CDS
     '''
-    if strand == "1":
+    if direction == "1":
         window = ((int(startCDS)-1)%3)+1
-        return "".join(["+", str(window)])
-    elif strand == "-1":
+        strand = "".join(["+", str(window)])
+    elif direction == "-1":
         window = ((int(endGenome)-int(startCDS))%3)+1
-        return "".join(["-", str(window)])
+        strand = "".join(["-", str(window)])
+    return strand
 
 def get_pseudo_info(aFeature, cds_info, contig_content, params):
     ''' adds to the window's list information on the pseudogene
     '''
+    logger = logging.getLogger('{}.{}'.format(get_pseudo_info.__module__, get_pseudo_info.__name__))
     params["INC_CDS_REF"] += 1
     INC_CDS_REF = params["INC_CDS_REF"]
 
@@ -242,17 +257,18 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
         "product": get_uniq_value(aFeature, "product"),
         "sequence": get_uniq_value(aFeature, "translation")
         }
-    contig_content["window"].append((INC_CDS_REF,pseudo_id))
+    contig_content["window"].append((INC_CDS_REF, pseudo_id))
     return cds_info, contig_content, params
 
 def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
     ''' adds to the window's list information on the protein
     '''
+    logger = logging.getLogger('{}.{}'.format(get_prot_info.__module__, get_prot_info.__name__))
     INC_CONTIG_REF = params["INC_CONTIG_REF"]
     params["INC_CDS_REF"] += 1
     INC_CDS_REF = params["INC_CDS_REF"]
 
-    ident = get_required_value(get_uniq_value, aFeature, proteinField) 
+    ident = get_required_value(get_uniq_value, aFeature, proteinField)
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
     ec_nums = (aFeature.qualifiers.get("EC_number") if aFeature.qualifiers.get("EC_number") else "NA")
     cds_info[INC_CDS_REF] = {
@@ -277,16 +293,14 @@ def is_target(cds, target_list, cds_info, contig_content, params):
 
     *** tested value used to be the CDS in the middle of the window ***
     '''
+    logger = logging.getLogger('{}.{}'.format(is_target.__module__, is_target.__name__))
     cds_ref = cds[0]
     cds_id = cds[1]
     if cds_id in target_list:
-        #print(contig_content["window"])
         contig_content["cds_to_keep"].extend(contig_content["window"])
-        #print("> ", contig_content["window"])
-        cds_info[cds_ref].update({"target": True ,
-                                 "context": contig_content["window"].copy()
+        cds_info[cds_ref].update({"target": True,
+                                  "context": contig_content["window"].copy()
                                  })
-        #print(">> ", cds_info[cds_ref]["context"])
         params["INC_TARGET_LOADED"] += 1
     return cds_info, contig_content, params
 
@@ -296,6 +310,7 @@ def is_kept(cds, cds_info, contig_content):
 
     *** tested value is the first value of the window ***
     '''
+    logger = logging.getLogger('{}.{}'.format(is_kept.__module__, is_kept.__name__))
     cds_ref = cds[0]
     cds_id = cds[1]
     if contig_content["cds_to_keep"]:
@@ -309,6 +324,7 @@ def is_kept(cds, cds_info, contig_content):
 def sliding_window(cds_info, contig_content, target_list, beginContig, params):
     ''' makes the window going ahead through the CDSs in a contig
     '''
+    logger = logging.getLogger('{}.{}'.format(sliding_window.__module__, sliding_window.__name__))
     MAX_GC = params["MAX_GC"]
     HALF_SIZE_GC = int(MAX_GC/2)
     window = contig_content["window"]
@@ -330,11 +346,17 @@ def sliding_window(cds_info, contig_content, target_list, beginContig, params):
     return cds_info, contig_content, beginContig, params
 
 def parse_insdc(afile, d_infile, cds_info, contig_info, params):
+    ''' gets information for every contig mentionned in the input
+    and gets information for every cds that is contained in a (MAX_GC sized-)
+    window centered on a target
+    '''
+    logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
+    logger.info('Parsing of INSDC file: {}'.format(afile))
     STOP_INC_CONTIG = params["INC_CONTIG_REF"] + len(d_infile)-2
 
     typeParsing = d_infile["nucFileFormat"]
     fieldProteinID = d_infile["protACfield"]
-    
+
     with open(afile, "r") as insdcFile:
         seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
         for seqRecord in seqRecordParsed:
@@ -367,7 +389,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                         else:
                             cds_info, contig_info[INC_CONTIG_REF], params = get_prot_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], fieldProteinID, params)
                             # print(params, [contig_info[ref]["window"]
-                            #                for ref in contig_info])                                           
+                            #                for ref in contig_info])
                             newCdsAdded = True
                         if newCdsAdded:
                             cds_info, contig_info[INC_CONTIG_REF], beginContig, params = sliding_window(
@@ -391,24 +413,26 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
 
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
-    ''' 
     '''
+    '''
+    logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     for afile in d_input:
         cds_info, contig_info, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, params)
         #print(params["INC_CONTIG_REF"], len(d_input[afile])-2)
     return cds_info, contig_info, params
 
-def concat_by_dot(prefix, suffix):
+def concat_by_dot(alist):
     ''' does the concatenation by a dot
     '''
-    return ".".join([prefix, suffix])
+    return ".".join(alist)
 
-def write_multiFasta(cds_info, prefix, suffix):
+def write_multiFasta(cds_info, output):
     ''' writes a multiFasta file from the dictionary obtained by the INSDC file
     parser
     '''
-    fileToWrite = concat_by_dot(prefix, suffix)
-    with open(fileToWrite, "w") as fastaFile:
+    logger = logging.getLogger('{}.{}'.format(write_multiFasta.__module__, write_multiFasta.__name__))
+    #fileToWrite = concat_by_dot(prefix, suffix)
+    with open(output, "w") as fastaFile:
         for cds in cds_info:
             count = 0
             fastaFile.write("".join([">", cds_info[cds]["protein_id"], "\n"]))
@@ -421,17 +445,18 @@ def write_multiFasta(cds_info, prefix, suffix):
             fastaFile.write("\n")
     return 0
 
-def write_json(dictionary, prefix, suffix):
+def write_json(dictionary, output):
     ''' writes all dictionaries of INSDC file parsed in a json file format
     '''
-    filename = concat_by_dot(prefix, suffix)
-    with open(filename, "w") as jsonFile:
+    logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
+    with open(output, "w") as jsonFile:
         json.dump(dictionary, jsonFile, indent=2)
     return 0
 
 def get_lineage(xml):
     ''' extracts the taxonomic lineage from the provided xml file format
     '''
+    logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
     lineage_full = {}
     root = ET.fromstring(xml)
     scientificName = root.find('taxon').get('scientificName')
@@ -455,6 +480,7 @@ def get_lineage(xml):
 def get_taxo_from_web(taxonID):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
+    logger = logging.getLogger('{}.{}'.format(get_taxo_from_web.__module__, get_taxo_from_web.__name__))
     http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
     xml = http.request('GET', 'https://www.ebi.ac.uk/ena/data/view/Taxon:' + str(taxonID) + '&display=xml')
     taxonLineage = get_lineage(xml.data.decode('utf-8'))
@@ -481,7 +507,7 @@ def get_desired_lineage(lineage_full):
             taxId = lineage_full[scientificName]['taxId']
             desired_lineage.append([level, rank, scientificName, taxId])
             del desired_ranks[rank]
-    if not desired_ranks == {}:
+    if desired_ranks != {}:
         for rank in desired_ranks:
             level = desired_ranks[rank]
             scientificName = 'NA'
@@ -512,71 +538,77 @@ def get_taxonLineage(taxonIDs):
         all_lineages.update(new_lineage) # no risk of overwriting
     return all_lineages
 
-def mmseqs_createdb(prefix):
+def mmseqs_createdb(TMPDIRECTORYPROCESS, prefix):
     ''' creates a database using the mmseqs software
     '''
+    logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     suffix = "faa"
-    multiFasta = concat_by_dot(prefix, suffix)
-    with open('mmseqs_createdb.log', 'w') as file:
-        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, "ALL.DB"], stdout=file, stderr=file, check=True)
-        print('createdb - exit code: {}'.format(db_creation.returncode))
+    multiFasta = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffix]))
+    with open('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_createdb.log'), 'w') as file:
+        db_creation = subprocess.run(["mmseqs", "createdb", multiFasta, '{}/{}'.format(TMPDIRECTORYPROCESS, "ALL.DB")], stdout=file, stderr=file, check=True)
+        logger.info('createdb - exit code: {}'.format(db_creation.returncode))
     return 0
 
-def mmseqs_clustering(prefix, clust_mode, cov, ident, cov_mode, cascaded):
+def mmseqs_clustering(TMPDIRECTORYPROCESS, prefix, clust_mode, cov, ident, cov_mode, cascaded):
     ''' does the clustering using the mmseqs software
     '''
+    logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
     suffixDB = "DB"
     suffixCluster = "cluster"
-    if os.path.isdir("MMseqsTMP"):
-        shutil.rmtree("MMseqsTMP")
-    os.mkdir("MMseqsTMP")
-    dataBase = concat_by_dot(prefix, suffixDB)
-    outputCluster = concat_by_dot(prefix, suffixCluster)
-    with open('mmseqs_clustering.log', 'w') as file:
+    if os.path.isdir('{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP")):
+        shutil.rmtree('{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP"))
+    os.mkdir('{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP"))
+    dataBase = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffixDB]))
+    outputCluster = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffixCluster]))
+    with open('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(["mmseqs", "cluster", dataBase,
-                        outputCluster, "MMseqsTMP",
-                        "--min-seq-id", str(ident),
-                        "--cov-mode", str(cov_mode),
-                        "-c", str(cov),
-                        "--cluster-mode", str(clust_mode)#,
-                        #"--cascaded", str(cascaded)
-                       ], stdout=file, stderr=file, check=True)
-        print('clustering - exit code: {}'.format(clust_creation.returncode))
+                                         outputCluster, '{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP"),
+                                         "--min-seq-id", str(ident),
+                                         "--cov-mode", str(cov_mode),
+                                         "-c", str(cov),
+                                         "--cluster-mode", str(clust_mode)#,
+                                         #"--cascaded", str(cascaded)
+                                         ], stdout=file, stderr=file, check=True)
+        logger.info('clustering - exit code: {}'.format(clust_creation.returncode))
     return 0
 
-def mmseqs_createTSV(prefix):
+def mmseqs_createTSV(TMPDIRECTORYPROCESS, prefix):
     ''' executes the mmseqs command line "mmseqs createtsv"
     '''
+    logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
     suffixDB = "DB"
     suffixCluster = "cluster"
     suffixTSV = "tsv"
-    inputDB = concat_by_dot(prefix, suffixDB)
-    inputCluster = concat_by_dot(prefix, suffixCluster)
-    outputTSV = concat_by_dot(prefix, suffixTSV)
-    with open('mmseqs_createtsv.log', 'w') as file:
+    inputDB = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffixDB]))
+    inputCluster = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffixCluster]))
+    outputTSV = '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, suffixTSV]))
+    with open('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_createtsv.log'), 'w') as file:
         tsv_creation = subprocess.run(["mmseqs", "createtsv", inputDB,
-                        inputDB, inputCluster, outputTSV
-                       ], stdout=file, stderr=file, check=True)
-        print('createTSV - exit code: {}'.format(tsv_creation.returncode))
+                                       inputDB, inputCluster, outputTSV
+                                       ], stdout=file, stderr=file, check=True)
+        logger.info('createTSV - exit code: {}'.format(tsv_creation.returncode))
     return 0
 
-def mmseqs_runner(params):
+def mmseqs_runner(params, TMPDIRECTORYPROCESS):
     ''' runs the mmseqs2 software on the multiFasta file "ALL.faa"
     '''
-    mmseqs_createdb(params["prefix"])
-    mmseqs_clustering(params["prefix"], params["cluster_mode"], params["coverage"],
+    logger = logging.getLogger('{}.{}'.format(mmseqs_runner.__module__, mmseqs_runner.__name__))
+    logger.info('MMseqs2 running ...')
+    mmseqs_createdb(TMPDIRECTORYPROCESS, params["prefix"])
+    mmseqs_clustering(TMPDIRECTORYPROCESS, params["prefix"], params["cluster_mode"], params["coverage"],
                       params["min_id"], params["cov_mode"], params["cascaded"])
-    mmseqs_createTSV(params["prefix"])
+    mmseqs_createTSV(TMPDIRECTORYPROCESS, params["prefix"])
+    logger.info('End of MMseqs2 running !')
     return 0
 
-def regroup_families(prefix):
+def regroup_families(tsv_file):
     ''' creates a dictionary to store families obtained by MMseqs2
     '''
-    suffix = "tsv"
+    logger = logging.getLogger('{}.{}'.format(regroup_families.__module__, regroup_families.__name__))
     INC_FAMILY = 1
     family_in_progress = []
     families = {}
-    with open(concat_by_dot(prefix, suffix), "r") as file:
+    with open(tsv_file, "r") as file:
         lines = file.readlines()
     for aline in lines:
         aline = aline.strip().split("\t")
@@ -592,9 +624,15 @@ def regroup_families(prefix):
     families[fam_name] = family_in_progress
     return families
 
-def run(input_file, prefix, params):
+def run(input_file, prefix, TMPDIRECTORY):
     ''' main script to run the second box of NetSyn2
     '''
+    BOXNAME = 'ClusteringIntoFamilies'
+    logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    logger.info('{} running...'.format(BOXNAME))
+    TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
+    if not os.path.isdir(TMPDIRECTORYPROCESS):
+        os.mkdir(TMPDIRECTORYPROCESS)
 
     params = {
         "PSEUDOGENE": False, # Tells if pseudogenes are included in the analysis
@@ -609,16 +647,13 @@ def run(input_file, prefix, params):
         "cascaded": False
         }
 
-    try:
-        shutil.rmtree("MMseqsTMP/")
-    #print(os.listdir())
-        os.remove("ALL.cluster")
-        os.remove("ALL.cluster.index")
-        os.remove("ALL.tsv")
-        os.remove("mmseqs_createtsv.log")
-    except:
-        pass
-
+    if os.path.isdir('{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP/")):
+        logger.info('MMseqsTMP directory already exists and will be removed')
+        shutil.rmtree('{}/{}'.format(TMPDIRECTORYPROCESS, "MMseqsTMP/"))
+        os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, "ALL.cluster"))
+        os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, "ALL.cluster.index"))
+        os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, "ALL.tsv"))
+        os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, "mmseqs_createtsv.log"))
 
     params["prefix"] = prefix
     cds_info = {}
@@ -627,8 +662,9 @@ def run(input_file, prefix, params):
     #tester la fonction map() de python pour appliquer une fonction sur une
     #liste
     #usage : map(myFun, myList)
+    logger.info('INSDC files parsing ...')
     cds_info, contig_info, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
-
+    logger.info('End of INSDC files parsing !')
     # for akey in cds_info:
     #     print(akey, cds_info[akey], sep='\t')
     #     print("***")
@@ -637,22 +673,25 @@ def run(input_file, prefix, params):
     #     print(akey, contig_info[akey], sep='\t')
     #     print("***")
 
-    write_multiFasta(cds_info, prefix, "faa")
-    write_json(cds_info, prefix, "GC.json")
-    write_json(contig_info, prefix, "contig.json")
-    
+    write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, "faa"])))
+    write_json(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, "genomicContexts.json"))
+    write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, "contigs.json"))
+    logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([prefix, "faa"]), "genomicContexts.json", "contigs.json"))
+
     taxonIDs = list(set([contig_info[contig]["taxon_id"] for contig in contig_info]))
     taxonomicLineage = get_taxonLineage(taxonIDs)
-    write_json(taxonomicLineage, prefix, "lineage.json")
+    write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, "taxonomyLineage.json"))
+    logger.info('Written file:\n{}'.format("taxonomyLineage.json"))
 
-    mmseqs_runner(params)
-    
-    families = regroup_families(prefix)
+    mmseqs_runner(params, TMPDIRECTORYPROCESS)
+
+    families = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, "tsv"])))
     real_families = {key: value for (key, value) in families.items() if len(value) > 1}
     singletons = {key: value for (key, value) in families.items() if len(value) == 1}
-    print(real_families)
-    write_json(real_families, prefix, "families.json")
-    write_json(singletons, prefix, "singletons.json")
+    write_json(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, "proteinFamilies.json"))
+    write_json(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, "proteinSingletons.json"))
+    logger.info('Written files:\n{}\n{}'.format("proteinFamilies.json", "proteinSingletons.json"))
+    logger.info('End of ClusteringIntoFamilies')
 
 if __name__ == "__main__":
-    run(sys.argv[1], sys.argv[2])
+    run(sys.argv[1], sys.argv[2], os.path.abspath("."))

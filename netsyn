@@ -323,9 +323,11 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
     pointsToCheck = {
         'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY), 'type' : 'file'}],
         'ClusteringIntoFamilies' : [{'value' : '{}/ClusteringIntoFamilies/ALL.faa'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/ClusteringIntoFamilies/GenomicContexts.json'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/ClusteringIntoFamilies/TaxonomyLineage.json'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/ClusteringIntoFamilies/ProteinFamilies.json'.format(TMPDIRECTORY), 'type' : 'file'}],
+		  {'value' : '{}/ClusteringIntoFamilies/contigs.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/genomicContexts.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/taxonomyLineage.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/ClusteringIntoFamilies/proteinFamilies.json'.format(TMPDIRECTORY), 'type' : 'file'},
+		  {'value' : '{}/ClusteringIntoFamilies/proteinSingletons.json'.format(TMPDIRECTORY), 'type' : 'file'}],
         'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/Clustering.json'.format(TMPDIRECTORY), 'type' : 'file'}],
         'DataExport' : [{'value' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
                   {'value' : '{}/{}_Results_{}.html'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
@@ -366,7 +368,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         GetINSDCFiles.run(args.InputFile, TMPDIRECTORY, MAXGCSIZE, logger)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
-        ClusteringIntoFamilies.run(logger)
+        ClusteringIntoFamilies.run(args.InputFile, 'ALL', TMPDIRECTORY)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         SyntenyFinder.run(logger)
