@@ -15,6 +15,7 @@ from Bio import SeqIO
 #############
 # Functions #
 #############
+
 def skip_duplicates(iterable, key=lambda x: x):
     ''' removes duplicates from a list keeping the order of the elements
     Uses a generator
@@ -279,12 +280,17 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
         "sequence": get_required_value(get_uniq_value, aFeature, "translation"),
         "ec_number": ec_nums,
         "uniprot": get_from_dbxref(aFeature, "UniProt"),
-        "target": False,
+        "target": "",
         "context": None,
         "contig": INC_CONTIG_REF
         }
     contig_content["window"].append((INC_CDS_REF, ident))
     return cds_info, contig_content, params
+
+def set_target_to_gc(ref_target, gcList, cds_info):
+    for gc_member in gcList:
+        cds_info[gc_member[0]].update({"target": ref_target})
+    return cds_info
 
 def is_target(cds, target_list, cds_info, contig_content, params):
     ''' tests if the tested CDS is referenced as a target
@@ -298,9 +304,10 @@ def is_target(cds, target_list, cds_info, contig_content, params):
     cds_id = cds[1]
     if cds_id in target_list:
         contig_content["cds_to_keep"].extend(contig_content["window"])
-        cds_info[cds_ref].update({"target": True,
+        cds_info[cds_ref].update({"target": cds_ref,
                                   "context": contig_content["window"].copy()
                                  })
+        cds_info = set_target_to_gc(cds_ref, cds_info[cds_ref]["context"], cds_info)
         params["INC_TARGET_LOADED"] += 1
     return cds_info, contig_content, params
 
@@ -601,7 +608,17 @@ def mmseqs_runner(params, TMPDIRECTORYPROCESS):
     logger.info('End of MMseqs2 running !')
     return 0
 
-def regroup_families(tsv_file):
+def find_prot(aline, cds_info):
+    centroid = aline[0]
+    member = aline[1]
+    for prot_id in cds_info:
+        if centroid == cds_info[prot_id]["protein_id"]:
+            centroid_loc = (cds_info[prot_id]["contig"], prot_id)
+        if member == cds_info[prot_id]["protein_id"]:
+            member_loc = (cds_info[prot_id]["contig"], prot_id)
+    return (centroid_loc, member_loc)
+
+def regroup_families(tsv_file, cds_info):
     ''' creates a dictionary to store families obtained by MMseqs2
     '''
     logger = logging.getLogger('{}.{}'.format(regroup_families.__module__, regroup_families.__name__))
@@ -612,14 +629,17 @@ def regroup_families(tsv_file):
         lines = file.readlines()
     for aline in lines:
         aline = aline.strip().split("\t")
-        if aline[0] in family_in_progress:
-            family_in_progress.append(aline[1])
+
+        prots_loc_id = find_prot(aline, cds_info)
+
+        if prots_loc_id[0] in family_in_progress:
+            family_in_progress.append(prots_loc_id[1])
         else:
             fam_name = "_".join(["family", str(INC_FAMILY)])
             if family_in_progress != []:
                 families[fam_name] = family_in_progress
                 INC_FAMILY += 1
-            family_in_progress = [aline[1]]
+            family_in_progress = [prots_loc_id[1]]
     fam_name = "_".join(["family", str(INC_FAMILY)])
     families[fam_name] = family_in_progress
     return families
@@ -685,7 +705,7 @@ def run(input_file, prefix, TMPDIRECTORY):
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
 
-    families = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, "tsv"])))
+    families = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([prefix, "tsv"])), cds_info)
     real_families = {key: value for (key, value) in families.items() if len(value) > 1}
     singletons = {key: value for (key, value) in families.items() if len(value) == 1}
     write_json(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, "proteinFamilies.json"))

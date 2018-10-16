@@ -8,4 +8,4 @@
 # Functions #
 #############
 def run(logger):
-    logger.info('SyntenyFinder running...') # 
+    logger.info('SyntenyFinder running...') #
