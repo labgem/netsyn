@@ -256,7 +256,11 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
         "position": [start, stop],
         "frame": det_frame(str(aFeature.location.strand), start, contig_content.get("size")[1]),
         "product": get_uniq_value(aFeature, "product"),
-        "sequence": get_uniq_value(aFeature, "translation")
+        "sequence": get_uniq_value(aFeature, "translation"),
+        "target": "",
+        "context": None,
+        "contig": INC_CONTIG_REF,
+        "genome": params["INC_FILE"]
         }
     contig_content["window"].append((INC_CDS_REF, pseudo_id))
     return cds_info, contig_content, params
@@ -282,7 +286,8 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
         "uniprot": get_from_dbxref(aFeature, "UniProt"),
         "target": "",
         "context": None,
-        "contig": INC_CONTIG_REF
+        "contig": INC_CONTIG_REF,
+        "genome": params["INC_FILE"]
         }
     contig_content["window"].append((INC_CDS_REF, ident))
     return cds_info, contig_content, params
@@ -424,6 +429,7 @@ def parse_INSDC_files(d_input, cds_info, contig_info, params):
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     for afile in d_input:
+        params["INC_FILE"] += 1
         cds_info, contig_info, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, params)
         #print(params["INC_CONTIG_REF"], len(d_input[afile])-2)
     return cds_info, contig_info, params
@@ -660,6 +666,7 @@ def run(input_file, prefix, TMPDIRECTORY):
         "INC_PSEUDO_REF": 0, # counter of pseusogenes
         "INC_CDS_REF": 0,
         "INC_CONTIG_REF": 0,
+        "INC_FILE": 0,
         "min_id": 0.3,
         "cov_mode": 1,
         "coverage": 0.8,
