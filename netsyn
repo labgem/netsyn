@@ -11,6 +11,7 @@ import logging
 import re
 import sys
 import subprocess
+import filecmp
 
 import yaml
 from BoxManager import GetINSDCFiles, ClusteringIntoFamilies, SyntenyFinder, DataExport
@@ -62,6 +63,8 @@ def argumentsParser():
                         help = 'Directory containing the INSDC files.')
     group1.add_argument('-md', '--MetaDataFile', type = str,
                         help = 'File containing the metadata.')
+    group1.add_argument('-np', '--newProject', action='store_true',
+                        help = 'Force the creation of a new projet. Overwrites the project of the same name.')
 
     group4 = parser.add_argument_group('Clustering settings')
     group4.add_argument('-mc', '--MinCoverage', type = float,
@@ -227,6 +230,15 @@ def getLastBoxDone():
             logger.error('File of report wrong.')
             exit(1)
     return None
+
+def inputFileModificationChecking(newInputFile, oldInputFile):
+    '''
+    Check that the input file has not been modified.
+    '''
+    logger = logging.getLogger(inputFileModificationChecking.__name__)
+    if not filecmp.cmp(newInputFile,oldInputFile):
+        logger.error('The input file has been modified. Please start a new project.')
+        exit(1)
 
 def resumptionFrom(nameBoxToResum, nameBoxDone):
     '''
@@ -403,7 +415,7 @@ if __name__ == '__main__':
         subprocess.Popen('mmseqs', stdout=devnull, stderr=devnull).communicate()
     except OSError as e:
         if e.errno == os.errno.ENOENT:
-            logger.error('mmseqs not found. Please check its installation')
+            logger.error('mmseqs not found. Please check its installation.')
             exit(1)
     ##############
     # Constantes #
@@ -419,11 +431,14 @@ if __name__ == '__main__':
     ############
     # Switches #
     ############
+    if args.newProject and os.path.isdir(WORKDIRECTORY):
+        shutil.rmtree(WORKDIRECTORY)
     if not os.path.isfile(SETTINGSFILENAME):
+        if os.path.isdir(WORKDIRECTORY):
+            logger.error('Project name already used. Please change your project name or used --newProject.')
+            exit(1)
         '''Pas de dernier setting == premiere analyse'''
         logger.info('New NetSyn project: {}'.format(WORKDIRECTORY))
-        if os.path.isdir(WORKDIRECTORY):
-            shutil.rmtree(WORKDIRECTORY)
         os.mkdir(WORKDIRECTORY)
         os.mkdir(TMPDIRECTORY)
         analysisNumber, resultsDirectory = getAnalysisNumber()
@@ -433,6 +448,7 @@ if __name__ == '__main__':
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
+        inputFileModificationChecking(args.InputFile, INPUTLIST)
         nameBoxToResum = getBoxToResum(args)
         if nameBoxToResum == 'General informations':
             logger.error('Already existing project. Please start a new project.')
