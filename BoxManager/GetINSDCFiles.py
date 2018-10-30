@@ -51,7 +51,7 @@ def resultsFormat(res, dico):
                     entry = column
                     dico[entry] = {}
                 elif not column:
-                    logger.info('{}: This entry is obsolete or not found. Please check in www.UniProt.org.'.format(entry))
+                    logger.warning('{}: This entry is obsolete or not found. Please check in www.UniProt.org.'.format(entry))
                     del dico[entry]
                     break
                 else:
@@ -128,11 +128,11 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
           logger.critical('Unsupported content type ({}).'.format(contentType))
           exit(1)
 
-def run(InputName, TMPDIRECTORY, maxGCsize, logger):
+def run(InputName, TMPDIRECTORY, maxGCsize):
     '''
     Get INSDC files porocessing.
     '''
-    global TMPDIRECTORYPROCESS
+    # global TMPDIRECTORYPROCESS
     BOXNAME = 'GetINSDCFiles'
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(BOXNAME))
