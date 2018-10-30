@@ -50,6 +50,10 @@ def resultsFormat(res, dico):
                 if index == 0:
                     entry = column
                     dico[entry] = {}
+                elif not column:
+                    logger.info('{}: This entry is obsolete or not found. Please check in www.UniProt.org.'.format(entry))
+                    del dico[entry]
+                    break
                 else:
                     dico[entry][headers[index]] = column.strip(sepField).split(sepField)
     return dico
@@ -151,7 +155,7 @@ def run(InputName, TMPDIRECTORY, maxGCsize, logger):
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
-                    logger.info('{} already existing.')
+                    logger.info('{} already existing.'.format(nucleicFilePath))
                 with open(nucleicFilePath, 'r') as file:
                     m = re.match(r'^ID .*; (?P<length>[0-9]+) BP\.', file.read())
                     if m:
