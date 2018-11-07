@@ -18,15 +18,15 @@ import cairocffi
 def set_userGC_similarityContext(targets, cds_info, params):
     half_user_window = math.floor(params['USER_GC']/2)
     for target in targets:
-        center = cds_info[target]['context'].index((target, cds_info[target]['protein_id']))
+        center = cds_info[target]['context'].index(target)
         indices = [idx
                    for idx in range(max(0,
                                         center-half_user_window),
                                     min(len(cds_info[target]['context']),
                                         center+half_user_window+1))]
         indices = list(set(indices)) # why ???
-        cds_info[target]['userGC'] = [cds_info[target]['context'][idx][0] for idx in indices]
-        cds_info[target]['similarityContext'] = [cds_info[cds_info[target]['context'][idx][0]]['similarityFamily'] for idx in indices]
+        cds_info[target]['userGC'] = [cds_info[target]['context'][idx] for idx in indices]
+        cds_info[target]['similarityContext'] = [cds_info[cds_info[target]['context'][idx]]['similarityFamily'] for idx in indices]
     return cds_info
 
 def intersect_families(targetA, targetB):
@@ -45,18 +45,18 @@ def cartesian_product(listA, listB):
     cartesian_prod = [(a, b) for a in listA for b in listB]
     return cartesian_prod
 
-def get_target_pos(context, target):
-    '''if comprehension list return 0 or more than 1 element,
-    it raise "ValueError: too many values to unpack (expected 1)"
-    useful when only one value expected (in Clustering_Into_Families)
-    '''
-    return [context.index((cds_ref, cds_id))
-            for (cds_ref, cds_id) in context
-            if cds_ref == target]
+# def get_target_pos(context, target):
+#     '''if comprehension list return 0 or more than 1 element,
+#     it raise "ValueError: too many values to unpack (expected 1)"
+#     useful when only one value expected (in Clustering_Into_Families)
+#     '''
+#     return [context.index((cds_ref, cds_id))
+#             for (cds_ref, cds_id) in context
+#             if cds_ref == target]
 
 def add_target_target_synton(targetA, targetB, cds_info, targets_syntons):
-    [tarA_pos] = get_target_pos(cds_info[targetA]['context'], targetA)
-    [tarB_pos] = get_target_pos(cds_info[targetB]['context'], targetB)
+    tarA_pos = cds_info[targetA]['context'].index(targetA)
+    tarB_pos = cds_info[targetB]['context'].index(targetB)
 
     if (tarA_pos, tarB_pos) in targets_syntons[(targetA, targetB)]['syntons']:
         targets_syntons[(targetA, targetB)]['AB_in_synt'] = (tarA_pos, tarB_pos, True)

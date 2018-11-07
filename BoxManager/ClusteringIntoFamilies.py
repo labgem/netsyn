@@ -273,7 +273,7 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
         'genome': params['INC_FILE'],
         'similarityFamily': None
         }
-    contig_content['window'].append((INC_CDS_REF, pseudo_id))
+    contig_content['window'].append(INC_CDS_REF)
     return cds_info, contig_content, params
 
 def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
@@ -301,12 +301,12 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
         'genome': params['INC_FILE'],
         'similarityFamily': None
         }
-    contig_content['window'].append((INC_CDS_REF, ident))
+    contig_content['window'].append(INC_CDS_REF)
     return cds_info, contig_content, params
 
 def set_target_to_gc(ref_target, gcList, cds_info):
     for gc_member in gcList:
-        cds_info[gc_member[0]].update({'target': ref_target})
+        cds_info[gc_member].update({'target': ref_target})
     return cds_info
 
 def is_target(cds, target_list, cds_info, contig_content, targets_storage, params):
@@ -317,33 +317,31 @@ def is_target(cds, target_list, cds_info, contig_content, targets_storage, param
     *** tested value used to be the CDS in the middle of the window ***
     '''
     logger = logging.getLogger('{}.{}'.format(is_target.__module__, is_target.__name__))
-    cds_ref = cds[0]
-    cds_id = cds[1]
-    if cds_id in target_list:
-        targets_storage.append(cds_ref)
+    if cds_info[cds]['protein_id'] in target_list:
+        targets_storage.append(cds)
         contig_content['cds_to_keep'].extend(contig_content['window'])
-        cds_info[cds_ref].update({'target': cds_ref,
-                                  'context': contig_content['window'].copy(),
-                                  'similarityContext': None
-                                  })
-        cds_info = set_target_to_gc(cds_ref, cds_info[cds_ref]['context'], cds_info)
+        cds_info[cds].update({'target': cds,
+                              'context': contig_content['window'].copy(),
+                              'similarityContext': None
+                              })
+        cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
         params['INC_TARGET_LOADED'] += 1
+        logger.debug('cds ({}) - contig_content ({}) - window: {}'.format(cds, contig_content['contig'], contig_content['window']))
+        logger.debug('cds ({}) - contig_content ({}) - cds_to_keep: {}'.format(cds, contig_content['contig'], contig_content['cds_to_keep']))
     return cds_info, contig_content, targets_storage, params
 
 def is_kept(cds, cds_info, contig_content):
-    ''' verifies if the tested CDS is in cds_keeper list
+    ''' verifies if the tested CDS is in cds_to_keep list
     If not, all information on it are removed
 
     *** tested value is the first value of the window ***
     '''
     logger = logging.getLogger('{}.{}'.format(is_kept.__module__, is_kept.__name__))
-    cds_ref = cds[0]
-    cds_id = cds[1]
     if contig_content['cds_to_keep']:
-        if cds_id not in [ref[1] for ref in contig_content['cds_to_keep']]:
-            del cds_info[cds_ref]
+        if cds not in [ref for ref in contig_content['cds_to_keep']]:
+            del cds_info[cds]
     else:
-        del cds_info[cds_ref]
+        del cds_info[cds]
     del contig_content['window'][0]
     return cds_info, contig_content
 
@@ -436,6 +434,8 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         targets_storage,
                         params
                         )
+                logger.debug('proteins referenced: {}'.format(cds_info.keys()))
+                logger.debug('proteins in cds_to_keep: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
 
     return cds_info, contig_info, targets_storage, params
@@ -466,7 +466,7 @@ def write_multiFasta(cds_info, output):
     with open(output, 'w') as fastaFile:
         for cds in cds_info:
             count = 0
-            fastaFile.write('>{}:{}\n'.format(cds, cds_info[cds]['protein_id']))
+            fastaFile.write('>{}\n'.format(cds))
             for ac_amine in cds_info[cds]['sequence']:
                 count += 1
                 fastaFile.write(ac_amine)
@@ -652,14 +652,13 @@ def regroup_families(tsv_file, cds_info):
     with open(tsv_file, 'r') as file:
         lines = file.readlines()
     for aline in lines:
-        aline = aline.strip()
-        aline = re.split('[\t:]', aline)
+        aline = aline.strip().split('\t')
         if not centroid:
-            centroid = aline[0] # aline[1] and aline[3] are ENA ids
+            centroid = aline[0]
         elif centroid != aline[0]:
             centroid = aline[0]
             INC_FAMILY += 1
-        cds = int(aline[2])
+        cds = int(aline[1])
         cds_info[cds]['similarityFamily'] = INC_FAMILY 
     return cds_info
 
@@ -726,9 +725,11 @@ def run(input_file, args, TMPDIRECTORY):
     #     print(akey, contig_info[akey], sep='\t')
     #     print('***')
 
+    logger.info('will write the multifasta file')
     write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
     write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
     write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list'))
+    logger.debug('list of targets: {}'.format(targets_storage))
     logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
 
     #print(contig_info)
@@ -750,4 +751,4 @@ def run(input_file, args, TMPDIRECTORY):
     logger.info('End of ClusteringIntoFamilies')
 
 if __name__ == '__main__':
-    run(sys.argv[1], sys.argv[2], os.path.abspath('.'))
+    run(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], os.path.abspath('.'))
