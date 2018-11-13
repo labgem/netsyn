@@ -375,7 +375,6 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
     window centered on a target
     '''
     logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
-    logger.info('Parsing of INSDC file: {}'.format(afile))
     STOP_INC_CONTIG = params['INC_CONTIG_REF'] + len(d_infile)-2
 
     typeParsing = d_infile['nucleic_File_Format']
@@ -446,8 +445,10 @@ def parse_INSDC_files(d_input, cds_info, contig_info, params):
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     targets_storage = []
+    nbr_of_files = len(d_input)
     for afile in d_input:
         params['INC_FILE'] += 1
+        logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
         cds_info, contig_info, targets_storage, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, targets_storage, params)
         #print(params['INC_CONTIG_REF'], len(d_input[afile])-2)
     return cds_info, contig_info, targets_storage, params
