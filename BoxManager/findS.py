@@ -81,11 +81,15 @@ def get_connected_components(graph, synton_of_targets, params, mode='A'):
         if synton_of_targets in graph.vs[cluster]['name']:
             cc_with_target_target = cluster
             break
+    # largest_cluster = []
+    # for cluster in cc:
+    #     if len(cluster) > len(largest_cluster):
+    #         largest_cluster = cluster
     # [cc_with_target_target] = [cluster
     #                            for cluster in cc
     #                            if synton_of_targets in graph.vs[cluster]['name']]
     # print('leave get_connected_components function')
-    return cc_with_target_target
+    return cc_with_target_target # largest_cluster #cc_with_target_target
 
 def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     minGA = min([posA for posA, posB in syntons])
@@ -275,10 +279,10 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
     walktrap_clustering = graph_walktrap.as_clustering()
     print(walktrap_clustering) # list of VertexClustering objects
 
-    ### Louvain clustering
-    print('\n*** Louvain clustering ***')
-    graph_louvain = maxi_graph.community_multilevel()
-    print(graph_louvain) # list of VertexClustering objects
+    # ### Louvain clustering
+    # print('\n*** Louvain clustering ***')
+    # graph_louvain = maxi_graph.community_multilevel()
+    # print(graph_louvain) # list of VertexClustering objects
 
     # for cluster in graph_louvain:
     #     for elt in cluster:
@@ -295,17 +299,17 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
     #layout = maxi_graph.layout('tree')
     #layout = maxi_graph.layout('circular')
 
-    layout = maxi_graph.layout('fr') # pourquoi pas ...
+    # layout = maxi_graph.layout('fr') # pourquoi pas ...
     #layout = maxi_graph.layout('kk') # pourquoi pas ...
     
-    pal = ig.drawing.colors.ClusterColoringPalette(len(walktrap_clustering))
-    visual_style = {
-        'edge_width': maxi_graph.es['weight'],
-        #'vertex_label': maxi_graph.vs['name'],
-        'vertex_color': pal.get_many(walktrap_clustering.membership),
-        'vertex_size': 4
-        }
-    ig.plot(maxi_graph, "walktrap_cluster_5_3.png", layout=layout, **visual_style)
+    # pal = ig.drawing.colors.ClusterColoringPalette(len(walktrap_clustering))
+    # visual_style = {
+    #     'edge_width': maxi_graph.es['weight'],
+    #     #'vertex_label': maxi_graph.vs['name'],
+    #     'vertex_color': pal.get_many(walktrap_clustering.membership),
+    #     'vertex_size': 4
+    #     }
+    # ig.plot(maxi_graph, "walktrap_cluster_5_3.png", layout=layout, **visual_style)
 
 
     # pal = ig.drawing.colors.ClusterColoringPalette(len(graph_louvain))
@@ -316,6 +320,13 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
     #     'vertex_size': 4
     #     }
     # ig.plot(maxi_graph, "louvain_cluster_5_3.png", layout=layout, **visual_style)
+
+    for cluster in range(len(walktrap_clustering)):
+        for vertex in walktrap_clustering[cluster]:
+            maxi_graph.vs[vertex]['cluster'] = cluster
+
+    for cds_ref in maxi_graph.vs:
+        cds_ref['protein_id'] = cds_info[cds_ref['name']]['uniprot']
 
     maxi_graph.write_graphml('maxi_graph.graphml')
     print(len(maxi_graph.es))
