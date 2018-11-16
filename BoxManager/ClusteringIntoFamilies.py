@@ -167,8 +167,8 @@ def get_uniq_value(aFeature, ref):
     if len(result) == 1:
         return result[0]
     else:
-        logger.error('there are several values instead of a uniq value: {}'.format(result))
-        exit(1)
+        logger.warning('there are several values instead of a uniq value: {}'.format(result))
+        # exit(1)
 
 def get_required_value(func, aFeature, *args):
     ''' function called if the value is mandatory (protein ID (ident),
