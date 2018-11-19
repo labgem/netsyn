@@ -3,7 +3,10 @@
 ##########
 import re
 import sys
+import random
+import string
 import pickle
+import json
 import os
 import shutil
 import xml.etree.ElementTree as ET
@@ -181,8 +184,9 @@ def get_required_value(func, aFeature, *args):
     '''
     logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
     if not func(aFeature, *args) or func(aFeature, *args) == 'NA':
-        logger.error('a required value is not provided')
-        exit(1)
+        logger.error('A required value is not provided: {}'.format([arg for arg in args]))
+        # exit(1)
+        return 1
     else:
         return func(aFeature, *args)
 
@@ -285,6 +289,9 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
     INC_CDS_REF = params['INC_CDS_REF']
 
     ident = get_required_value(get_uniq_value, aFeature, proteinField)
+    if ident == 1:
+        ident = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
+        logger.info('Protein {} has no field protein_id. A random name has been created: {}'.format(INC_CDS_REF, ident))
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
     ec_nums = (aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else 'NA')
     cds_info[INC_CDS_REF] = {
@@ -295,7 +302,7 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
         'sequence': get_required_value(get_uniq_value, aFeature, 'translation'),
         'ec_number': ec_nums,
         'uniprot': get_from_dbxref(aFeature, 'UniProt'),
-        'target': '',
+        'target': [],
         'context': None,
         'contig': INC_CONTIG_REF,
         'genome': params['INC_FILE'],
@@ -306,7 +313,8 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
 
 def set_target_to_gc(ref_target, gcList, cds_info):
     for gc_member in gcList:
-        cds_info[gc_member].update({'target': ref_target})
+        if ref_target not in cds_info[gc_member]['target']:
+            cds_info[gc_member]['target'].append(ref_target)
     return cds_info
 
 def is_target(cds, target_list, cds_info, contig_content, targets_storage, params):
@@ -320,14 +328,15 @@ def is_target(cds, target_list, cds_info, contig_content, targets_storage, param
     if cds_info[cds]['protein_id'] in target_list:
         targets_storage.append(cds)
         contig_content['cds_to_keep'].extend(contig_content['window'])
-        cds_info[cds].update({'target': cds,
-                              'context': contig_content['window'].copy(),
-                              'similarityContext': None
-                              })
+
+        cds_info[cds]['target'].append(cds)
+        cds_info[cds]['context'] = contig_content['window'].copy()
+        cds_info[cds]['similarityContext'] = None
+
         cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
         params['INC_TARGET_LOADED'] += 1
-        logger.debug('cds ({}) - contig_content ({}) - window: {}'.format(cds, contig_content['contig'], contig_content['window']))
-        logger.debug('cds ({}) - contig_content ({}) - cds_to_keep: {}'.format(cds, contig_content['contig'], contig_content['cds_to_keep']))
+        logger.debug('cds ({}/{})\t- contig_content ({}) -\twindow: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['window']))
+        logger.debug('cds ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
     return cds_info, contig_content, targets_storage, params
 
 def is_kept(cds, cds_info, contig_content):
@@ -433,7 +442,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         targets_storage,
                         params
                         )
-                logger.debug('proteins referenced: {}'.format(cds_info.keys()))
+                #logger.debug('proteins referenced: {}'.format(cds_info.keys()))
                 logger.debug('proteins in cds_to_keep: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
 
@@ -483,6 +492,14 @@ def write_pickle(dictionary, output):
     logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
     with open(output, 'wb') as pickleFile:
         pickle.dump(dictionary, pickleFile)
+    return 0
+
+def write_json(dictionary, output):
+    ''' writes all dictionaries of INSDC file parsed in a json file format
+    '''
+    logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
+    with open(output, 'w') as jsonFile:
+        json.dump(dictionary, jsonFile, indent=4)
     return 0
 
 # def write_list(list, output):
@@ -729,7 +746,10 @@ def run(input_file, args, TMPDIRECTORY):
     logger.info('will write the multifasta file')
     write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
     write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
-    write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list'))
+    write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.pickle'))
+    write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.json'))
+    write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.json'))
+
     logger.debug('list of targets: {}'.format(targets_storage))
     logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
 
@@ -737,17 +757,23 @@ def run(input_file, args, TMPDIRECTORY):
     taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info]))
     taxonomicLineage = get_taxonLineage(taxonIDs)
     write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
+    write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
     logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
     
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
+    write_json(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.json'))
     # real_families = {key: value for (key, value) in families.items() if len(value) > 1}
     # singletons = {key: value for (key, value) in families.items() if len(value) == 1}
     # write_pickle(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinFamilies.pickle'))
     # write_pickle(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinSingletons.pickle'))
     # logger.info('Written files:\n{}\n{}'.format('proteinFamilies.pickle', 'proteinSingletons.pickle'))
+    
+    with open('{}/analysed_targets'.format(TMPDIRECTORY), 'w') as file:
+        for inc in cds_info.keys():
+            file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], cds_info[inc]['uniprot']))
 
     logger.info('End of ClusteringIntoFamilies')
 
