@@ -658,6 +658,7 @@ def mmseqs_runner(params, TMPDIRECTORYPROCESS):
     mmseqs_clustering(TMPDIRECTORYPROCESS, params['prefix'], params['cluster_mode'], params['coverage'],
                       params['min_id'], params['cov_mode'], params['cascaded'])
     mmseqs_createTSV(TMPDIRECTORYPROCESS, params['prefix'])
+    shutil.rmtree('{}/{}'.format(TMPDIRECTORYPROCESS, 'MMseqsTMP/'))
     logger.info('End of MMseqs2 running !')
     return 0
 
@@ -706,25 +707,22 @@ def run(input_file, args, TMPDIRECTORY):
         }
     params['prefix'] = "MMseqs2_run"
 
-    if os.path.isdir('{}/{}'.format(TMPDIRECTORYPROCESS, 'MMseqsTMP/')):
-        logger.info('MMseqsTMP directory already exists and will be removed')
-        shutil.rmtree('{}/{}'.format(TMPDIRECTORYPROCESS, 'MMseqsTMP/'))
-        try:
-            os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'cluster'))
-        except:
-            pass
-        try:
-            os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'cluster.index'))
-        except:
-            pass
-        try:
-            os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'tsv'))
-        except:
-            pass
-        try:
-            os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_createtsv.log'))
-        except:
-            pass
+    try:
+        os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'cluster'))
+    except:
+        pass
+    try:
+        os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'cluster.index'))
+    except:
+        pass
+    try:
+        os.remove('{}/{}.{}'.format(TMPDIRECTORYPROCESS, params['prefix'], 'tsv'))
+    except:
+        pass
+    try:
+        os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_createtsv.log'))
+    except:
+        pass
 
     cds_info = {}
     contig_info = {}
