@@ -1,20 +1,42 @@
 ##########
 # Import #
 ##########
+import argparse
 import re
 import sys
 import pickle
+import json
 import os
 import shutil
 import xml.etree.ElementTree as ET
 import subprocess
 import urllib3
-#import certifi
 import logging
 from Bio import SeqIO
 #############
 # Functions #
 #############
+
+#('{}/TMP/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(args.ProjectName), args, TMPDIRECTORY)
+
+def argumentsParser():
+    '''
+    Arguments parsing
+    '''
+    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',
+                                     epilog = '''All's well that ends well.''',
+                                     usage = '''ClusteringIntoFamilies options...''',
+                                     formatter_class = argparse.RawTextHelpFormatter)
+    
+    parser.add_argument('-i', '--input', type = str,
+                        required = True, help = 'Path of the input obtained from the GetINSDCFiles part')
+    parser.add_argument('-id', '--Ident', type = float,
+                        default = 0.3, help='Sequence identity.\nDefault value: 0.3.')
+    parser.add_argument('-mc', '--MinCoverage', type = float,
+                        default = 0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
+    parser.add_argument('-pn', '--ProjectName', type = str, required = True,
+                        help = 'The project name.')
+    return parser
 
 def skip_duplicates(iterable, key=lambda x: x):
     ''' removes duplicates from a list keeping the order of the elements
@@ -52,8 +74,8 @@ def parse_tsv(fname, authorized_columns, mandatory_organism_columns):
     replicons_index = {}
     line_number = 0
     with open(fname,'r') as file:
-        for line in file :
-            if first_line :
+        for line in file:
+            if first_line:
                 headers = {}
                 for index, header in enumerate(line.split('\t')):
                     header = header.replace('\r\n','').replace('\n','') # header.strip() ???
@@ -67,7 +89,7 @@ def parse_tsv(fname, authorized_columns, mandatory_organism_columns):
                     headers[index] = header
                 errors = check_headers(errors, mandatory_organism_columns, headers)
                 first_line = False
-            else :
+            else:
                 line_number += 1
                 row = {}
                 row['line_number'] = line_number
@@ -384,6 +406,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
         seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
         for seqRecord in seqRecordParsed:
             if params['INC_CONTIG_REF'] >= STOP_INC_CONTIG:
+                logger.debug('To many contigs to parse ({}). Stop on contig {}'.format(params['INC_CONTIG_REF'], seqRecord.id))
                 break
             contig_name = seqRecord.id.split(r'.')[0]
             if contig_name in d_infile:
@@ -403,6 +426,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
                         if params['INC_TARGET_LOADED'] >= len(d_infile[contig_name]['target_list']):
+                            logger.debug('No need to search more targets. {} already found on this contig {}'.format(params['INC_TARGET_LOADED'],seqRecord.id))
                             break
                         if is_pseudogene(aFeature):
                             if params['PSEUDOGENE']:
@@ -433,8 +457,8 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         targets_storage,
                         params
                         )
-                logger.debug('proteins referenced: {}'.format(cds_info.keys()))
-                logger.debug('proteins in cds_to_keep: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
+                #logger.debug('proteins referenced: {}'.format(cds_info.keys()))
+                logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
 
     return cds_info, contig_info, targets_storage, params
@@ -483,6 +507,14 @@ def write_pickle(dictionary, output):
     logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
     with open(output, 'wb') as pickleFile:
         pickle.dump(dictionary, pickleFile)
+    return 0
+
+def write_json(dictionary, output):
+    ''' writes all dictionaries of INSDC file parsed in a json file format
+    '''
+    logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
+    with open(output, 'w') as jsonFile:
+        json.dump(dictionary, jsonFile)
     return 0
 
 # def write_list(list, output):
@@ -592,7 +624,7 @@ def mmseqs_createdb(TMPDIRECTORYPROCESS, prefix):
         logger.info('createdb - exit code: {}'.format(db_creation.returncode))
     return 0
 
-def mmseqs_clustering(TMPDIRECTORYPROCESS, prefix, clust_mode, cov, ident, cov_mode, cascaded):
+def mmseqs_clustering(TMPDIRECTORYPROCESS, prefix, cov, ident, cov_mode):
     ''' does the clustering using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
@@ -638,8 +670,8 @@ def mmseqs_runner(params, TMPDIRECTORYPROCESS):
     logger = logging.getLogger('{}.{}'.format(mmseqs_runner.__module__, mmseqs_runner.__name__))
     logger.info('MMseqs2 running ...')
     mmseqs_createdb(TMPDIRECTORYPROCESS, params['prefix'])
-    mmseqs_clustering(TMPDIRECTORYPROCESS, params['prefix'], params['cluster_mode'], params['coverage'],
-                      params['min_id'], params['cov_mode'], params['cascaded'])
+    mmseqs_clustering(TMPDIRECTORYPROCESS, params['prefix'], params['coverage'],
+                      params['min_id'], params['cov_mode'])
     mmseqs_createTSV(TMPDIRECTORYPROCESS, params['prefix'])
     logger.info('End of MMseqs2 running !')
     return 0
@@ -663,29 +695,26 @@ def regroup_families(tsv_file, cds_info):
         cds_info[cds]['similarityFamily'] = INC_FAMILY 
     return cds_info
 
-def run(input_file, args, TMPDIRECTORY):
+def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
     '''
-    BOXNAME = 'ClusteringIntoFamilies'
+    #BOXNAME = 'ClusteringIntoFamilies'
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(BOXNAME))
     TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
     if not os.path.isdir(TMPDIRECTORYPROCESS):
         os.mkdir(TMPDIRECTORYPROCESS)
-    print(args)
     #ClusteringMethod='MCL', INSDCRepertory=None, Ident=30, InputFile='toto', MetaDataFile=None, MinCoverage=0.8, ProjectDescription='No description', ProjectName='test', ProjectOwner='cchev', RedundancyRemoval='FALSE', RedundancyRemovalLabel='FALSE', RedundancyRemovalTaxonomy='FALSE', ScoreType=1, SyntenyFilter='off', SyntenyGap=3, SyntenyScoreCuttoff=0, WindowSize=11, log_file=None, log_level='debug'
     params = {
         'PSEUDOGENE': False, # Tells if pseudogenes are included in the analysis
-        'MAX_GC': 11, # size of the window
+        'MAX_GC': MAXGCSIZE, # size of the window
         'INC_PSEUDO_REF': 0, # counter of pseusogenes
         'INC_CDS_REF': 0,
         'INC_CONTIG_REF': 0,
         'INC_FILE': 0,
-        'min_id': args.Ident,
+        'min_id': IDENT,
         'cov_mode': 1,
-        'coverage': args.MinCoverage,
-        'cluster_mode': args.ClusteringMethod,
-        'cascaded': False
+        'coverage': COVERAGE,
         }
     params['prefix'] = "MMseqs2_run"
 
@@ -708,10 +737,10 @@ def run(input_file, args, TMPDIRECTORY):
             os.remove('{}/{}'.format(TMPDIRECTORYPROCESS, 'mmseqs_createtsv.log'))
         except:
             pass
-
+        
     cds_info = {}
     contig_info = {}
-    d_input = check_and_get_input(input_file)
+    d_input = check_and_get_input(INPUT_II)
     #tester la fonction map() de python pour appliquer une fonction sur une
     #liste
     #usage : map(myFun, myList)
@@ -730,6 +759,9 @@ def run(input_file, args, TMPDIRECTORY):
     write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
     write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
     write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list'))
+    write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.json'))
+    write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list'))
+
     logger.debug('list of targets: {}'.format(targets_storage))
     logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
 
@@ -737,19 +769,37 @@ def run(input_file, args, TMPDIRECTORY):
     taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info]))
     taxonomicLineage = get_taxonLineage(taxonIDs)
     write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
+    write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
     logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
     
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
+    write_json(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.json'))
     # real_families = {key: value for (key, value) in families.items() if len(value) > 1}
     # singletons = {key: value for (key, value) in families.items() if len(value) == 1}
     # write_pickle(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinFamilies.pickle'))
     # write_pickle(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinSingletons.pickle'))
     # logger.info('Written files:\n{}\n{}'.format('proteinFamilies.pickle', 'proteinSingletons.pickle'))
 
+    print('Nbr of targets: {} - {}'.format(len(targets_storage), params['INC_TARGET_LOADED']))
+    with open('analysed_targets', 'w') as file:
+        file.write('List of targets:\n')
+        for tar in targets_storage:
+            file.write('{}\t{}\t{}\n'.format(tar, cds_info[tar]['protein_id'], cds_info[tar]['uniprot']))
+    print('Nbr of cds: {}'.format(len(cds_info)))
+    print('Nbr of parsed files: {}'.format(params['INC_FILE']))
+
+
     logger.info('End of ClusteringIntoFamilies')
 
 if __name__ == '__main__':
-    run(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], os.path.abspath('.'))
+    parser = argumentsParser()
+    args = parser.parse_args()
+    #def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
+    print(args)
+    BOXNAME = 'ClusteringIntoFamilies'
+    TMPDIRECTORY = '{}/TMP'.format(args.ProjectName)
+    MAXGCSIZE = 11
+    run(BOXNAME, TMPDIRECTORY, args.input, MAXGCSIZE, args.Ident, args.MinCoverage)
