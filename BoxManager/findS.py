@@ -224,8 +224,8 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
 
     with open(gcFile, 'rb') as file:
         cds_info = pickle.load(file)
-    with open('{}/test_on_BKACE/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list'), 'rb') as file:
-    #with open('{}/test/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list'), 'rb') as file:
+    with open('{}/netsyn_BKACE_1/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
+    #with open('{}/test/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
         targets_list = pickle.load(file)
 
     tmp_dict = {}
