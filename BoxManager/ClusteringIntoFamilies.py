@@ -40,6 +40,8 @@ def skip_duplicates(iterable, key=lambda x: x):
             fingerprints.add(fingerprint)
 
 def check_headers(errors, mandatory_columns, headers):
+    ''' check if all mandatory columns are provided
+    '''
     logger = logging.getLogger('check_headers')
     for mandatory_column in mandatory_columns:
         if not mandatory_column in headers.values():
@@ -47,7 +49,11 @@ def check_headers(errors, mandatory_columns, headers):
             errors = True
     return errors
 
-def parse_tsv(fname, authorized_columns, mandatory_organism_columns):
+def parse_tsv(fname, authorized_columns, mandatory_columns):
+    ''' create a list of dictionaries
+        get from input file (fname) information by line
+        every line is a dictionary
+    '''
     logger = logging.getLogger('parse_tsv')
     first_line = True
     errors = False
@@ -68,7 +74,7 @@ def parse_tsv(fname, authorized_columns, mandatory_organism_columns):
                         logger.error('{}: Duplicated column.'.format(header))
                         errors = True
                     headers[index] = header
-                errors = check_headers(errors, mandatory_organism_columns, headers)
+                errors = check_headers(errors, mandatory_columns, headers)
                 first_line = False
             else :
                 line_number += 1
@@ -83,13 +89,15 @@ def parse_tsv(fname, authorized_columns, mandatory_organism_columns):
     return rows
 
 def read_rows(rows):
+    ''' print rows information by row
+    '''
     logger = logging.getLogger('read_rows')
     for row in rows:
         logger.debug('{}\n'.format(row))
     return 0
 
 def create_d_input(d_rows):
-    '''
+    ''' formatting information by filename
     '''
     logger = logging.getLogger('{}.{}'.format(create_d_input.__module__, create_d_input.__name__))
     d_input = {}
@@ -113,6 +121,7 @@ def create_d_input(d_rows):
                 if d_input[filename][contig_id] != arow['taxon_id']:
                     logger.error('The nucleaotide accession {} already refers to a taxon ID {}'.format(contig_id, d_input[filename][contig_id]['taxon_id']))
                     exit(1)
+        logger.debug('{}\t{}'.format(filename, d_input[filename]))
     return d_input
 
 def check_and_get_input(input):
@@ -128,7 +137,7 @@ def check_and_get_input(input):
     authorized_columns = ['protein_AC', 'protein_AC_field', 'nucleic_AC', 'nucleic_File_Format', 'nucleic_File_Name', 'taxon_id']
     mandatory_columns = ['protein_AC', 'protein_AC_field', 'nucleic_AC', 'nucleic_File_Format', 'nucleic_File_Name']
     d_rows = parse_tsv(input, authorized_columns, mandatory_columns)
-    read_rows(d_rows)
+    #read_rows(d_rows)
     ## End from JL
     d_input = create_d_input(d_rows)
     return d_input
@@ -312,6 +321,8 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
     return cds_info, contig_content, params
 
 def set_target_to_gc(ref_target, gcList, cds_info):
+    ''' add the target reference to members of its genomic context
+    '''
     for gc_member in gcList:
         if ref_target not in cds_info[gc_member]['target']:
             cds_info[gc_member]['target'].append(ref_target)
@@ -394,7 +405,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
         for seqRecord in seqRecordParsed:
             if params['INC_CONTIG_REF'] >= STOP_INC_CONTIG:
                 break
-            contig_name = seqRecord.id.split(r'.')[0]
+            contig_name = seqRecord.id#.split(r'.')[0]
             if contig_name in d_infile:
                 params['INC_CONTIG_REF'] += 1
                 INC_CONTIG_REF = params['INC_CONTIG_REF']
@@ -450,7 +461,9 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
 
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
-    '''
+    ''' every INSDC file in d_input will be parsed
+        information are stored in dictionaries, one relative to contigs, the other relative to cds
+        found targets are listed
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     targets_storage = []
