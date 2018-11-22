@@ -36,8 +36,8 @@ def set_userGC_similarityContext(targets, cds_info, params):
     return cds_info
 
 def get_families_and_pos_in_context(target_info, tmp_target_families):
-    for afam in target_info['similarityContext']:
-        tmp_target_families.setdefault(afam, []).append(target_info['similarityContext'].index(afam))
+    for idx, afam in enumerate(target_info['similarityContext']):
+        tmp_target_families.setdefault(afam, []).append(idx)
     return tmp_target_families
 
 def intersect_families(keysA, keysB):
@@ -224,7 +224,7 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
 
     with open(gcFile, 'rb') as file:
         cds_info = pickle.load(file)
-    with open('{}/netsyn_BKACE_1/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
+    with open('{}/new_NS_0/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
     #with open('{}/test/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
         targets_list = pickle.load(file)
 
@@ -329,7 +329,6 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
         cds_ref['protein_id'] = cds_info[cds_ref['name']]['uniprot']
 
     maxi_graph.write_graphml('maxi_graph.graphml')
-    print(len(maxi_graph.es))
 
 if __name__ == '__main__':
     run(sys.argv[1], sys.argv[2], sys.argv[3], os.path.abspath('.'))
