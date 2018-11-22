@@ -367,7 +367,8 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         GetINSDCFiles.run(args.InputFile, TMPDIRECTORY, MAXGCSIZE, logger)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
-        ClusteringIntoFamilies.run('{}/TMP/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(args.ProjectName), args, TMPDIRECTORY) #### /!\ chemin en dur /!\
+        inputBoxII = '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY)
+        ClusteringIntoFamilies.run(nameBox, TMPDIRECTORY, inputBoxII, MAXGCSIZE, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         SyntenyFinder.run(logger)
