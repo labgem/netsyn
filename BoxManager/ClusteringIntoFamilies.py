@@ -521,6 +521,9 @@ def write_multiFasta(cds_info, output):
                     fastaFile.write('\n')
                     count = 0
             fastaFile.write('\n')
+    if os.path.getsize('output') == 0:
+        logger.debug('MultiFasta File is empty.')
+        exit(1)
     return 0
 
 def write_pickle(dictionary, output):
