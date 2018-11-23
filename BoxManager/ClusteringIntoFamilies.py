@@ -9,6 +9,7 @@ import string
 import pickle
 import json
 import os
+import math
 import shutil
 import xml.etree.ElementTree as ET
 import subprocess
@@ -391,7 +392,7 @@ def sliding_window(cds_info, contig_content, target_list, beginContig, targets_s
     '''
     logger = logging.getLogger('{}.{}'.format(sliding_window.__module__, sliding_window.__name__))
     MAX_GC = params['MAX_GC']
-    HALF_SIZE_GC = int(MAX_GC/2)
+    HALF_SIZE_GC = math.floor(MAX_GC/2)
     window = contig_content['window']
     window_size = len(window)
     if window_size == MAX_GC:
