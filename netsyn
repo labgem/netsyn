@@ -326,7 +326,7 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
 		  {'value' : '{}/ClusteringIntoFamilies/contigs.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/genomicContexts.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/taxonomyLineage.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
-		  {'value' : '{}/ClusteringIntoFamilies/targets_list'.format(TMPDIRECTORY), 'type' : 'file'}],
+		  {'value' : '{}/ClusteringIntoFamilies/targets_list.pickle'.format(TMPDIRECTORY), 'type' : 'file'}],
         'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/Clustering.json'.format(TMPDIRECTORY), 'type' : 'file'}],
         'DataExport' : [{'value' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
                   {'value' : '{}/{}_Results_{}.html'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
@@ -371,7 +371,9 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         ClusteringIntoFamilies.run(nameBox, TMPDIRECTORY, inputBoxII, MAXGCSIZE, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
-        SyntenyFinder.run(logger)
+        inputBoxIII = '{}/ClusteringIntoFamilies/genomicContexts.pickle'.format(TMPDIRECTORY)
+        targets_list = '{}/ClusteringIntoFamilies/targets_list.pickle'.format(TMPDIRECTORY)
+        SyntenyFinder.run(nameBox, TMPDIRECTORY, inputBoxIII, targets_list, MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
         logger = logging.getLogger('runDataExport')
         DataExport.run(logger)

@@ -15,6 +15,28 @@ import cairocffi
 #############
 # Functions #
 #############
+def argumentsParser():
+    '''
+    Arguments parsing
+    '''
+    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',
+                                     epilog = '''All's well that ends well.''',
+                                     usage = '''ClusteringIntoFamilies options...''',
+                                     formatter_class = argparse.RawTextHelpFormatter)
+    
+    parser.add_argument('-i', '--input', type = str,
+                        required = True, help = 'Path of the input obtained from the ClusteringIntoFamilies part')
+    parser.add_argument('-ws', '--WindowSize', type = int,
+                        default = 11, help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
+    parser.add_argument('-sg', '--SyntenyGap', type = int, default = 3,
+                        help = 'Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
+    parser.add_argument('-ssc', '--SyntenyScoreCuttoff', type = float,
+                        default = 0, help = 'Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+    parser.add_argument('-pn', '--ProjectName', type = str, required = True,
+                        help = 'The project name.')
+    parser.add_argument('-tl', '--TargetsList', type = str, required = True,
+                        help = 'Path of the target list obtained from the ClusteringIntoFamilies part')
+    return parser
 
 def set_userGC_similarityContext(targets, cds_info, params):
     half_user_window = math.floor(params['USER_GC']/2)
@@ -207,24 +229,25 @@ def build_maxi_graph(maxiG, targets_syntons, params):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
-def run(gcUser, gap, gcFile, TMPDIRECTORY):
+def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCORECUTOFF):
     '''
     '''
-    BOXNAME = 'SyntenyFinder'
+    logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    logger.info('{} running...'.format(BOXNAME))
     TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
     if not os.path.isdir(TMPDIRECTORYPROCESS):
         os.mkdir(TMPDIRECTORYPROCESS)
 
     params = {
-        'MAX_GC': 11,
-        'USER_GC': int(gcUser),
-        'GAP': int(gap),
+        'MAX_GC': MAXGCSIZE,
+        'USER_GC': GCUSER,
+        'GAP': GAP,
         'INC_TARGETS_PAIR': 0
         }
 
-    with open(gcFile, 'rb') as file:
+    with open(INPUT, 'rb') as file:
         cds_info = pickle.load(file)
-    with open('{}/new_NS_0/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
+    with open(TARGETS_LIST, 'rb') as file:
     #with open('{}/test/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
         targets_list = pickle.load(file)
 
@@ -331,4 +354,9 @@ def run(gcUser, gap, gcFile, TMPDIRECTORY):
     maxi_graph.write_graphml('maxi_graph.graphml')
 
 if __name__ == '__main__':
-    run(sys.argv[1], sys.argv[2], sys.argv[3], os.path.abspath('.'))
+    parser = argumentsParser()
+    args = parser.parse_args()
+    BOXNAME = 'SyntenyFinder'
+    TMPDIRECTORY = '{}/TMP'.format(args.ProjectName)
+    MAXGCSIZE = 11
+    run(BOXNAME, TMPDIRECTORY, args.input, args.TargetsList, MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
