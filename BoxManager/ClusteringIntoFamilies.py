@@ -30,7 +30,7 @@ def argumentsParser():
                                      epilog = '''All's well that ends well.''',
                                      usage = '''ClusteringIntoFamilies options...''',
                                      formatter_class = argparse.RawTextHelpFormatter)
-    
+
     parser.add_argument('-i', '--input', type = str,
                         required = True, help = 'Path of the input obtained from the GetINSDCFiles part')
     parser.add_argument('-id', '--Ident', type = float,
@@ -468,7 +468,8 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                                 targets_storage,
                                 params
                                 )
-                for i in range(params['MAX_GC']-1):# don't work with '_' instead of 'i'
+                beginContig = False
+                for i in range(min(params['MAX_GC']-1, len(contig_info[INC_CONTIG_REF]['window']))):# don't work with '_' instead of 'i'
                     cds_info, contig_info[INC_CONTIG_REF], beginContig, targets_storage, params = sliding_window(
                         cds_info,
                         contig_info[INC_CONTIG_REF],
@@ -479,11 +480,9 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         )
                 #logger.debug('proteins referenced: {}'.format(cds_info.keys()))
                 logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
-
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
 
     return cds_info, contig_info, targets_storage, params
-
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
     ''' every INSDC file in d_input will be parsed
@@ -522,9 +521,9 @@ def write_multiFasta(cds_info, output):
                     fastaFile.write('\n')
                     count = 0
             fastaFile.write('\n')
-    if os.path.getsize('output') == 0:
-        logger.debug('MultiFasta File is empty.')
-        exit(1)
+    # if os.path.getsize(output) == 0:
+    #     logger.debug('MultiFasta File is empty.')
+    #     exit(1)
     return 0
 
 def write_pickle(dictionary, output):
@@ -731,7 +730,7 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
     if not os.path.isdir(TMPDIRECTORYPROCESS):
         os.mkdir(TMPDIRECTORYPROCESS)
-    #ClusteringMethod='MCL', INSDCRepertory=None, Ident=30, InputFile='toto', MetaDataFile=None, MinCoverage=0.8, ProjectDescription='No description', ProjectName='test', ProjectOwner='cchev', RedundancyRemoval='FALSE', RedundancyRemovalLabel='FALSE', RedundancyRemovalTaxonomy='FALSE', ScoreType=1, SyntenyFilter='off', SyntenyGap=3, SyntenyScoreCuttoff=0, WindowSize=11, log_file=None, log_level='debug'
+
     params = {
         'PSEUDOGENE': False, # Tells if pseudogenes are included in the analysis
         'MAX_GC': MAXGCSIZE, # size of the window
