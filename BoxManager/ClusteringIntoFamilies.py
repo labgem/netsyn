@@ -668,8 +668,9 @@ def mmseqs_clustering(TMPDIRECTORYPROCESS, prefix, cov, ident, cov_mode):
                                          '--min-seq-id', str(ident),
                                          '--cov-mode', str(cov_mode),
                                          '-c', str(cov),
-                                         '--cluster-mode', str(0)#str(clust_mode)#,
-                                         #'--cascaded', str(cascaded)
+                                         '--cluster-mode', str(2),
+                                         '--kmer-per-seq', str(80),
+                                         '--max-seqs', str(300)
                                          ], stdout=file, stderr=file, check=True)
         logger.info('clustering - exit code: {}'.format(clust_creation.returncode))
     return 0
