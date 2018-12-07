@@ -350,66 +350,36 @@ def set_target_to_gc(ref_target, gcList, cds_info):
             cds_info[gc_member]['target'].append(ref_target)
     return cds_info
 
-def is_target(cds, target_list, cds_info, contig_content, targets_storage, params):
+def found_target_procedure(cds, target_list, cds_info, contig_content, targets_storage):
     ''' tests if the tested CDS is referenced as a target
     If yes, copy the window's information to cds_keeper :
     information on target and genomic context are saved
 
     *** tested value used to be the CDS in the middle of the window ***
     '''
-    logger = logging.getLogger('{}.{}'.format(is_target.__module__, is_target.__name__))
-    if cds_info[cds]['protein_id'] in target_list:
-        targets_storage.append(cds)
-        contig_content['cds_to_keep'].extend(contig_content['window'])
+    logger = logging.getLogger('{}.{}'.format(found_target_procedure.__module__, found_target_procedure.__name__))
+    targets_storage.append(cds)
+    contig_content['cds_to_keep'].extend(contig_content['window'])
 
-        cds_info[cds]['target'].append(cds)
-        cds_info[cds]['context'] = contig_content['window'].copy()
-        cds_info[cds]['similarityContext'] = None
+    cds_info[cds]['target'].append(cds)
+    cds_info[cds]['context'] = contig_content['window'].copy()
+    cds_info[cds]['similarityContext'] = None
 
-        cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
-        params['INC_TARGET_LOADED'] += 1
-        logger.debug('cds ({}/{})\t- contig_content ({}) -\twindow: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['window']))
-        logger.debug('cds ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
-    return cds_info, contig_content, targets_storage, params
+    cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
+    logger.debug('cds ({}/{})\t- contig_content ({}) -\twindow: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['window']))
+    logger.debug('cds ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
+    return cds_info, contig_content, targets_storage
 
-def is_kept(cds, cds_info, contig_content):
+def remove_useless_cds(cds, cds_info, contig_content):
     ''' verifies if the tested CDS is in cds_to_keep list
     If not, all information on it are removed
 
     *** tested value is the first value of the window ***
     '''
-    logger = logging.getLogger('{}.{}'.format(is_kept.__module__, is_kept.__name__))
-    if contig_content['cds_to_keep']:
-        if cds not in [ref for ref in contig_content['cds_to_keep']]:
-            del cds_info[cds]
-    else:
+    logger = logging.getLogger('{}.{}'.format(remove_useless_cds.__module__, remove_useless_cds.__name__))
+    if cds not in [ref for ref in contig_content['cds_to_keep']]:
         del cds_info[cds]
-    del contig_content['window'][0]
-    return cds_info, contig_content
-
-def sliding_window(cds_info, contig_content, target_list, beginContig, targets_storage, params):
-    ''' makes the window going ahead through the CDSs in a contig
-    '''
-    logger = logging.getLogger('{}.{}'.format(sliding_window.__module__, sliding_window.__name__))
-    MAX_GC = params['MAX_GC']
-    HALF_SIZE_GC = math.floor(MAX_GC/2)
-    window = contig_content['window']
-    window_size = len(window)
-    if window_size == MAX_GC:
-        beginContig = False
-        cds_info, contig_content, targets_storage, params = is_target(window[HALF_SIZE_GC], target_list, cds_info, contig_content, targets_storage, params)
-        cds_info, contig_content = is_kept(window[0], cds_info, contig_content)
-    # COM: window's size didn't reach the MAX_GC yet
-    elif window_size > HALF_SIZE_GC and beginContig:
-        cds_info, contig_content, targets_storage, params = is_target(window[window_size-(HALF_SIZE_GC+1)], target_list, cds_info, contig_content, targets_storage, params)
-    # COM: the window is overrunning the contig
-    elif window_size > HALF_SIZE_GC and not beginContig:
-        cds_info, contig_content, targets_storage, params = is_target(window[HALF_SIZE_GC], target_list, cds_info, contig_content, targets_storage, params)
-        cds_info, contig_content = is_kept(window[0], cds_info, contig_content)
-    # COM: there is no more target at the end of the contig
-    elif window_size <= HALF_SIZE_GC and not beginContig:
-        cds_info, contig_content = is_kept(window[0], cds_info, contig_content)
-    return cds_info, contig_content, beginContig, targets_storage, params
+    return cds_info
 
 def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params):
     ''' gets information for every contig mentionned in the input
@@ -419,6 +389,8 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
     logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
     STOP_INC_CONTIG = params['INC_CONTIG_REF'] + len(d_infile)-2
 
+    MAX_GC = params['MAX_GC']
+    HALF_SIZE_GC = math.floor(MAX_GC/2)
     typeParsing = d_infile['nucleic_File_Format']
     fieldProteinID = d_infile['protein_AC_field']
 
@@ -428,12 +400,16 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
             if params['INC_CONTIG_REF'] >= STOP_INC_CONTIG:
                 logger.debug('To many contigs to parse ({}). Stop on contig {}'.format(params['INC_CONTIG_REF'], seqRecord.id))
                 break
-            contig_name = seqRecord.id#.split(r'.')[0]
-            if contig_name in d_infile:
+            if seqRecord.id in d_infile:
+                contig_name = seqRecord.id
+            elif seqRecord.id.split(r'.')[0] in d_infile:
+                contig_name = seqRecord.id.split(r'.')[0]
+            else:
+                contig_name = ''
+            if contig_name != '':
                 params['INC_CONTIG_REF'] += 1
                 INC_CONTIG_REF = params['INC_CONTIG_REF']
                 params['INC_TARGET_LOADED'] = 0
-                beginContig = True
                 contig_info[INC_CONTIG_REF] = {'contig': contig_name}
                 for aFeature in seqRecord.features:
                     if aFeature.type == 'source':
@@ -452,36 +428,62 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                             if params['PSEUDOGENE']:
                                 cds_info, contig_info[INC_CONTIG_REF], params = get_pseudo_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], params)
                                 newCdsAdded = True
-                            #else: # ???
-                                #break # ???
                         else:
                             cds_info, contig_info[INC_CONTIG_REF], params = get_prot_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], fieldProteinID, params)
-                            # print(params, [contig_info[ref]['window']
-                            #                for ref in contig_info])
                             newCdsAdded = True
                         if newCdsAdded:
-                            cds_info, contig_info[INC_CONTIG_REF], beginContig, targets_storage, params = sliding_window(
-                                cds_info,
-                                contig_info[INC_CONTIG_REF],
-                                d_infile[contig_name]['target_list'],
-                                beginContig,
-                                targets_storage,
-                                params
-                                )
-                beginContig = False
-                for i in range(min(params['MAX_GC']-1, len(contig_info[INC_CONTIG_REF]['window']))):# don't work with '_' instead of 'i'
-                    cds_info, contig_info[INC_CONTIG_REF], beginContig, targets_storage, params = sliding_window(
-                        cds_info,
-                        contig_info[INC_CONTIG_REF],
-                        d_infile[contig_name]['target_list'],
-                        beginContig,
-                        targets_storage,
-                        params
-                        )
-                #logger.debug('proteins referenced: {}'.format(cds_info.keys()))
+                            window = contig_info[INC_CONTIG_REF]['window']
+                            #print('window: {}'.format(window))
+                            window_length = len(window)
+                            contig_content = contig_info[INC_CONTIG_REF]
+                            target_list = d_infile[contig_name]['target_list']
+                            if window_length == MAX_GC:
+                                presumed_target = window[HALF_SIZE_GC]
+                                presumed_kicked_out_cds = window[0]
+                                #print(presumed_kicked_out_cds)
+                                if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                                    params['INC_TARGET_LOADED'] += 1
+                                    cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                                if contig_content['cds_to_keep']:
+                                    cds_info = remove_useless_cds(presumed_kicked_out_cds, cds_info, contig_content)
+                                else:
+                                    #print(cds_info.keys())
+                                    del cds_info[presumed_kicked_out_cds]
+                                del window[0]
+                            elif window_length > HALF_SIZE_GC:
+                                presumed_target = window[window_length-(HALF_SIZE_GC+1)]
+                                if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                                    params['INC_TARGET_LOADED'] += 1
+                                    cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+
+                ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
+                window = contig_info[INC_CONTIG_REF]['window']
+                window_length = len(window)
+                contig_content = contig_info[INC_CONTIG_REF]
+                target_list = d_infile[contig_name]['target_list']
+                if window_length >= HALF_SIZE_GC:
+                    for presumed_target in window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]:
+                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                            params['INC_TARGET_LOADED'] += 1
+                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                    for presumed_target in window[HALF_SIZE_GC:]:
+                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                            params['INC_TARGET_LOADED'] += 1
+                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                        if contig_content['cds_to_keep']:
+                            cds_info = remove_useless_cds(window[0], cds_info, contig_content)
+                        else:
+                            del cds_info[window[0]]
+                        del window[0]
+                elif window_length < HALF_SIZE_GC:
+                    for presumed_target in window:
+                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                            params['INC_TARGET_LOADED'] += 1
+                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                #logger.debug('target list for this contig ({}): {}'.format(contig_name, d_infile[contig_name]['target_list']))
+                #logger.debug('list des targets récupérées: {}'.format(targets_storage))
                 logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
-
     return cds_info, contig_info, targets_storage, params
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
@@ -806,13 +808,12 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     # write_pickle(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinSingletons.pickle'))
     # logger.info('Written files:\n{}\n{}'.format('proteinFamilies.pickle', 'proteinSingletons.pickle'))
     
-    with open('{}/analysed_targets'.format(TMPDIRECTORY), 'w') as file:
+    with open('{}/analysed_cds'.format(TMPDIRECTORYPROCESS), 'w') as file:
         for inc in cds_info.keys():
             file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], cds_info[inc]['uniprot']))
 
     print('Nbr of targets: {} - {}'.format(len(targets_storage), params['INC_TARGET_LOADED']))
-    with open('analysed_targets', 'w') as file:
-        file.write('List of targets:\n')
+    with open('{}/analysed_targets'.format(TMPDIRECTORYPROCESS), 'w') as file:
         for tar in targets_storage:
             file.write('{}\t{}\t{}\n'.format(tar, cds_info[tar]['protein_id'], cds_info[tar]['uniprot']))
     print('Nbr of cds: {}'.format(len(cds_info)))
