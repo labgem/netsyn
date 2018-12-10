@@ -19,23 +19,23 @@ def argumentsParser():
     '''
     Arguments parsing
     '''
-    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',
-                                     epilog = '''All's well that ends well.''',
-                                     usage = '''ClusteringIntoFamilies options...''',
-                                     formatter_class = argparse.RawTextHelpFormatter)
-    
-    parser.add_argument('-i', '--input', type = str,
-                        required = True, help = 'Path of the input obtained from the ClusteringIntoFamilies part')
-    parser.add_argument('-ws', '--WindowSize', type = int,
-                        default = 11, help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
-    parser.add_argument('-sg', '--SyntenyGap', type = int, default = 3,
-                        help = 'Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
-    parser.add_argument('-ssc', '--SyntenyScoreCuttoff', type = float,
-                        default = 0, help = 'Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
-    parser.add_argument('-pn', '--ProjectName', type = str, required = True,
-                        help = 'The project name.')
-    parser.add_argument('-tl', '--TargetsList', type = str, required = True,
-                        help = 'Path of the target list obtained from the ClusteringIntoFamilies part')
+    parser = argparse.ArgumentParser(description='''Description of the SyntenyFinder usage''',
+                                     epilog='''All's well that ends well.''',
+                                     usage='''SyntenyFinder options...''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('-i', '--input', type=str,
+                        required=True, help='Path of the input obtained from the ClusteringIntoFamilies part')
+    parser.add_argument('-ws', '--WindowSize', type=int,
+                        default=11, help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
+    parser.add_argument('-sg', '--SyntenyGap', type=int, default=3,
+                        help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
+    parser.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
+                        default=0, help='Define the minimum Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+    parser.add_argument('-pn', '--ProjectName', type=str, required=True,
+                        help='The project name.')
+    parser.add_argument('-tl', '--TargetsList', type=str, required=True,
+                        help='Path of the target list obtained from the ClusteringIntoFamilies part')
     return parser
 
 def set_userGC_similarityContext(targets, cds_info, params):
@@ -98,10 +98,10 @@ def get_connected_components(graph, synton_of_targets, params, mode='A'):
         look_at = 1
     sorted_syntons = sorted(graph.vs['name'], key=lambda synton: synton[look_at])
     evaluate_proximity(sorted_syntons, graph, params, look_at)
-    cc = graph.components()
-    for cluster in cc:
-        if synton_of_targets in graph.vs[cluster]['name']:
-            cc_with_target_target = cluster
+    ccs = graph.components()
+    for component_connexe in ccs:
+        if synton_of_targets in graph.vs[component_connexe]['name']:
+            cc_with_target_target = component_connexe
             break
     # largest_cluster = []
     # for cluster in cc:
@@ -136,6 +136,7 @@ def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     return score
 
 def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params):
+    logger = logging.getLogger('{}.{}'.format(find_common_connected_components.__module__, find_common_connected_components.__name__))
     # print('enter in find_common_connected_components function')
     synton_of_targets = AB_targets_syntons['synton_of_targets']
     boolean_synton_of_targets = AB_targets_syntons['boolean_targets_synton']
@@ -161,6 +162,7 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
             edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
             maxiG.es[edge_idx_AB]['weight'] = score
+            params["INC_TARGETS_PAIR"] += 1
         else:
             # print('we need more steps')
             gA_memory = gA.copy()
@@ -168,30 +170,16 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             gA.add_vertices(gA_memory.vs[itrsect]['name'])
             gB = gA.copy()
             find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
-    # else:
-    #     print('not long enough :\'{')
-    #     print(boolean_synton_of_targets, len(itrsect), targetA, targetB)
+    else:
+        params['INC_NO_SYNTENY'] += 1
+        # print('not long enough :\'{')
+        # print(boolean_synton_of_targets, len(itrsect), targetA, targetB)
 
-    # else:
-    #     if len(itrsect) > 2:
-    #         # print('are long enough !')
-    #         # print(ccA, ccB, itrsect)
-    #         if ccA == ccB == itrsect:
-    #             #print('we have a ccc !!!')
-    #             score = compute_score(gA.vs[itrsect]['name'], synton_of_targets, boolean_synton_of_targets)
-    #             maxiG.add_vertex((targetA, targetB))
-    #         else:
-    #             #print('we need more steps')
-    #             gA_memory = gA.copy()
-    #             gA = ig.Graph()
-    #             gA.add_vertices(gA_memory.vs[itrsect]['name'])
-    #             gB = gA.copy()
-    #             find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
-    #     #else:
-    #         #print('not long enough :\'{')
-    return maxiG
+    return maxiG, params
 
 def build_maxi_graph(maxiG, targets_syntons, params):
+    logger = logging.getLogger('{}.{}'.format(build_maxi_graph.__module__, build_maxi_graph.__name__))
+    logger.info('Synteny graph in construction')
     for (targetA, targetB) in targets_syntons:
         # print('######################################')
         # print(targetA, targetB)
@@ -199,10 +187,10 @@ def build_maxi_graph(maxiG, targets_syntons, params):
         gA.add_vertices(targets_syntons[(targetA, targetB)]['syntons'])
         gB = gA.copy()
         # print('first search')
-        maxiG = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
+        maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
         # if maxiG.vertex_attributes():
         #     print(maxiG.vs['name'])
-    return maxiG
+    return maxiG, params
 
 # def fix_dendrogram(graph, cl):
 #     '''known bug with incomplete dendrograms
@@ -242,7 +230,8 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
         'MAX_GC': MAXGCSIZE,
         'USER_GC': GCUSER,
         'GAP': GAP,
-        'INC_TARGETS_PAIR': 0
+        'INC_TARGETS_PAIR': 0,
+        'INC_NO_SYNTENY': 0
         }
 
     with open(INPUT, 'rb') as file:
@@ -253,14 +242,15 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
 
     tmp_dict = {}
     targets_syntons = {}
+    no_synteny = 0
     targets_list = sorted(list(set(targets_list))) # ligne à supprimer quand problème des doublons réglé dans CIF.py
+    logger.debug('Length of the targets list: {}'.format(len(targets_list)))
 
     cds_info = set_userGC_similarityContext(targets_list, cds_info, params)
     for target in targets_list:
         tmp_dict[target] = {'families': {}}
         tmp_dict[target]['families'] = get_families_and_pos_in_context(cds_info[target], tmp_dict[target]['families'])
         tmp_dict[target]['target_pos'] = cds_info[target]['userGC'].index(target)
-
 
     for idx, targetA in enumerate(targets_list[:-1]):
         for targetB in targets_list[idx+1:]:
@@ -277,9 +267,16 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
                                                                   []).extend(syntons)
                     add_synton_of_targets(targetA, targetB, tmp_dict, targets_syntons)
                     # print('dictionary of targets {} and {}:\n{}\n'.format(targetA, targetB, targets_syntons[(targetA, targetB)]))
-
+                else:
+                    no_synteny += 1
+            else:
+                no_synteny += 1
+    #logger.info('Couples of targets computed depending on synteny results')
     maxi_graph = ig.Graph()
-    maxi_graph = build_maxi_graph(maxi_graph, targets_syntons, params)
+    maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
+    logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
+    logger.info('Number of pairs where synteny doesn\'t respect gap parameter or on target filter: {}'.format(params['INC_NO_SYNTENY']))
+    logger.info('Number of pairs of targets in synteny: {}'.format(params['INC_TARGETS_PAIR']))
     # print(maxi_graph)
     # print('\n')
 
@@ -296,11 +293,11 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
     #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
 
     ### Walktrap clustering
-    print('\n*** Walktrap clustering ***')
+    logger.info('\n*** Walktrap clustering ***')
     graph_walktrap = maxi_graph.community_walktrap(weights=maxi_graph.es['weight'])
     # print(graph_walktrap) # VertexDendrogram object
     walktrap_clustering = graph_walktrap.as_clustering()
-    print(walktrap_clustering) # list of VertexClustering objects
+    logger.info(walktrap_clustering) # list of VertexClustering objects
 
     # ### Louvain clustering
     # print('\n*** Louvain clustering ***')
@@ -324,7 +321,7 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
 
     # layout = maxi_graph.layout('fr') # pourquoi pas ...
     #layout = maxi_graph.layout('kk') # pourquoi pas ...
-    
+
     # pal = ig.drawing.colors.ClusterColoringPalette(len(walktrap_clustering))
     # visual_style = {
     #     'edge_width': maxi_graph.es['weight'],
