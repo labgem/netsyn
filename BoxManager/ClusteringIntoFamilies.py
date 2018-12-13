@@ -26,19 +26,19 @@ def argumentsParser():
     '''
     Arguments parsing
     '''
-    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',
-                                     epilog = '''All's well that ends well.''',
-                                     usage = '''ClusteringIntoFamilies options...''',
-                                     formatter_class = argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='''My Description. And what a lovely description it is. ''',
+                                     epilog='''All's well that ends well.''',
+                                     usage='''ClusteringIntoFamilies options...''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-i', '--input', type = str,
-                        required = True, help = 'Path of the input obtained from the GetINSDCFiles part')
-    parser.add_argument('-id', '--Ident', type = float,
-                        default = 0.3, help='Sequence identity.\nDefault value: 0.3.')
-    parser.add_argument('-mc', '--MinCoverage', type = float,
-                        default = 0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
-    parser.add_argument('-pn', '--ProjectName', type = str, required = True,
-                        help = 'The project name.')
+    parser.add_argument('-i', '--input', type=str,
+                        required=True, help='Path of the input obtained from the GetINSDCFiles part')
+    parser.add_argument('-id', '--Ident', type=float,
+                        default=0.3, help='Sequence identity.\nDefault value: 0.3.')
+    parser.add_argument('-mc', '--MinCoverage', type=float,
+                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
+    parser.add_argument('-pn', '--ProjectName', type=str, required=True,
+                        help='The project name.')
     return parser
 
 def skip_duplicates(iterable, key=lambda x: x):
@@ -80,14 +80,13 @@ def parse_tsv(fname, authorized_columns, mandatory_columns):
     first_line = True
     errors = False
     rows = []
-    replicons_index = {}
     line_number = 0
-    with open(fname,'r') as file:
+    with open(fname, 'r') as file:
         for line in file:
             if first_line:
                 headers = {}
                 for index, header in enumerate(line.split('\t')):
-                    header = header.replace('\r\n','').replace('\n','') # header.strip() ???
+                    header = header.replace('\r\n', '').replace('\n', '') # header.strip() ???
                     p = re.compile(r'(?:{})'.format('|'.join(authorized_columns)))
                     if not p.search(header):
                         logger.error('{}: Column name not valid.'.format(header))
@@ -103,7 +102,7 @@ def parse_tsv(fname, authorized_columns, mandatory_columns):
                 row = {}
                 row['line_number'] = line_number
                 for index, column in enumerate(line.split('\t')):
-                    row[headers[index]] = column.replace('\r\n','').replace('\n','') # header.strip()
+                    row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
                 rows.append(row)
     if errors:
         logger.error('Madatory columns')
@@ -123,27 +122,30 @@ def create_d_input(d_rows):
     '''
     logger = logging.getLogger('{}.{}'.format(create_d_input.__module__, create_d_input.__name__))
     d_input = {}
+    errors = False
 
     for arow in d_rows: # skips the first line, with headers
         filename = arow['nucleic_File_Name']
         contig_id = arow['nucleic_AC']
         d_input.setdefault(
             filename, {}).setdefault(contig_id, {}).setdefault('target_list', [])
-        
+
         if arow['protein_AC'] not in d_input[filename][contig_id]['target_list']:
             d_input[filename][contig_id]['target_list'].append(arow['protein_AC'])
 
         d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
         d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
 
-        if 'taxon_id' in arow.keys():
-            if not d_input[filename][contig_id]:
-                d_input[filename][contig_id] = arow['taxon_id']
+        if 'taxon_id' in arow.keys() and arow['taxon_id'] != 'NA':
+            if 'taxon_id' not in d_input[filename][contig_id]:
+                d_input[filename][contig_id]['taxon_id'] = arow['taxon_id']
             else:
-                if d_input[filename][contig_id] != arow['taxon_id']:
-                    logger.error('The nucleaotide accession {} already refers to a taxon ID {}'.format(contig_id, d_input[filename][contig_id]['taxon_id']))
-                    exit(1)
-        logger.debug('{}\t{}'.format(filename, d_input[filename]))
+                if d_input[filename][contig_id]['taxon_id'] != arow['taxon_id']:
+                    logger.error('Taxon ID provided in line {} is different than a previously provided one for the same INSDC file {}'.format(arow['line_number'], filename))
+                    errors = True
+    if errors:
+        logger.info('Taxon ID inconsistency. Please review your input file')
+        exit(1)
     return d_input
 
 def check_and_get_input(input):
@@ -221,20 +223,15 @@ def get_required_value(func, aFeature, *args):
     else:
         return func(aFeature, *args)
 
-def search_taxonID(aFeature, given_taxon):
+def search_taxonID(aFeature):
     ''' makes sure that the taxon ID is provided by the user or through the
     INSDC file
     '''
     logger = logging.getLogger('{}.{}'.format(search_taxonID.__module__, search_taxonID.__name__))
-    if given_taxon:
-        #print('taxon_id provided by the user')
-        taxon_id = given_taxon
-    else:
-        #print('taxon_id must be in the file')
-        taxon_id = get_required_value(get_uniq_value, aFeature, 'taxon')
+    taxon_id = get_uniq_value(aFeature, 'taxon')
     return taxon_id
 
-def get_contig_info(aFeature, contig_content, given_taxon):
+def get_contig_info(aFeature, contig_content, taxon_id):
     ''' then get the relied information to a contig as organism, strain, size
     and taxon ID
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -243,21 +240,18 @@ def get_contig_info(aFeature, contig_content, given_taxon):
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     logger = logging.getLogger('{}.{}'.format(get_contig_info.__module__, get_contig_info.__name__))
-    taxon_id = search_taxonID(aFeature, given_taxon)
-    if taxon_id != 'NA':
-        contig_content.update({
-                'organism': get_uniq_value(aFeature, 'organism'),
-                'strain': get_uniq_value(aFeature, 'strain'),
-                'taxon_id': taxon_id,
-                'size': [aFeature.location.start.real+1,
-                         aFeature.location.end.real
-                         ],
-                'cds_to_keep': [],
-                'window': []
-                })
-    else:
-        logger.error('We have a problem')
-        exit(1)
+    if taxon_id == 'NA':
+        taxon_id = search_taxonID(aFeature)
+    contig_content.update({
+            'organism': get_uniq_value(aFeature, 'organism'),
+            'strain': get_uniq_value(aFeature, 'strain'),
+            'taxon_id': taxon_id,
+            'size': [aFeature.location.start.real+1,
+                     aFeature.location.end.real
+                     ],
+            'cds_to_keep': [],
+            'window': []
+            })
     return contig_content
 
 def is_pseudogene(aFeature):
@@ -414,16 +408,16 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                 contig_info[INC_CONTIG_REF] = {'contig': contig_name}
                 for aFeature in seqRecord.features:
                     if aFeature.type == 'source':
-                        given_taxon_id = 'taxon_id' in d_infile[contig_name].keys()
+                        has_taxon_id = 'taxon_id' in d_infile[contig_name].keys()
                         contig_info[INC_CONTIG_REF] = get_contig_info(
                             aFeature,
                             contig_info[INC_CONTIG_REF],
-                            given_taxon_id
+                            d_infile[contig_name]['taxon_id'] if 'taxon_id' in d_infile[contig_name].keys() else 'NA'
                             )
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
                         if params['INC_TARGET_LOADED'] >= len(d_infile[contig_name]['target_list']):
-                            logger.debug('No need to search more targets. {} already found on this contig {}'.format(params['INC_TARGET_LOADED'],seqRecord.id))
+                            logger.debug('No need to search more targets. {} already found on this contig {}'.format(params['INC_TARGET_LOADED'], seqRecord.id))
                             break
                         if is_pseudogene(aFeature):
                             if params['PSEUDOGENE']:
@@ -632,8 +626,9 @@ def get_taxonLineage(taxonIDs):
     ''' concatenates the various taxonomic lineage dictionaries in a
     super-dictionary called all_lineages
     '''
+    logger = logging.getLogger('{}.{}'.format(get_taxonLineage.__module__, get_taxonLineage.__name__))
+    logger.info('Getting all taxonimic lineages represented in the Project')
     all_lineages = {}
-    print(taxonIDs)
     for ataxon in taxonIDs:
         res_taxo = get_taxo_from_web(ataxon)
         desired_taxo = get_desired_lineage(res_taxo)
@@ -722,13 +717,12 @@ def regroup_families(tsv_file, cds_info):
             centroid = aline[0]
             INC_FAMILY += 1
         cds = int(aline[1])
-        cds_info[cds]['similarityFamily'] = INC_FAMILY 
+        cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
 
 def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
     '''
-    #BOXNAME = 'ClusteringIntoFamilies'
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(BOXNAME))
     TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
@@ -795,7 +789,7 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
         logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
 
     #print(contig_info)
-        taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info]))
+        taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info if contig_info[contig]['taxon_id'] != 'NA']))
         taxonomicLineage = get_taxonLineage(taxonIDs)
         write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
         write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
@@ -805,16 +799,16 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
             cds_info = pickle.load(file)
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
-    
+
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
 
 
 
-    # **************** #
-    cds_info[47091]['uniprot'] = 'A4FQE8'
-    cds_info[51025]['uniprot'] = 'A4FFZ2'
-    cds_info[51196]['uniprot'] = 'A4FGG1'
-    # **************** #
+    # # **************** #
+    # cds_info[47091]['uniprot'] = 'A4FQE8'
+    # cds_info[51025]['uniprot'] = 'A4FFZ2'
+    # cds_info[51196]['uniprot'] = 'A4FGG1'
+    # # **************** #
 
 
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
@@ -824,7 +818,7 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     # write_pickle(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinFamilies.pickle'))
     # write_pickle(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinSingletons.pickle'))
     # logger.info('Written files:\n{}\n{}'.format('proteinFamilies.pickle', 'proteinSingletons.pickle'))
-    
+
     with open('{}/analysed_cds'.format(TMPDIRECTORYPROCESS), 'w') as file:
         for inc in cds_info.keys():
             if 'uniprot' in cds_info[inc]:
@@ -846,8 +840,12 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
 if __name__ == '__main__':
     parser = argumentsParser()
     args = parser.parse_args()
-    #def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     print(args)
+    if not os.path.isdir(args.ProjectName):
+        os.mkdir(args.ProjectName)
+        os.mkdir('{}/TMP'.format(args.ProjectName))
+    elif not os.path.isdir('{}/TMP'.format(args.ProjectName)):
+        os.mkdir('{}/TMP'.format(args.ProjectName))
     BOXNAME = 'ClusteringIntoFamilies'
     TMPDIRECTORY = '{}/TMP'.format(args.ProjectName)
     MAXGCSIZE = 11
