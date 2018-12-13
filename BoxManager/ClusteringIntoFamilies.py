@@ -293,6 +293,7 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
     logger = logging.getLogger('{}.{}'.format(get_pseudo_info.__module__, get_pseudo_info.__name__))
     params['INC_CDS_REF'] += 1
     INC_CDS_REF = params['INC_CDS_REF']
+    INC_CONTIG_REF = params['INC_CONTIG_REF']
 
     pseudo_id = get_pseudo_id(params)
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
@@ -302,7 +303,7 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
         'frame': det_frame(str(aFeature.location.strand), start, contig_content.get('size')[1]),
         'product': get_uniq_value(aFeature, 'product'),
         'sequence': get_uniq_value(aFeature, 'translation'),
-        'target': '',
+        'target': [],
         'context': None,
         'contig': INC_CONTIG_REF,
         'genome': params['INC_FILE'],
@@ -764,15 +765,17 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     except:
         pass
 
-    cds_info = {}
-    contig_info = {}
-    d_input = check_and_get_input(INPUT_II)
+    written_files = os.listdir('{}'.format(TMPDIRECTORYPROCESS))
+    if 'MMseqs2_run.faa' not in written_files:
+        cds_info = {}
+        contig_info = {}
+        d_input = check_and_get_input(INPUT_II)
     #tester la fonction map() de python pour appliquer une fonction sur une
     #liste
     #usage : map(myFun, myList)
-    logger.info('INSDC files parsing ...')
-    cds_info, contig_info, targets_storage, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
-    logger.info('End of INSDC files parsing !')
+        logger.info('INSDC files parsing ...')
+        cds_info, contig_info, targets_storage, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
+        logger.info('End of INSDC files parsing !')
     # for akey in cds_info:
     #     print(akey, cds_info[akey], sep='\t')
     #     print('***')
@@ -781,26 +784,39 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     #     print(akey, contig_info[akey], sep='\t')
     #     print('***')
 
-    logger.info('will write the multifasta file')
-    write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
-    write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
-    write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.pickle'))
-    write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.json'))
-    write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.json'))
+        logger.info('will write the multifasta file')
+        write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
+        write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
+        write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.pickle'))
+        write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.json'))
+        write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.json'))
 
-    logger.debug('list of targets: {}'.format(targets_storage))
-    logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
+        logger.debug('list of targets: {}'.format(targets_storage))
+        logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
 
     #print(contig_info)
-    taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info]))
-    taxonomicLineage = get_taxonLineage(taxonIDs)
-    write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
-    write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
-    logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
+        taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info]))
+        taxonomicLineage = get_taxonLineage(taxonIDs)
+        write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
+        write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
+        logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
+    else:
+        with open('{}/genomicContexts.pickle'.format(TMPDIRECTORYPROCESS), 'rb') as file:
+            cds_info = pickle.load(file)
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
     
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
+
+
+
+    # **************** #
+    cds_info[47091]['uniprot'] = 'A4FQE8'
+    cds_info[51025]['uniprot'] = 'A4FFZ2'
+    cds_info[51196]['uniprot'] = 'A4FGG1'
+    # **************** #
+
+
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
     write_json(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.json'))
     # real_families = {key: value for (key, value) in families.items() if len(value) > 1}
@@ -811,12 +827,16 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     
     with open('{}/analysed_cds'.format(TMPDIRECTORYPROCESS), 'w') as file:
         for inc in cds_info.keys():
-            file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], cds_info[inc]['uniprot']))
+            if 'uniprot' in cds_info[inc]:
+                uniprot = cds_info[inc]['uniprot']
+            else:
+                uniprot = 'NA'
+            file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], uniprot))
 
-    print('Nbr of targets: {} - {}'.format(len(targets_storage), params['INC_TARGET_LOADED']))
-    with open('{}/analysed_targets'.format(TMPDIRECTORYPROCESS), 'w') as file:
-        for tar in targets_storage:
-            file.write('{}\t{}\t{}\n'.format(tar, cds_info[tar]['protein_id'], cds_info[tar]['uniprot']))
+    # print('Nbr of targets: {} - {}'.format(len(targets_storage), params['INC_TARGET_LOADED']))
+    # with open('{}/analysed_targets'.format(TMPDIRECTORYPROCESS), 'w') as file:
+    #     for tar in targets_storage:
+    #         file.write('{}\t{}\t{}\n'.format(tar, cds_info[tar]['protein_id'], cds_info[tar]['uniprot']))
     print('Nbr of cds: {}'.format(len(cds_info)))
     print('Nbr of parsed files: {}'.format(params['INC_FILE']))
 
