@@ -428,21 +428,18 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                             newCdsAdded = True
                         if newCdsAdded:
                             window = contig_info[INC_CONTIG_REF]['window']
-                            #print('window: {}'.format(window))
                             window_length = len(window)
                             contig_content = contig_info[INC_CONTIG_REF]
                             target_list = d_infile[contig_name]['target_list']
                             if window_length == MAX_GC:
                                 presumed_target = window[HALF_SIZE_GC]
                                 presumed_kicked_out_cds = window[0]
-                                #print(presumed_kicked_out_cds)
                                 if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
                                     params['INC_TARGET_LOADED'] += 1
                                     cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
                                 if contig_content['cds_to_keep']:
                                     cds_info = remove_useless_cds(presumed_kicked_out_cds, cds_info, contig_content)
                                 else:
-                                    #print(cds_info.keys())
                                     del cds_info[presumed_kicked_out_cds]
                                 del window[0]
                             elif window_length > HALF_SIZE_GC:
@@ -548,39 +545,42 @@ def write_json(dictionary, output):
 
 def get_lineage(xml):
     ''' extracts the taxonomic lineage from the provided xml file format
+    ??? why initialize rank as False and not NA ???
     '''
     logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
     lineage_full = {}
     root = ET.fromstring(xml)
-    scientificName = root.find('taxon').get('scientificName')
+    scientificName = root.find('Taxon').find('ScientificName').text
     rank = False
-    if root.find('taxon').get('rank'):
-        rank = root.find('taxon').get('rank')
-    taxId = root.find('taxon').get('taxId')
+    if root.find('Taxon').find('Rank').text:
+        rank = root.find('Taxon').find('Rank').text
+    taxId = root.find('Taxon').find('TaxId').text
+    collected_taxId = taxId
     lineage_full[scientificName] = {'rank' : rank, 'taxId' : taxId}
 
-    lineage = root.find('taxon').find('lineage')
-    taxons = lineage.findall('taxon')
+    lineage = root.find('Taxon').find('LineageEx')
+    taxons = lineage.findall('Taxon')
     for taxon in taxons:
-        scientificName = taxon.get('scientificName')
-        taxId = taxon.get('taxId')
+        scientificName = taxon.find('ScientificName').text
+        taxId = taxon.find('TaxId').text
         rank = False
-        if taxon.get('rank'):
-            rank = taxon.get('rank')
+        if taxon.find('Rank').text:
+            rank = taxon.find('Rank').text
         lineage_full[scientificName] = {'rank' : rank, 'taxId' : taxId}
-    return lineage_full
+    return lineage_full, collected_taxId
 
-def get_taxo_from_web(taxonID):
+def get_taxo_from_web(taxonID, TMPDIRECTORYPROCESS):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
     logger = logging.getLogger('{}.{}'.format(get_taxo_from_web.__module__, get_taxo_from_web.__name__))
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
-    xml = http.request('GET', 'https://www.ebi.ac.uk/ena/data/view/Taxon:' + str(taxonID) + '&display=xml')
-    with open('xml_file', 'w') as file:
+    #xml = http.request('GET', 'https://www.ebi.ac.uk/ena/data/view/Taxon:' + str(taxonID) + '&display=xml')
+    xml = http.request('GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(str(taxonID)))
+    with open('{}/xml_file'.format(TMPDIRECTORYPROCESS), 'w') as file:
         file.write(xml.data.decode('utf-8'))
-    taxonLineage = get_lineage(xml.data.decode('utf-8'))
-    return taxonLineage
+    taxonLineage, collected_taxId = get_lineage(xml.data.decode('utf-8'))
+    return taxonLineage, collected_taxId
 
 def get_desired_lineage(lineage_full):
     ''' takes the ranks of interest through the taxonomic lineage
@@ -622,7 +622,7 @@ def store_into_dict(ataxon, desired_taxo):
                                            if alevel.index(level_info) != 1]
     return d_newLineage
 
-def get_taxonLineage(taxonIDs):
+def get_taxonLineage(taxonIDs, TMPDIRECTORYPROCESS):
     ''' concatenates the various taxonomic lineage dictionaries in a
     super-dictionary called all_lineages
     '''
@@ -630,7 +630,10 @@ def get_taxonLineage(taxonIDs):
     logger.info('Getting all taxonimic lineages represented in the Project')
     all_lineages = {}
     for ataxon in taxonIDs:
-        res_taxo = get_taxo_from_web(ataxon)
+        res_taxo, collected_taxId = get_taxo_from_web(ataxon, TMPDIRECTORYPROCESS)
+        if collected_taxId != ataxon:
+            logger.info('This species having {} as taxonID, has its taxonID change for {}'.format(ataxon, collected_taxId))
+            ataxon = collected_taxId
         desired_taxo = get_desired_lineage(res_taxo)
         new_lineage = store_into_dict(ataxon, desired_taxo)
         all_lineages.update(new_lineage) # no risk of overwriting
@@ -787,37 +790,33 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
 
         logger.debug('list of targets: {}'.format(targets_storage))
         logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
-
-    #print(contig_info)
         taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info if contig_info[contig]['taxon_id'] != 'NA']))
-        taxonomicLineage = get_taxonLineage(taxonIDs)
+        taxonomicLineage = get_taxonLineage(taxonIDs, TMPDIRECTORYPROCESS)
         write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
         write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
         logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
+
+    elif 'taxonomyLineage.pickle' not in written_files:
+        with open('{}/contigs.pickle'.format(TMPDIRECTORYPROCESS), 'rb') as file:
+            contig_info = pickle.load(file)
+        taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info if contig_info[contig]['taxon_id'] != 'NA']))
+        taxonomicLineage = get_taxonLineage(taxonIDs, TMPDIRECTORYPROCESS)
+        write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
+        write_json(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.json'))
+        logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
+        with open('{}/genomicContexts.pickle'.format(TMPDIRECTORYPROCESS), 'rb') as file:
+            cds_info = pickle.load(file)
     else:
         with open('{}/genomicContexts.pickle'.format(TMPDIRECTORYPROCESS), 'rb') as file:
             cds_info = pickle.load(file)
+        # with open('{}/contigs.pickle'.format(TMPDIRECTORYPROCESS), 'rb') as file:
+        #     contig_info = pickle.load(file)
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
 
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
-
-
-
-    # # **************** #
-    # cds_info[47091]['uniprot'] = 'A4FQE8'
-    # cds_info[51025]['uniprot'] = 'A4FFZ2'
-    # cds_info[51196]['uniprot'] = 'A4FGG1'
-    # # **************** #
-
-
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
     write_json(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.json'))
-    # real_families = {key: value for (key, value) in families.items() if len(value) > 1}
-    # singletons = {key: value for (key, value) in families.items() if len(value) == 1}
-    # write_pickle(real_families, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinFamilies.pickle'))
-    # write_pickle(singletons, '{}/{}'.format(TMPDIRECTORYPROCESS, 'proteinSingletons.pickle'))
-    # logger.info('Written files:\n{}\n{}'.format('proteinFamilies.pickle', 'proteinSingletons.pickle'))
 
     with open('{}/analysed_cds'.format(TMPDIRECTORYPROCESS), 'w') as file:
         for inc in cds_info.keys():
@@ -826,14 +825,6 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
             else:
                 uniprot = 'NA'
             file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], uniprot))
-
-    # print('Nbr of targets: {} - {}'.format(len(targets_storage), params['INC_TARGET_LOADED']))
-    # with open('{}/analysed_targets'.format(TMPDIRECTORYPROCESS), 'w') as file:
-    #     for tar in targets_storage:
-    #         file.write('{}\t{}\t{}\n'.format(tar, cds_info[tar]['protein_id'], cds_info[tar]['uniprot']))
-    print('Nbr of cds: {}'.format(len(cds_info)))
-    print('Nbr of parsed files: {}'.format(params['INC_FILE']))
-
 
     logger.info('End of ClusteringIntoFamilies')
 
