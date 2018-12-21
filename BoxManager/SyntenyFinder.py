@@ -112,20 +112,24 @@ def get_connected_components(graph, synton_of_targets, params, mode='A'):
     return cc_with_target_target # largest_cluster #cc_with_target_target
 
 def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
-    minGA = min([posA for posA, posB in syntons])
-    maxGA = max([posA for posA, posB in syntons])
-    minGB = min([posB for posA, posB in syntons])
-    maxGB = max([posB for posA, posB in syntons])
-
-    # minGA = min([posA for posA, _ in syntons])
-    # maxGA = max([posB for _, posB in syntons])
-    # minGB = min([posA for posA, _ in syntons])
-    # maxGB = max([posB for _, posB in syntons])
-    # minGA, minGB = min([(posA[0], posB[1] for posA in syntons for posB in syntons])
-    # print(minGA, maxGA, minGB, maxGB)
-    synt_coverage = (maxGA-minGA+1) + (maxGB-minGB+1)
+    targetPosA = synton_of_targets[0]
+    targetPosB = synton_of_targets[1]
     if not boolean_synton_of_targets:
         syntons.remove(synton_of_targets)
+    minGA = min(targetPosA+1, min([posA for posA, posB in syntons]))
+    maxGA = max(targetPosA-1, max([posA for posA, posB in syntons]))
+    minGB = min(targetPosB+1, min([posB for posA, posB in syntons]))
+    maxGB = max(targetPosB-1, max([posB for posA, posB in syntons]))
+    ### COM: suppression of the target position if it is inbetween the extremum and not in synteny
+    ### to not create a gap ponderation on the target
+    if minGA < targetPosA < maxGA and targetPosA not in [synton[0] for synton in syntons]:
+        syntons = [(posA-1, posB) if posA > targetPosA else (posA, posB) for posA, posB in syntons]
+        maxGA = max([posA for posA, posB in syntons])
+    if minGB < targetPosB < maxGB and targetPosB not in [synton[1] for synton in syntons]:
+        syntons = [(posA, posB-1) if posB > targetPosB else (posA, posB) for posA, posB in syntons]
+        maxGB = max([posB for posA, posB in syntons])
+    ### COM: score calculation
+    synt_coverage = (maxGA-minGA+1) + (maxGB-minGB+1)
     geneA_in_synt = len(set([synton[0] for synton in syntons]))
     geneB_in_synt = len(set([synton[1] for synton in syntons]))
     avg_genes = (geneA_in_synt + geneB_in_synt)/2
