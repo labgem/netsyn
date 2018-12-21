@@ -87,11 +87,9 @@ def evaluate_proximity(syntons, graph, params, look_at):
         synton2 = syntons[idx+1]
         if synton2[look_at]-synton1[look_at] <= gap+1:
             graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
-    # print('details of the graph: {}'.format(graph.summary()))
     return 0
 
 def get_connected_components(graph, synton_of_targets, params, mode='A'):
-    # print('enter in get_connected_components function for the genome {}'.format(mode))
     if mode == 'A':
         look_at = 0
     else:
@@ -136,27 +134,23 @@ def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     return score
 
 def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params):
+    '''
+    '''
     logger = logging.getLogger('{}.{}'.format(find_common_connected_components.__module__, find_common_connected_components.__name__))
-    # print('enter in find_common_connected_components function')
     synton_of_targets = AB_targets_syntons['synton_of_targets']
     boolean_synton_of_targets = AB_targets_syntons['boolean_targets_synton']
     ccA = get_connected_components(gA, synton_of_targets, params)
     ccB = get_connected_components(gB, synton_of_targets, params, mode='B')
     itrsect = list(set(ccA) & set(ccB))
-    # print(gB.vs[itrsect]['name'])
-    # if boolean_synton_of_targets:
     if (len(itrsect) >= 2 and boolean_synton_of_targets) or (not boolean_synton_of_targets and len(itrsect) >= 3):
-        # print('are long enough !')
-            # print(ccA, ccB, itrsect)
         if ccA == ccB == itrsect:
-            # print('we have a ccc !!!')
             score = compute_score(gA.vs[itrsect]['name'], synton_of_targets, boolean_synton_of_targets)
-                # print(score)
             if not maxiG.vertex_attributes() or targetA not in maxiG.vs['name']:
                 maxiG.add_vertex(targetA)
+                maxiG.vs[maxiG.vs['name'].index(targetA)]['targetPosition'] = synton_of_targets[0]
             if not maxiG.vertex_attributes() or targetB not in maxiG.vs['name']:
                 maxiG.add_vertex(targetB)
-            # print(targetA, targetB)
+                maxiG.vs[maxiG.vs['name'].index(targetB)]['targetPosition'] = synton_of_targets[1]
             vertex_idx_targetA = maxiG.vs['name'].index(targetA)
             vertex_idx_targetB = maxiG.vs['name'].index(targetB)
             maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
@@ -164,7 +158,6 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             maxiG.es[edge_idx_AB]['weight'] = score
             params["INC_TARGETS_PAIR"] += 1
         else:
-            # print('we need more steps')
             gA_memory = gA.copy()
             gA = ig.Graph()
             gA.add_vertices(gA_memory.vs[itrsect]['name'])
@@ -172,24 +165,16 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
     else:
         params['INC_NO_SYNTENY'] += 1
-        # print('not long enough :\'{')
-        # print(boolean_synton_of_targets, len(itrsect), targetA, targetB)
-
     return maxiG, params
 
 def build_maxi_graph(maxiG, targets_syntons, params):
     logger = logging.getLogger('{}.{}'.format(build_maxi_graph.__module__, build_maxi_graph.__name__))
     logger.info('Synteny graph in construction')
     for (targetA, targetB) in targets_syntons:
-        # print('######################################')
-        # print(targetA, targetB)
         gA = ig.Graph()
         gA.add_vertices(targets_syntons[(targetA, targetB)]['syntons'])
         gB = gA.copy()
-        # print('first search')
         maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
-        # if maxiG.vertex_attributes():
-        #     print(maxiG.vs['name'])
     return maxiG, params
 
 # def fix_dendrogram(graph, cl):
@@ -262,9 +247,8 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
                         A_in_synt = tmp_dict[targetA]['families'][afam]
                         B_in_synt = tmp_dict[targetB]['families'][afam]
                         syntons = cartesian_product(A_in_synt, B_in_synt)
-                        targets_syntons.setdefault((targetA, targetB),
-                                                   {}).setdefault('syntons',
-                                                                  []).extend(syntons)
+                        targets_syntons.setdefault((targetA, targetB), {}).setdefault('syntons', []).extend(syntons)
+                    targets_syntons[(targetA, targetB)]['families_intersect'] = families_intersect
                     add_synton_of_targets(targetA, targetB, tmp_dict, targets_syntons)
                     # print('dictionary of targets {} and {}:\n{}\n'.format(targetA, targetB, targets_syntons[(targetA, targetB)]))
                 else:
@@ -272,13 +256,15 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
             else:
                 no_synteny += 1
     #logger.info('Couples of targets computed depending on synteny results')
+
+    with open('{}/genomicContextUser.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
+        json.dump(cds_info, file, indent=4)
+
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
     logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
     logger.info('Number of pairs where synteny doesn\'t respect gap parameter or on target filter: {}'.format(params['INC_NO_SYNTENY']))
     logger.info('Number of pairs of targets in synteny: {}'.format(params['INC_TARGETS_PAIR']))
-    # print(maxi_graph)
-    # print('\n')
 
     ### Edge-betweenness clustering
     # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
@@ -299,6 +285,10 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
     walktrap_clustering = graph_walktrap.as_clustering()
     logger.info(walktrap_clustering) # list of VertexClustering objects
 
+    for cluster in range(len(walktrap_clustering)):
+        for vertex in walktrap_clustering[cluster]:
+            maxi_graph.vs[vertex]['cluster_WT'] = cluster
+
     # ### Louvain clustering
     # print('\n*** Louvain clustering ***')
     # graph_louvain = maxi_graph.community_multilevel()
@@ -312,43 +302,61 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
     #         else:
     #             print('element {} corresponding to the target {} in the list'.format(elt, maxi_graph.vs[elt]['name']))
 
-    #layout = maxi_graph.layout('circle')
-    #layout = maxi_graph.layout('drl')
-    #layout = maxi_graph.layout('large')
-    #layout = maxi_graph.layout('random')
-    #layout = maxi_graph.layout('tree')
-    #layout = maxi_graph.layout('circular')
+    list_of_nodes = []
+    for target_node in maxi_graph.vs:
+        cds_inc = target_node['name']
+        dico = {'cds_ref': cds_inc, ### je ne sais pas encore si c'est indispensable ...
+                'UniProtAC': cds_info[cds_inc]['uniprot'],
+                'ProteinID': cds_info[cds_inc]['protein_id'],
+                'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
+                'GC_size': len(cds_info[cds_inc]['userGC']),
+                'Product': cds_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
+                'Contig': cds_info[cds_inc]['contig'],
+                'Clustering': {'WalkTrap': maxi_graph.vs[target_node.index]['cluster_WT']},
+                'Families': {}
+                }
+        for afam in tmp_dict[cds_inc]['families']:
+            dico['Families'][afam] = {}
+            dico['Families'][afam]['positions'] = tmp_dict[cds_inc]['families'][afam]
+            dico['Families'][afam]['id'] = []
+            dico['Families'][afam]['Protein_id'] = []
+            dico['Families'][afam]['Products'] = []
+            dico['Families'][afam]['EC_numbers'] = []
+            for pos in dico['Families'][afam]['positions']:
+                dico['Families'][afam]['id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['uniprot'])
+                dico['Families'][afam]['Protein_id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['protein_id'])
+                dico['Families'][afam]['Products'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['product'])
+                dico['Families'][afam]['EC_numbers'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['ec_number'])
+        list_of_nodes.append(dico)
 
-    # layout = maxi_graph.layout('fr') # pourquoi pas ...
-    #layout = maxi_graph.layout('kk') # pourquoi pas ...
+    list_of_edges = []
+    for edge in maxi_graph.es:
+        targetA = min(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        targetB = max(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        if targets_syntons[targetA, targetB]:
+            families = targets_syntons[(targetA,
+                                        targetB)
+                                       ]['families_intersect']
+        else:
+            logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
+            families = targets_syntons[(targetB,
+                                        targetA)
+                                       ]['families_intersect']
+        dico = {'source': cds_info[targetA]['uniprot'],
+                'target': cds_info[targetB]['uniprot'],
+                'families': families,
+                'score': maxi_graph.es[edge.index]['weight']
+                }
+        list_of_edges.append(dico)
 
-    # pal = ig.drawing.colors.ClusterColoringPalette(len(walktrap_clustering))
-    # visual_style = {
-    #     'edge_width': maxi_graph.es['weight'],
-    #     #'vertex_label': maxi_graph.vs['name'],
-    #     'vertex_color': pal.get_many(walktrap_clustering.membership),
-    #     'vertex_size': 4
-    #     }
-    # ig.plot(maxi_graph, "walktrap_cluster_5_3.png", layout=layout, **visual_style)
-
-
-    # pal = ig.drawing.colors.ClusterColoringPalette(len(graph_louvain))
-    # visual_style={
-    #     'edge_width': maxi_graph.es['weight'],
-    #     #'vertex_label': maxi_graph.vs['name'],
-    #     'vertex_color': pal.get_many(graph_louvain.membership),
-    #     'vertex_size': 4
-    #     }
-    # ig.plot(maxi_graph, "louvain_cluster_5_3.png", layout=layout, **visual_style)
-
-    for cluster in range(len(walktrap_clustering)):
-        for vertex in walktrap_clustering[cluster]:
-            maxi_graph.vs[vertex]['cluster'] = cluster
-
-    for cds_ref in maxi_graph.vs:
-        cds_ref['protein_id'] = cds_info[cds_ref['name']]['uniprot']
-
-    maxi_graph.write_graphml('maxi_graph.graphml')
+    with open('{}/nodes_list.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
+        json.dump(list_of_nodes, file, indent=4)
+    with open('{}/nodes_list.pickle'.format(TMPDIRECTORYPROCESS), 'wb') as file:
+        pickle.dump(list_of_nodes, file)
+    with open('{}/edges_list.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
+        json.dump(list_of_edges, file, indent=4)
+    with open('{}/edges_list.pickle'.format(TMPDIRECTORYPROCESS), 'wb') as file:
+        pickle.dump(list_of_edges, file)
 
 if __name__ == '__main__':
     parser = argumentsParser()

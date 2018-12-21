@@ -327,7 +327,8 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
                   {'value' : '{}/ClusteringIntoFamilies/genomicContexts.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
                   {'value' : '{}/ClusteringIntoFamilies/taxonomyLineage.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
 		  {'value' : '{}/ClusteringIntoFamilies/targets_list.pickle'.format(TMPDIRECTORY), 'type' : 'file'}],
-        'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/Clustering.json'.format(TMPDIRECTORY), 'type' : 'file'}],
+        'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/nodes_list.json'.format(TMPDIRECTORY), 'type' : 'file'},
+                  {'value' : '{}/SyntenyFinder/edges_list.json'.format(TMPDIRECTORY), 'type' : 'file'}],
         'DataExport' : [{'value' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
                   {'value' : '{}/{}_Results_{}.html'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
                   {'value' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'}]
@@ -376,7 +377,13 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         SyntenyFinder.run(nameBox, TMPDIRECTORY, inputBoxIII, targets_list, MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
         logger = logging.getLogger('runDataExport')
-        DataExport.run(logger)
+        #-n netsyn_BKACE_8/TMP/SyntenyFinder/nodes_list.pickle -e netsyn_BKACE_8/TMP/SyntenyFinder/edges_list.pickle -taxo netsyn_BKACE_8/TMP/ClusteringIntoFamilies/taxonomyLineage.pickle -c netsyn_BKACE_8/TMP/ClusteringIntoFamilies/contigs.pickle -pn netsyn_BKACE_8 -md BKACE_id.dat
+        nodes = '{}/SyntenyFinder/nodes_list.pickle'.format(TMPDIRECTORY)
+        edges = '{}/SyntenyFinder/edges_list.pickle'.format(TMPDIRECTORY)
+        taxonomy = '{}/ClusteringIntoFamilies/taxonomyLineage.pickle'.format(TMPDIRECTORY)
+        contigs_info = '{}/ClusteringIntoFamilies/contigs.pickle'.format(TMPDIRECTORY)
+        metadata = 'BKACE_id.dat' #### chemain en dur !!!! #######################   *******************    ######################
+        DataExport.run(nameBox, TMPDIRECTORY, nodes, edges, taxonomy, contigs_info, metadata)
     else:
         logger.critical('No execution planned for {}'.format(runBox))
         exit(1)
