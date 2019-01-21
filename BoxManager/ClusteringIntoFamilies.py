@@ -345,7 +345,7 @@ def set_target_to_gc(ref_target, gcList, cds_info):
             cds_info[gc_member]['target'].append(ref_target)
     return cds_info
 
-def found_target_procedure(cds, target_list, cds_info, contig_content, targets_storage):
+def found_target_procedure(cds, target_list, cds_info, contig_content):
     ''' tests if the tested CDS is referenced as a target
     If yes, copy the window's information to cds_keeper :
     information on target and genomic context are saved
@@ -353,7 +353,6 @@ def found_target_procedure(cds, target_list, cds_info, contig_content, targets_s
     *** tested value used to be the CDS in the middle of the window ***
     '''
     logger = logging.getLogger('{}.{}'.format(found_target_procedure.__module__, found_target_procedure.__name__))
-    targets_storage.append(cds)
     contig_content['cds_to_keep'].extend(contig_content['window'])
 
     cds_info[cds]['target'].append(cds)
@@ -363,7 +362,7 @@ def found_target_procedure(cds, target_list, cds_info, contig_content, targets_s
     cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
     logger.debug('cds ({}/{})\t- contig_content ({}) -\twindow: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['window']))
     logger.debug('cds ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
-    return cds_info, contig_content, targets_storage
+    return cds_info, contig_content
 
 def remove_useless_cds(cds, cds_info, contig_content):
     ''' verifies if the tested CDS is in cds_to_keep list
@@ -376,13 +375,15 @@ def remove_useless_cds(cds, cds_info, contig_content):
         del cds_info[cds]
     return cds_info
 
-def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params):
+def parse_insdc(afile, d_infile, cds_info, contig_info, params):
     ''' gets information for every contig mentionned in the input
     and gets information for every cds that is contained in a (MAX_GC sized-)
     window centered on a target
     '''
     logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
-    STOP_INC_CONTIG = params['INC_CONTIG_REF'] + len(d_infile)-2
+    NOT_CONTIG = ['protein_AC_field', 'nucleic_File_Format']
+    CONTIG_LIST = [contig for contig in d_infile if contig not in NOT_CONTIG]
+    logger.debug('Contig list: {}'.format(CONTIG_LIST))
 
     MAX_GC = params['MAX_GC']
     HALF_SIZE_GC = math.floor(MAX_GC/2)
@@ -391,22 +392,25 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
 
     with open(afile, 'r') as insdcFile:
         seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
-        for seqRecord in seqRecordParsed:
-            if params['INC_CONTIG_REF'] >= STOP_INC_CONTIG:
-                logger.debug('To many contigs to parse ({}). Stop on contig {}'.format(params['INC_CONTIG_REF'], seqRecord.id))
-                break
-            if seqRecord.id in d_infile:
-                contig_name = seqRecord.id
-            elif seqRecord.id.split(r'.')[0] in d_infile:
-                contig_name = seqRecord.id.split(r'.')[0]
+        CONTIG = next(seqRecordParsed)
+        while CONTIG_LIST and CONTIG:
+            if CONTIG.id in d_infile:
+                contig_name = CONTIG.id
+            elif CONTIG.id.split(r'.')[0] in d_infile:
+                contig_name = CONTIG.id.split(r'.')[0]
             else:
                 contig_name = ''
+
             if contig_name != '':
+                CONTIG_LIST.remove(contig_name)
                 params['INC_CONTIG_REF'] += 1
                 INC_CONTIG_REF = params['INC_CONTIG_REF']
                 params['INC_TARGET_LOADED'] = 0
                 contig_info[INC_CONTIG_REF] = {'contig': contig_name}
-                for aFeature in seqRecord.features:
+                TARGET_LIST = d_infile[contig_name]['target_list']
+                logger.debug('Target list for {} contig: {}'.format(contig_name, TARGET_LIST))
+
+                for aFeature in CONTIG.features:
                     if aFeature.type == 'source':
                         has_taxon_id = 'taxon_id' in d_infile[contig_name].keys()
                         contig_info[INC_CONTIG_REF] = get_contig_info(
@@ -416,9 +420,6 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                             )
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
-                        if params['INC_TARGET_LOADED'] >= len(d_infile[contig_name]['target_list']):
-                            logger.debug('No need to search more targets. {} already found on this contig {}'.format(params['INC_TARGET_LOADED'], seqRecord.id))
-                            break
                         if is_pseudogene(aFeature):
                             if params['PSEUDOGENE']:
                                 cds_info, contig_info[INC_CONTIG_REF], params = get_pseudo_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], params)
@@ -426,17 +427,18 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         else:
                             cds_info, contig_info[INC_CONTIG_REF], params = get_prot_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], fieldProteinID, params)
                             newCdsAdded = True
+
                         if newCdsAdded:
                             window = contig_info[INC_CONTIG_REF]['window']
                             window_length = len(window)
                             contig_content = contig_info[INC_CONTIG_REF]
-                            target_list = d_infile[contig_name]['target_list']
                             if window_length == MAX_GC:
                                 presumed_target = window[HALF_SIZE_GC]
                                 presumed_kicked_out_cds = window[0]
-                                if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                                if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
-                                    cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                                    TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
+                                    cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
                                 if contig_content['cds_to_keep']:
                                     cds_info = remove_useless_cds(presumed_kicked_out_cds, cds_info, contig_content)
                                 else:
@@ -444,24 +446,28 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                                 del window[0]
                             elif window_length > HALF_SIZE_GC:
                                 presumed_target = window[window_length-(HALF_SIZE_GC+1)]
-                                if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                                if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
-                                    cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
-
+                                    TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
+                                    cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                    if not TARGET_LIST:
+                        break
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 window = contig_info[INC_CONTIG_REF]['window']
                 window_length = len(window)
                 contig_content = contig_info[INC_CONTIG_REF]
-                target_list = d_infile[contig_name]['target_list']
+                TARGET_LIST = d_infile[contig_name]['target_list']
                 if window_length >= HALF_SIZE_GC:
                     for presumed_target in window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]:
-                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                        if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
+                            TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                             params['INC_TARGET_LOADED'] += 1
-                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                            cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
                     for presumed_target in window[HALF_SIZE_GC:]:
-                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                        if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
+                            TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                             params['INC_TARGET_LOADED'] += 1
-                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
+                            cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
                         if contig_content['cds_to_keep']:
                             cds_info = remove_useless_cds(window[0], cds_info, contig_content)
                         else:
@@ -469,14 +475,21 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, targets_storage, params)
                         del window[0]
                 elif window_length < HALF_SIZE_GC:
                     for presumed_target in window:
-                        if cds_info[presumed_target]['protein_id'] in d_infile[contig_name]['target_list']:
+                        if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
+                            TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                             params['INC_TARGET_LOADED'] += 1
-                            cds_info, contig_content, targets_storage = found_target_procedure(presumed_target, target_list, cds_info, contig_content, targets_storage)
-                #logger.debug('target list for this contig ({}): {}'.format(contig_name, d_infile[contig_name]['target_list']))
-                #logger.debug('list des targets récupérées: {}'.format(targets_storage))
+                            cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
                 logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
-    return cds_info, contig_info, targets_storage, params
+                if TARGET_LIST:
+                    logger.warning('Target(s) has(have) not been found: {}'.format(TARGET_LIST))
+            try:
+                CONTIG = next(seqRecordParsed)
+            except:
+                if CONTIG_LIST:
+                    logger.warning('Contig(s) has(have) not been found: {}'.format(CONTIG_LIST))
+                break
+    return cds_info, contig_info, params
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
     ''' every INSDC file in d_input will be parsed
@@ -484,14 +497,13 @@ def parse_INSDC_files(d_input, cds_info, contig_info, params):
         found targets are listed
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
-    targets_storage = []
     nbr_of_files = len(d_input)
     for afile in d_input:
         params['INC_FILE'] += 1
         logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
-        cds_info, contig_info, targets_storage, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, targets_storage, params)
+        cds_info, contig_info, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, params)
         #print(params['INC_CONTIG_REF'], len(d_input[afile])-2)
-    return cds_info, contig_info, targets_storage, params
+    return cds_info, contig_info, params
 
 def concat_by_dot(alist):
     ''' does the concatenation by a dot
@@ -771,25 +783,20 @@ def run(BOXNAME, TMPDIRECTORY, INPUT_II, MAXGCSIZE, IDENT, COVERAGE):
     #liste
     #usage : map(myFun, myList)
         logger.info('INSDC files parsing ...')
-        cds_info, contig_info, targets_storage, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
+        cds_info, contig_info, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
         logger.info('End of INSDC files parsing !')
-    # for akey in cds_info:
-    #     print(akey, cds_info[akey], sep='\t')
-    #     print('***')
-    # print('\n~~~~~~~~~~~~~~\n')
-    # for akey in contig_info:
-    #     print(akey, contig_info[akey], sep='\t')
-    #     print('***')
 
         logger.info('will write the multifasta file')
         write_multiFasta(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'faa'])))
         write_pickle(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.pickle'))
-        write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.pickle'))
         write_json(contig_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'contigs.json'))
-        write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.json'))
 
+        targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
+        write_pickle(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.pickle'))
+        write_json(targets_storage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'targets_list.json'))
         logger.debug('list of targets: {}'.format(targets_storage))
         logger.info('Written files:\n{}\n{}\n{}'.format(concat_by_dot([params["prefix"], 'faa']), 'genomicContexts.pickle', 'contigs.pickle'))
+
         taxonIDs = list(set([contig_info[contig]['taxon_id'] for contig in contig_info if contig_info[contig]['taxon_id'] != 'NA']))
         taxonomicLineage = get_taxonLineage(taxonIDs, TMPDIRECTORYPROCESS)
         write_pickle(taxonomicLineage, '{}/{}'.format(TMPDIRECTORYPROCESS, 'taxonomyLineage.pickle'))
