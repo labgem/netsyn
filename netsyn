@@ -6,13 +6,17 @@
 
 import argparse
 import os
+import errno
 import shutil
 import logging
 import re
 import sys
+import subprocess
+import filecmp
 
 import yaml
 from BoxManager import GetINSDCFiles, ClusteringIntoFamilies, SyntenyFinder, DataExport
+import common
 
 #############
 # Functions #
@@ -27,16 +31,16 @@ def checkArguments(parser):
     if not args.RedundancyRemoval == 'FALSE':
         if args.RedundancyRemovalLabel == 'FALSE' and args.RedundancyRemovalTaxonomy == 'FALSE':
             parser.error('Missing RedundancyRemovalLabel or RedundancyRemovalTaxonomy')
-    
+
     if not args.RedundancyRemovalLabel == 'FALSE' and not args.RedundancyRemovalTaxonomy == 'FALSE':
         parser.error('RedundancyRemovalLabel or RedundancyRemovalTaxonomy are incompatible')
-        
+
     if not args.RedundancyRemovalLabel == 'FALSE' or not args.RedundancyRemovalTaxonomy == 'FALSE':
         args.RedundancyRemoval = 'TRUE'
-        
+
     if not args.RedundancyRemovalTaxonomy == 'FALSE':
         args.RedundancyRemovalTaxonomy = '&'+args.RedundancyRemovalTaxonomy
-        
+
     return args
 
 def argumentsParser():
@@ -47,9 +51,9 @@ def argumentsParser():
                                  epilog = '''All's well that ends well.''', #################################################################
                                  usage = '''netsyn -i <UniProtAC.list> -po <User> -pn <ProjectName>''', ######################################################################
                                  formatter_class = argparse.RawTextHelpFormatter)
-  
+
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-i', '--InputFile', type = str, 
+    group1.add_argument('-i', '--InputFile', type = str,
                         required = True, help = 'Protein accession list or file of corresponding (cf: wiki).')
     group1.add_argument('-po', '--ProjectOwner', type = str, required = True,
                         help = 'The project owner.')
@@ -60,14 +64,16 @@ def argumentsParser():
     group1.add_argument('-insdc', '--INSDCRepertory', type = str,
                         help = 'Directory containing the INSDC files.')
     group1.add_argument('-md', '--MetaDataFile', type = str,
-                        help = 'File containing the metadata.')                    
-                        
+                        help = 'File containing the metadata.')
+    group1.add_argument('-np', '--newProject', action='store_true',
+                        help = 'Force the creation of a new projet. Overwrites the project of the same name.')
+
     group4 = parser.add_argument_group('Clustering settings')
     group4.add_argument('-mc', '--MinCoverage', type = float,
                         default = 0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
     group4.add_argument('-id', '--Ident', type = float,
                         default = 0.3, help='Sequence identity.\nDefault value: 0.3.')
-                        
+
     group3 = parser.add_argument_group('Synteny settings')
     group3.add_argument('-ws', '--WindowSize', type = int,
                         default = 11, help = 'Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
@@ -79,7 +85,7 @@ def argumentsParser():
                         choices = ['on','off'],  help = 'Keep synteny near target genes.\nDefault value: off.')
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type = float,
                         default = 0, help = 'Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
-                        
+
     group6 = parser.add_argument_group('Graph Analysis settings')
     group6.add_argument('-cm', '--ClusteringMethod', type = str,
                         choices = ['Multiple','MCL','EdgeBetweeness','Louvain','WalkTrap'],
@@ -136,9 +142,18 @@ def orderDefinition():
     global args
     # logger = logging.getLogger(orderDefinition.__name__)
     if args.INSDCRepertory:
-        order = ['ClusteringIntoFamilies', 'SyntenyFinder', 'DataExport']
+        order = [
+            common.global_dict['boxName']['ClusteringIntoFamilies'],
+            common.global_dict['boxName']['SyntenyFinder'],
+            common.global_dict['boxName']['DataExport']
+        ]
     else:
-        order = ['GetINSDCFiles', 'ClusteringIntoFamilies', 'SyntenyFinder', 'DataExport']
+        order = [
+            common.global_dict['boxName']['GetINSDCFiles'],
+            common.global_dict['boxName']['ClusteringIntoFamilies'],
+            common.global_dict['boxName']['SyntenyFinder'],
+            common.global_dict['boxName']['DataExport']
+        ]
     # logger.debug('Execution order: {}'.format(order))
     return order
 
@@ -146,11 +161,10 @@ def createYamlSettingsFile(args):
     '''
     YAML settings file creation. Used for resumption of analysis.
     '''
-    global SETTINGSFILENAME
     global ORDERBOX
     YAML_File = {}
     gap = 1 if args.INSDCRepertory else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
-    with open(SETTINGSFILENAME, 'w') as outfile:
+    with open(common.global_dict['settingsFileName'], 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['InputFile'] = args.InputFile
         YAML_File['General informations']['ProjectOwner'] = args.ProjectOwner
@@ -200,8 +214,7 @@ def getBoxToResum(args):
     detection of settings modification
     make the association with box
     '''
-    global SETTINGSFILENAME
-    with open(SETTINGSFILENAME, 'r') as file:
+    with open(common.global_dict['settingsFileName'], 'r') as file:
         oldSettings = yaml.load(file)
     newsettings = vars(args)
     for boxKey in oldSettings:
@@ -215,17 +228,25 @@ def getLastBoxDone():
     '''
     Get name box executed.
     '''
-    global REPORTFILENAME
     global ORDERBOX
     logger = logging.getLogger(getLastBoxDone.__name__)
-    if os.path.isfile(REPORTFILENAME):
-        with open(REPORTFILENAME, 'r') as file:
+    if os.path.isfile(common.global_dict['reportFileName']):
+        with open(common.global_dict['reportFileName'], 'r') as file:
             nameBox = file.read()
             return nameBox
         if not nameBox in ORDERBOX:
             logger.error('File of report wrong.')
             exit(1)
     return None
+
+def inputFileModificationChecking(newInputFile, oldInputFile):
+    '''
+    Check that the input file has not been modified.
+    '''
+    logger = logging.getLogger(inputFileModificationChecking.__name__)
+    if not filecmp.cmp(newInputFile,oldInputFile):
+        logger.error('The input file has been modified. Please start a new project.')
+        exit(1)
 
 def resumptionFrom(nameBoxToResum, nameBoxDone):
     '''
@@ -279,7 +300,6 @@ def boxesManager(runFrom, resultsDirectory, analysisNumber):
     Allows execution from a box.
     '''
     global ORDERBOX
-    global args
     logger = logging.getLogger(boxesManager.__name__)
     boxesToRun = [ORDERBOX[i] for i in range(ORDERBOX.index(runFrom), len(ORDERBOX))]
     logger.debug('Boxes to run: {}'.format(boxesToRun))
@@ -292,66 +312,40 @@ def updateLastBoxDone(nameBox):
     '''
     Updating report file.
     '''
-    global REPORTFILENAME
-    with open(REPORTFILENAME, 'w') as file:
+    with open(common.global_dict['reportFileName'], 'w') as file:
         file.write(nameBox)
 
-def getAnalysisNumber():
+def getAnalysisNumber(projectName):
     '''
     Defining of the number of analisys.
     Defining of results directory name for the current analysis.
     '''
-    global WORKDIRECTORY
-    global args
     number = 0
-    string = r'{}_Results_[0-9]+$'.format(args.ProjectName)
-    existingAnalyzes = [f for f in os.listdir(WORKDIRECTORY) if re.search(string, f)]
+    string = r'{}_Results_[0-9]+$'.format(projectName)
+    existingAnalyzes = [f for f in os.listdir(common.global_dict['workingDirectory']) if re.search(string, f)]
     if existingAnalyzes:
         number = max([i.split('_')[2] for i in existingAnalyzes])
     analysisNumber = (number + 1)
-    resultsDirectory = '{}/{}_Results_{}'.format(WORKDIRECTORY, args.ProjectName, analysisNumber)
+    resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], projectName, analysisNumber)
     return analysisNumber, resultsDirectory
 
 def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
     '''
     Checkpoints before executing box.
     '''
-    global TMPDIRECTORY
-    global WORKDIRECTORY
-    global args
     logger = logging.getLogger(checkingAfterRun.__name__)
-    pointsToCheck = {
-        'GetINSDCFiles' : [{'value' : '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY), 'type' : 'file'}],
-        'ClusteringIntoFamilies' : [{'value' : '{}/ClusteringIntoFamilies/{}.faa'.format(TMPDIRECTORY, "MMseqs2_run"), 'type' : 'file'}, #### /!\ chemin en dur /!\
-		  {'value' : '{}/ClusteringIntoFamilies/contigs.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/ClusteringIntoFamilies/genomicContexts.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/ClusteringIntoFamilies/taxonomyLineage.pickle'.format(TMPDIRECTORY), 'type' : 'file'},
-		  {'value' : '{}/ClusteringIntoFamilies/targets_list.pickle'.format(TMPDIRECTORY), 'type' : 'file'}],
-        'SyntenyFinder' : [{'value' : '{}/SyntenyFinder/nodes_list.json'.format(TMPDIRECTORY), 'type' : 'file'},
-                  {'value' : '{}/SyntenyFinder/edges_list.json'.format(TMPDIRECTORY), 'type' : 'file'}],
-        'DataExport' : [{'value' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
-                  {'value' : '{}/{}_Results_{}.html'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'},
-                  {'value' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, args.ProjectName, analysisNumber), 'type' : 'file'}]
-    }
-    if not boxName in pointsToCheck:
+    pointsToCheck = common.global_dict['files']
+    if not boxName in pointsToCheck.keys():
         logger.critical('No checkpoints for {}'.format(boxName))
         exit(1)
     if pointsToCheck[boxName]:
         error = False
-        for checkpoint in pointsToCheck[boxName]:
-            if checkpoint['type'] == 'file':
-                if not os.path.isfile(checkpoint['value']):
-                    error = True
-                    logger.error('{} missing.'.format(checkpoint['value']))
-            elif checkpoint['type'] == 'directory':
-                if not os.path.isdir(checkpoint['value']):
-                    error = True
-                    logger.error('{} missing.'.format(checkpoint['value']))
-            else:
-                logger.error('Checkpoints for {}, unsupported type ({})'.format(boxName, checkpoint['type']))
-                exit(1)
+        for fileName in pointsToCheck[boxName].keys():
+            if not os.path.isfile(pointsToCheck[boxName][fileName]):
+                error = True
+                logger.error('{} missing.'.format(pointsToCheck[boxName][fileName]))
         if error:
-            logger.error('Checkpoints not validated after executing of {}. {} missing.'.format(boxName, checkpoint['value']))
+            logger.error('Checkpoints not validated after executing of {}.'.format(boxName))
             exit(1)
     else:
         logger.error('Checkpoints is None for {}'.format(boxName))
@@ -365,7 +359,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
         logger = logging.getLogger('runGetINSDCFiles')
-        GetINSDCFiles.run(args.InputFile, TMPDIRECTORY, MAXGCSIZE, logger)
+        GetINSDCFiles.run(args.InputFile)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
         inputBoxII = '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY)
@@ -404,46 +398,66 @@ if __name__ == '__main__':
     ##########
     parametersLogger(args)
     logger = logging.getLogger('main')
+    #########################
+    # Dependancies checking #
+    #########################
+    try:
+        devnull = open(os.devnull)
+        subprocess.Popen('mmseqs', stdout=devnull, stderr=devnull).communicate()
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            logger.error('mmseqs not found. Please check its installation.')
+            exit(1)
     ##############
     # Constantes #
     ##############
-    WORKDIRECTORY = args.ProjectName
-    TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
-    SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
-    REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
-    INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
-    MAXGCSIZE = 11
+    # common.unPetitBonjourPourredonnerLeMoral()
+    common.constantsInitialiszation(args.ProjectName, args.InputFile)
+    # WORKDIRECTORY = args.ProjectName
+    # TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
+    # SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
+    # REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
+    # INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
+    # MAXGCSIZE = 11
     ORDERBOX = orderDefinition()
     logger.debug('ORDERBOX: {}'.format(ORDERBOX))
     ############
     # Switches #
     ############
-    if not os.path.isfile(SETTINGSFILENAME):
+    if args.newProject and os.path.isdir(common.global_dict['workingDirectory']):
+        shutil.rmtree(common.global_dict['workingDirectory'])
+    if not os.path.isfile(common.global_dict['settingsFileName']):
+        if os.path.isdir(common.global_dict['workingDirectory']):
+            logger.error('Project name already used. Please change your project name or used --newProject.')
+            exit(1)
         '''Pas de dernier setting == premiere analyse'''
-        logger.info('New NetSyn project: {}'.format(WORKDIRECTORY))
-        if os.path.isdir(WORKDIRECTORY):
-            shutil.rmtree(WORKDIRECTORY)
-        os.mkdir(WORKDIRECTORY)
-        os.mkdir(TMPDIRECTORY)
-        analysisNumber, resultsDirectory = getAnalysisNumber()
-        shutil.copyfile(args.InputFile, INPUTLIST)
+        logger.info('New NetSyn project: {}'.format(common.global_dict['workingDirectory']))
+        os.mkdir(common.global_dict['workingDirectory'])
+        os.mkdir(common.global_dict['tmpDirectory'])
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
+        common.filesNameInitialiszation(resultsDirectory, args.ProjectName, analysisNumber)
+        shutil.copyfile(args.InputFile, common.global_dict['inputFileSaved'])
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
+        inputFileModificationChecking(args.InputFile, common.global_dict['inputFileSaved'])
         nameBoxToResum = getBoxToResum(args)
         if nameBoxToResum == 'General informations':
             logger.error('Already existing project. Please start a new project.')
             exit(1)
         else:
-            logger.info('NetSyn project recovery: {}'.format(WORKDIRECTORY))
+            logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
-        analysisNumber, resultsDirectory = getAnalysisNumber()
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
+        common.filesNameInitialiszation(resultsDirectory, args.ProjectName, analysisNumber)
     createYamlSettingsFile(args)
+    runFromBoxIndex = ORDERBOX.index(runFromBox)
+    updateLastBoxDone(ORDERBOX[runFromBoxIndex-1] if runFromBoxIndex-1 >= 0 else '')
     if runFromBox:
-        '''Execution a partir de la boite x''' 
+        '''Execution a partir de la boite x'''
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))

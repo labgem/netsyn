@@ -731,7 +731,7 @@ def regroup_families(tsv_file, cds_info):
         elif centroid != aline[0]:
             centroid = aline[0]
             INC_FAMILY += 1
-        cds = int(aline[1])
+        cds = int(aline[1]) #cds = int(aline[2])
         cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
 
