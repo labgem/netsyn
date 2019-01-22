@@ -3,9 +3,12 @@
 ##########
 # Import #
 ##########
-
+import common
+import logging
 #############
 # Functions #
 #############
 def run(logger):
-    logger.info('DataExport running...') # 
+    logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    logger.info('DataExport running...') ####
+    logger.info(common.global_dict) ####

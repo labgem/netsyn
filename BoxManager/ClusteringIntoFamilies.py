@@ -96,7 +96,7 @@ def create_d_input(d_rows):
         contig_id = arow['nucleic_AC']
         d_input.setdefault(
             filename, {}).setdefault(contig_id, {}).setdefault('target_list', [])
-        
+
         if arow['protein_AC'] not in d_input[filename][contig_id]['target_list']:
             d_input[filename][contig_id]['target_list'].append(arow['protein_AC'])
 
@@ -660,7 +660,7 @@ def regroup_families(tsv_file, cds_info):
             centroid = aline[0]
             INC_FAMILY += 1
         cds = int(aline[2])
-        cds_info[cds]['similarityFamily'] = INC_FAMILY 
+        cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
 
 def run(input_file, args, TMPDIRECTORY):
@@ -738,7 +738,7 @@ def run(input_file, args, TMPDIRECTORY):
     logger.info('Written file:\n{}'.format('taxonomyLineage.pickle'))
 
     mmseqs_runner(params, TMPDIRECTORYPROCESS)
-    
+
     cds_info = regroup_families('{}/{}'.format(TMPDIRECTORYPROCESS, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
     write_pickle(cds_info, '{}/{}'.format(TMPDIRECTORYPROCESS, 'genomicContexts.pickle'))
     # real_families = {key: value for (key, value) in families.items() if len(value) > 1}

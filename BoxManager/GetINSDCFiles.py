@@ -7,6 +7,7 @@ import logging
 import urllib3
 import gzip
 import re
+import common
 #############
 # Functions #
 #############
@@ -76,7 +77,7 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
                     'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
                 resStatus = res.status
                 remainingTry -= 1
-            except urllib3.exceptions:
+            except:
                 logger.error('OUPS')
                 exit(1)
         if not res.status == 200:
@@ -90,6 +91,7 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
 
 def getNucleicFialeName(nucleicAccession):
     nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
+    #r'(?P<NucleicFileName>[A-B]{4,6}[0-1]{2})[0-9]{6,}$' ####### revenir dessus plus tard
     if nucleicAcc:
         return nucleicAcc.group("NucleicFileName")
     return nucleicAccession
@@ -107,7 +109,7 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
             res = PoolManager.request('GET' , 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
             resStatus = res.status
             remainingTry -= 1
-        except urllib3.exceptions:
+        except:
             logger.error('OUPS')
             exit(1)
     contentType = res.info()['Content-Type']
@@ -128,30 +130,32 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
           logger.critical('Unsupported content type ({}).'.format(contentType))
           exit(1)
 
-def run(InputName, TMPDIRECTORY, maxGCsize):
+def run(InputName):
     '''
     Get INSDC files porocessing.
     '''
-    # global TMPDIRECTORYPROCESS
-    BOXNAME = 'GetINSDCFiles'
+    # Constants
+    boxName = common.global_dict['boxName']['GetINSDCFiles']
+    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
+    outputName = common.global_dict['files'][boxName]['inputClusteringStep']
+    # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
-    logger.info('{} running...'.format(BOXNAME))
-    TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
-    OUTPUTPATH = '{}/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORYPROCESS)
-    if not os.path.isdir(TMPDIRECTORYPROCESS):
-        os.mkdir(TMPDIRECTORYPROCESS)
-    if os.path.isfile(OUTPUTPATH):
-        os.remove(OUTPUTPATH)
+    logger.info('{} running...'.format(boxName))
+    # Process
+    if not os.path.isdir(tmpDirectoryProcess):
+        os.mkdir(tmpDirectoryProcess)
+    if os.path.isfile(outputName):
+        os.remove(outputName)
     header, accessions = parseInputI(InputName)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
-    outputContent = {'HEADER' : ['protein_AC',	'protein_AC_field', 'nucleic_AC', 'nucleic_File_Format', 'nucleic_File_Name']}
     if header == 'UniProtAC':
         crossReference = getENAidMatchingToUniProtid(accessions, 500, http)
+        outputContent = []
         for entry in crossReference:
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
-                nucleicFilePath = '{}/{}.embl'.format(TMPDIRECTORYPROCESS, getNucleicFialeName(nucleicAccession))
+                nucleicFilePath = '{}/{}.embl'.format(tmpDirectoryProcess, getNucleicFialeName(nucleicAccession))
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
@@ -165,18 +169,20 @@ def run(InputName, TMPDIRECTORY, maxGCsize):
                         exit(1)
                 if assemblyLength > maxAssemblyLength:
                     maxAssemblyLength = assemblyLength
-                    outputContent[entry] = [
+                    outputContent.append([
+                        entry,
                         crossReference[entry]['Cross-reference (embl)'][index],
                         'protein_id',
                         nucleicAccession,
                         'embl',
                         nucleicFilePath
-                    ]
-        with open(OUTPUTPATH, 'w') as file:
-            for line in ['\t'.join(value) for value in outputContent.values()]:
+                    ])
+        with open(outputName, 'w') as file:
+            file.write('{}\n'.format('\t'.join(common.global_dict['inputIIheaders'])))
+            for line in ['\t'.join(values) for values in outputContent]:
                 file.write('{}\n'.format(line))
-        logger.info('{} generated.'.format(OUTPUTPATH))
-        logger.info('{} finished!'.format(BOXNAME))
+        logger.info('{} generated.'.format(outputName))
+        logger.info('{} finished!'.format(boxName))
     else:
         logger.error('Input header unrecognized.')
         exit(1)
