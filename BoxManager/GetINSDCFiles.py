@@ -90,8 +90,8 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
     return crossReference
 
 def getNucleicFialeName(nucleicAccession):
-    nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
-    #r'(?P<NucleicFileName>[A-B]{4,6}[0-1]{2})[0-9]{6,}$' ####### revenir dessus plus tard
+    # nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
+    nucleicAcc = re.match(r'^(?P<NucleicFileName>[A-Z]{4,6}[0-9]{2})[0-9]{6,}$', nucleicAccession)
     if nucleicAcc:
         return nucleicAcc.group("NucleicFileName")
     return nucleicAccession
