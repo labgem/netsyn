@@ -2,6 +2,8 @@
 # Import #
 ##########
 import __main__ as namespace
+import os
+import logging
 
 #############
 # Functions #
@@ -14,8 +16,20 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     if msg:
         print(msg)
 
+def checkFilledFile(fileName, error=False):
+    '''
+    Checking if file existing and not empty.
+    '''
+    logger = logging.getLogger('{}.{}'.format(checkFilledFile.__module__, checkFilledFile.__name__))
+    if not os.path.isfile(fileName):
+        error = True
+        logger.error('{} missing.'.format(fileName))
+    elif os.path.getsize(fileName) == 0:
+        error = True
+        logger.error('{} empty.'.format(fileName))
+    return error
 
-def constantsInitialiszation(projectName, inputFile,):
+def constantsInitialization(projectName, inputFile):
     '''
     Initialization of constants.
     Calling from netsyn or BoxManager modules.
