@@ -342,9 +342,7 @@ def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
     if pointsToCheck[boxName]:
         error = False
         for fileName in pointsToCheck[boxName].keys():
-            if not os.path.isfile(pointsToCheck[boxName][fileName]):
-                error = True
-                logger.error('{} missing.'.format(pointsToCheck[boxName][fileName]))
+            error = common.checkFilledFile(pointsToCheck[boxName][fileName], error)
         if error:
             logger.error('Checkpoints not validated after executing of {}.'.format(boxName))
             exit(1)
@@ -412,7 +410,7 @@ if __name__ == '__main__':
     # Constantes #
     ##############
     # common.unPetitBonjourPourredonnerLeMoral()
-    common.constantsInitialiszation(args.ProjectName, args.InputFile)
+    common.constantsInitialization(args.ProjectName, args.InputFile)
     # WORKDIRECTORY = args.ProjectName
     # TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
     # SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')

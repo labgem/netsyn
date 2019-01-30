@@ -17,18 +17,27 @@ def parseInputI(filename): # Fonction a deplacer dans tools ??
     '''
     logger = logging.getLogger('{}.{}'.format(parseInputI.__module__, parseInputI.__name__))
     with open(filename, 'r') as file:
+        error = False
         firstLine = True
         accessions = []
         seps = [' ','\t',',',';']
         for line in file:
             for sep in seps:
                 if len(line.split(sep)) > 1:
-                    logger.error('Input invalidate: unauthorized character {}'.format(seps))
+                    logger.error('Input invalidated: unauthorized character {}'.format(seps))
+                    exit(1)
+            value = line.rstrip()
             if firstLine:
-                header = line.rstrip()
+                header = value
                 firstLine = False
+            elif not value in accessions:
+                accessions.append(value)
             else:
-                accessions.append(line.rstrip())
+                error = True
+                logger.error('{}: Entry duplicated.'.format(seps))
+    if error:
+        logger.error('Input invalidated.')
+        exit(1)
     return header, accessions
 
 def resultsFormat(res, dico):
@@ -90,8 +99,8 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
     return crossReference
 
 def getNucleicFialeName(nucleicAccession):
-    nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
-    #r'(?P<NucleicFileName>[A-B]{4,6}[0-1]{2})[0-9]{6,}$' ####### revenir dessus plus tard
+    # nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
+    nucleicAcc = re.match(r'^(?P<NucleicFileName>[A-Z]{4,6}[0-9]{2})[0-9]{6,}$', nucleicAccession)
     if nucleicAcc:
         return nucleicAcc.group("NucleicFileName")
     return nucleicAccession
@@ -169,14 +178,15 @@ def run(InputName):
                         exit(1)
                 if assemblyLength > maxAssemblyLength:
                     maxAssemblyLength = assemblyLength
-                    outputContent.append([
+                    toAppend = [
                         entry,
                         crossReference[entry]['Cross-reference (embl)'][index],
                         'protein_id',
                         nucleicAccession,
                         'embl',
                         nucleicFilePath
-                    ])
+                    ]
+            outputContent.append(toAppend)
         with open(outputName, 'w') as file:
             file.write('{}\n'.format('\t'.join(common.global_dict['inputIIheaders'])))
             for line in ['\t'.join(values) for values in outputContent]:
