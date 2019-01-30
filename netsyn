@@ -139,6 +139,7 @@ def orderDefinition():
     '''
     Setting the code execution order.
     '''
+
     global args
     # logger = logging.getLogger(orderDefinition.__name__)
     if args.INSDCRepertory:
@@ -324,7 +325,7 @@ def getAnalysisNumber(projectName):
     string = r'{}_Results_[0-9]+$'.format(projectName)
     existingAnalyzes = [f for f in os.listdir(common.global_dict['workingDirectory']) if re.search(string, f)]
     if existingAnalyzes:
-        number = max([i.split('_')[2] for i in existingAnalyzes])
+        number = max([int(i.split('_')[4]) for i in existingAnalyzes])
     analysisNumber = (number + 1)
     resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], projectName, analysisNumber)
     return analysisNumber, resultsDirectory
@@ -362,22 +363,21 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         GetINSDCFiles.run(args.InputFile)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
-        inputBoxII = '{}/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(TMPDIRECTORY)
-        ClusteringIntoFamilies.run(nameBox, TMPDIRECTORY, inputBoxII, MAXGCSIZE, args.Ident, args.MinCoverage)
+        inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
+        ClusteringIntoFamilies.run(inputBoxII, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
-        inputBoxIII = '{}/ClusteringIntoFamilies/genomicContexts.pickle'.format(TMPDIRECTORY)
-        targets_list = '{}/ClusteringIntoFamilies/targets_list.pickle'.format(TMPDIRECTORY)
-        SyntenyFinder.run(nameBox, TMPDIRECTORY, inputBoxIII, targets_list, MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
+        genomicContexts = common.global_dict['files']['ClusteringIntoFamilies']['genomicContexts']
+        targets_list = common.global_dict['files']['ClusteringIntoFamilies']['targets']
+        SyntenyFinder.run(genomicContexts, targets_list, args.WindowSize, args.SyntenyGap)
     elif nameBox == 'DataExport':
         logger = logging.getLogger('runDataExport')
-        #-n netsyn_BKACE_8/TMP/SyntenyFinder/nodes_list.pickle -e netsyn_BKACE_8/TMP/SyntenyFinder/edges_list.pickle -taxo netsyn_BKACE_8/TMP/ClusteringIntoFamilies/taxonomyLineage.pickle -c netsyn_BKACE_8/TMP/ClusteringIntoFamilies/contigs.pickle -pn netsyn_BKACE_8 -md BKACE_id.dat
-        nodes = '{}/SyntenyFinder/nodes_list.pickle'.format(TMPDIRECTORY)
-        edges = '{}/SyntenyFinder/edges_list.pickle'.format(TMPDIRECTORY)
-        taxonomy = '{}/ClusteringIntoFamilies/taxonomyLineage.pickle'.format(TMPDIRECTORY)
-        contigs_info = '{}/ClusteringIntoFamilies/contigs.pickle'.format(TMPDIRECTORY)
+        nodes = common.global_dict['files']['SyntenyFinder']['nodes']
+        edges = common.global_dict['files']['SyntenyFinder']['edges']
+        taxonomy = common.global_dict['files']['ClusteringIntoFamilies']['lineage']
+        contigs_info = common.global_dict['files']['ClusteringIntoFamilies']['contigs']
         metadata = 'BKACE_id.dat' #### chemain en dur !!!! #######################   *******************    ######################
-        DataExport.run(nameBox, TMPDIRECTORY, nodes, edges, taxonomy, contigs_info, metadata)
+        DataExport.run(nodes, edges, taxonomy, contigs_info, metadata, resultsDirectory)
     else:
         logger.critical('No execution planned for {}'.format(runBox))
         exit(1)
@@ -426,16 +426,16 @@ if __name__ == '__main__':
     ############
     if args.newProject and os.path.isdir(common.global_dict['workingDirectory']):
         shutil.rmtree(common.global_dict['workingDirectory'])
+    analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
     if not os.path.isfile(common.global_dict['settingsFileName']):
         if os.path.isdir(common.global_dict['workingDirectory']):
-            logger.error('Project name already used. Please change your project name or used --newProject.')
+            logger.error('Project name already used. Please change your project name or use --newProject.')
             exit(1)
         '''Pas de dernier setting == premiere analyse'''
         logger.info('New NetSyn project: {}'.format(common.global_dict['workingDirectory']))
         os.mkdir(common.global_dict['workingDirectory'])
         os.mkdir(common.global_dict['tmpDirectory'])
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
-        common.filesNameInitialiszation(resultsDirectory, args.ProjectName, analysisNumber)
+        common.filesNameInitialization(resultsDirectory, args.ProjectName, analysisNumber)
         shutil.copyfile(args.InputFile, common.global_dict['inputFileSaved'])
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
@@ -451,8 +451,7 @@ if __name__ == '__main__':
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
-        common.filesNameInitialiszation(resultsDirectory, args.ProjectName, analysisNumber)
+        common.filesNameInitialization(resultsDirectory, args.ProjectName, analysisNumber)
     createYamlSettingsFile(args)
     runFromBoxIndex = ORDERBOX.index(runFromBox)
     updateLastBoxDone(ORDERBOX[runFromBoxIndex-1] if runFromBoxIndex-1 >= 0 else '')

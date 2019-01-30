@@ -120,7 +120,7 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
         logger.error(res.data.decode('utf-8'))
         exit(1)
     else:
-        logger.info('Connection to https://www.uniprot.org/, success!')
+        logger.info('Connection to https://www.ebi.ac.uk/ena, success!')
     with open(nucleicFilePath, 'w') as file:
         if contentType == 'text/plain;charset=UTF-8':
             file.write(res.data.decode('utf-8'))

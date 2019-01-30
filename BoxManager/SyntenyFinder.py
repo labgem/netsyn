@@ -3,6 +3,7 @@
 ##########
 # Import #
 ##########
+import common
 import argparse
 import os
 import logging
@@ -206,28 +207,32 @@ def build_maxi_graph(maxiG, targets_syntons, params):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
-def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCORECUTOFF):
+def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     '''
     '''
+    # Constants
+    boxName = common.global_dict['boxName']['SyntenyFinder']
+    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
+    # Outputs
+    nodesOut = common.global_dict['files']['SyntenyFinder']['nodes']
+    edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
+    # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
-    logger.info('{} running...'.format(BOXNAME))
-    TMPDIRECTORYPROCESS = '{}/{}'.format(TMPDIRECTORY, BOXNAME)
-    if not os.path.isdir(TMPDIRECTORYPROCESS):
-        os.mkdir(TMPDIRECTORYPROCESS)
+    logger.info('{} running...'.format(boxName))
+    # Process
+    if not os.path.isdir(tmpDirectoryProcess):
+        os.mkdir(tmpDirectoryProcess)
 
     params = {
-        'MAX_GC': MAXGCSIZE,
+        'MAX_GC': common.global_dict['maxGCSize'],
         'USER_GC': GCUSER,
         'GAP': GAP,
         'INC_TARGETS_PAIR': 0,
         'INC_NO_SYNTENY': 0
         }
 
-    with open(INPUT, 'rb') as file:
-        cds_info = pickle.load(file)
-    with open(TARGETS_LIST, 'rb') as file:
-    #with open('{}/test/TMP/{}/{}'.format(TMPDIRECTORY, 'ClusteringIntoFamilies', 'targets_list.pickle'), 'rb') as file:
-        targets_list = pickle.load(file)
+    cds_info = common.read_pickle(GENOMICCONTEXTS)
+    target_list = common.read_pickle(TARGETS_LIST)
 
     tmp_dict = {}
     targets_syntons = {}
@@ -261,8 +266,7 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
                 no_synteny += 1
     #logger.info('Couples of targets computed depending on synteny results')
 
-    with open('{}/genomicContextUser.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
-        json.dump(cds_info, file, indent=4)
+    common.write_json(cds_info, '{}/genomicContextUser.json'.format(tmpDirectoryProcess))
 
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
@@ -353,14 +357,10 @@ def run(BOXNAME, TMPDIRECTORY, INPUT, TARGETS_LIST, MAXGCSIZE, GCUSER, GAP, SCOR
                 }
         list_of_edges.append(dico)
 
-    with open('{}/nodes_list.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
-        json.dump(list_of_nodes, file, indent=4)
-    with open('{}/nodes_list.pickle'.format(TMPDIRECTORYPROCESS), 'wb') as file:
-        pickle.dump(list_of_nodes, file)
-    with open('{}/edges_list.json'.format(TMPDIRECTORYPROCESS), 'w') as file:
-        json.dump(list_of_edges, file, indent=4)
-    with open('{}/edges_list.pickle'.format(TMPDIRECTORYPROCESS), 'wb') as file:
-        pickle.dump(list_of_edges, file)
+    common.write_pickle(list_of_nodes, nodesOut)
+    common.write_pickle(list_of_edges, edgesOut)
+    common.write_json(list_of_nodes, '{}/{}'.format(tmpDirectoryProcess, 'nodes_list.json'))
+    common.write_json(list_of_edges, '{}/{}'.format(tmpDirectoryProcess, 'edges_list.json'))
 
 if __name__ == '__main__':
     parser = argumentsParser()
