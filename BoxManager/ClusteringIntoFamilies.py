@@ -43,8 +43,8 @@ def argumentsParser():
     return parser
 
 def skip_duplicates(iterable, key=lambda x: x):
-    ''' removes duplicates from a list keeping the order of the elements
-    Uses a generator
+    ''' remove duplicates from a list keeping the order of the elements
+    Use a generator
     '''
     # on va mettre l’empreinte unique de chaque élément dans ce set
     fingerprints = set()
@@ -75,7 +75,7 @@ def check_headers(errors, mandatory_columns, headers):
 def parse_tsv(fname, authorized_columns, mandatory_columns):
     ''' create a list of dictionaries
         get from input file (fname) information by line
-        every line is a dictionary
+        every line is a dictionary stored in a list
     '''
     logger = logging.getLogger('parse_tsv')
     first_line = True
@@ -120,6 +120,8 @@ def read_rows(rows):
 
 def create_d_input(d_rows):
     ''' formatting information by filename
+        input: list of dictionaries
+        output: dictionary 
     '''
     logger = logging.getLogger('{}.{}'.format(create_d_input.__module__, create_d_input.__name__))
     d_input = {}
@@ -168,7 +170,7 @@ def check_and_get_input(input):
     return d_input
 
 def get_from_dbxref(aFeature, dbref):
-    ''' retrieves the value from the dbxref list
+    ''' retrieve the value from the dbxref list
     '''
     logger = logging.getLogger('{}.{}'.format(get_from_dbxref.__module__, get_from_dbxref.__name__))
     if dbref == 'taxon':
@@ -186,7 +188,7 @@ def get_from_dbxref(aFeature, dbref):
     return result
 
 def get_uniq_value(aFeature, ref):
-    ''' makes sure that when there is a value, it is not a sequence of values
+    ''' make sure that when there is a value, it is not a sequence of values
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     -*-*-*- in that case a value is a sequence of values, it has to   -*-*-*-
     -*-*-*- send an error, or a warning (need to know which index to  -*-*-*-
@@ -224,25 +226,22 @@ def get_required_value(func, aFeature, *args):
     else:
         return func(aFeature, *args)
 
-def search_taxonID(aFeature):
-    ''' makes sure that the taxon ID is provided by the user or through the
-    INSDC file
+def get_taxonID(aFeature):
+    ''' get taxon ID provided in a INSDC file
     '''
-    logger = logging.getLogger('{}.{}'.format(search_taxonID.__module__, search_taxonID.__name__))
+    logger = logging.getLogger('{}.{}'.format(get_taxonID.__module__, get_taxonID.__name__))
     taxon_ID = get_uniq_value(aFeature, 'taxon')
     return taxon_ID
 
 def get_contig_info(aFeature, contig_content, taxon_ID):
-    ''' then get the relied information to a contig as organism, strain, size
+    ''' get the relied information to a contig as organism, strain, size
     and taxon ID
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-    -*-*-*- an error has to be implemented so that any cds couldn't be -*-*-*-
-    -*-*-*- relied to a taxon ID                                       -*-*-*-
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    input: source feature from an INSDC file
+    output: updated contig dictionary
     '''
     logger = logging.getLogger('{}.{}'.format(get_contig_info.__module__, get_contig_info.__name__))
     if taxon_ID == 'NA':
-        taxon_ID = search_taxonID(aFeature)
+        taxon_ID = get_taxonID(aFeature)
     contig_content.update({
             'organism': get_uniq_value(aFeature, 'organism'),
             'strain': get_uniq_value(aFeature, 'strain'),
@@ -256,7 +255,7 @@ def get_contig_info(aFeature, contig_content, taxon_ID):
     return contig_content
 
 def is_pseudogene(aFeature):
-    ''' tests if a CDS is a pseudogene
+    ''' test if a CDS is a pseudogene
     '''
     return ('pseudo' in aFeature.qualifiers)
 # if 'pseudo' in aFeature.qualifiers:
@@ -265,14 +264,18 @@ def is_pseudogene(aFeature):
 #     return False
 
 def get_pseudo_id(params):
-    ''' creates an identifier for pseudogenes
+    ''' create an identifier for pseudogenes
     '''
     params['INC_PSEUDO_REF'] += 1
     INC_PSEUDO_REF = params['INC_PSEUDO_REF']
     return ':'.join(['PSEUDO', str(INC_PSEUDO_REF)])
 
 def det_frame(direction, startCDS, endGenome):
-    ''' determines the frame of the CDS
+    ''' determine the frame of the CDS
+    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    -*-*-*- needs to be rethought because of cases where there is a   -*-*-*-
+    -*-*-*- join(##..##, ##..###)                                     -*-*-*-
+    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     if direction == '1':
         window = ((int(startCDS)-1)%3)+1
@@ -283,7 +286,10 @@ def det_frame(direction, startCDS, endGenome):
     return strand
 
 def get_pseudo_info(aFeature, cds_info, contig_content, params):
-    ''' adds to the window's list information on the pseudogene
+    ''' add information of the pseudogene to cds_info dictionary
+    input: CDS feature having a '/pseudo' qualifier
+    output: updated cds_info dictionary, window list of the contig_content
+    modified to contain afeature
     '''
     logger = logging.getLogger('{}.{}'.format(get_pseudo_info.__module__, get_pseudo_info.__name__))
     params['INC_CDS_REF'] += 1
@@ -308,7 +314,10 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
     return cds_info, contig_content, params
 
 def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
-    ''' adds to the window's list information on the protein
+    ''' add information of the protein to cds_info dictionary
+    input: CDS feature of an INSDC file
+    output: updated cds_info dictionary, window list of the contig_content
+    modified to contain afeature
     '''
     logger = logging.getLogger('{}.{}'.format(get_prot_info.__module__, get_prot_info.__name__))
     INC_CONTIG_REF = params['INC_CONTIG_REF']
@@ -340,36 +349,35 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
 
 def set_target_to_gc(ref_target, gcList, cds_info):
     ''' add the target reference to members of its genomic context
+    input: target reference, list of target's genomic context
+    output: updated cds_info dictionary on genomic context cds key
     '''
     for gc_member in gcList:
-        if ref_target not in cds_info[gc_member]['target']:
-            cds_info[gc_member]['target'].append(ref_target)
+        #if ref_target not in cds_info[gc_member]['target']:
+        cds_info[gc_member]['target'].append(ref_target)
     return cds_info
 
-def found_target_procedure(cds, target_list, cds_info, contig_content):
-    ''' tests if the tested CDS is referenced as a target
-    If yes, copy the window's information to cds_keeper :
-    information on target and genomic context are saved
-
-    *** tested value used to be the CDS in the middle of the window ***
+def found_target_procedure(target, cds_info, contig_content):
+    ''' add the genomic context to the 'cds_to_keep' list, copy the 'window'
+    to the 'context'
+    input: target reference
+    output: updated cds_info on target's context and updated contig_content on
+    cds_to_keep
     '''
     logger = logging.getLogger('{}.{}'.format(found_target_procedure.__module__, found_target_procedure.__name__))
     contig_content['cds_to_keep'].extend(contig_content['window'])
 
-    cds_info[cds]['target'].append(cds)
-    cds_info[cds]['context'] = contig_content['window'].copy()
-    cds_info[cds]['similarityContext'] = None
+    cds_info[target]['context'] = contig_content['window'].copy()
 
-    cds_info = set_target_to_gc(cds, cds_info[cds]['context'], cds_info)
-    logger.debug('cds ({}/{})\t- contig_content ({}) -\twindow: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['window']))
-    logger.debug('cds ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(cds, cds_info[cds]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
+    cds_info = set_target_to_gc(target, cds_info[target]['context'], cds_info)
+    logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, cds_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
+    logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, cds_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
     return cds_info, contig_content
 
 def remove_useless_cds(cds, cds_info, contig_content):
-    ''' verifies if the tested CDS is in cds_to_keep list
-    If not, all information on it are removed
-
-    *** tested value is the first value of the window ***
+    ''' remove the cds if is not in cds_to_keep
+    input: cds to test
+    output: potential modified cds_info dictionary where cds entry is removed
     '''
     logger = logging.getLogger('{}.{}'.format(remove_useless_cds.__module__, remove_useless_cds.__name__))
     if cds not in [ref for ref in contig_content['cds_to_keep']]:
@@ -377,12 +385,19 @@ def remove_useless_cds(cds, cds_info, contig_content):
     return cds_info
 
 def parse_insdc(afile, d_infile, cds_info, contig_info, params):
-    ''' gets information for every contig mentionned in the input
-    and gets information for every cds that is contained in a (MAX_GC sized-)
+    ''' get information for every contig mentionned in the input
+    and get information for every cds that is contained in a (MAX_GC sized-)
     window centered on a target
+    input: INSDC file, file input information in d_infile dictionary
+    output: cds_info dictionary containing the cds belonging to the genomic context
+    of the targets and targets itself, and
+    contig_info dictionary containing the explored contig information
+    (see get_contig_info function), and
+    params is modified where values are incremented (INC_CONTIG_REF, INC_CDS_REF)
     '''
     logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
-    NOT_CONTIG = ['protein_AC_field', 'nucleic_File_Format']
+    
+    NOT_CONTIG = ['protein_AC_field', 'nucleic_File_Format'] #### ~~~~~~~~ Probably should be changed ~~~~~~~~~~ #####
     CONTIG_LIST = [contig for contig in d_infile if contig not in NOT_CONTIG]
     logger.debug('Contig list: {}'.format(CONTIG_LIST))
 
@@ -395,6 +410,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
         seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
         CONTIG = next(seqRecordParsed)
         while CONTIG_LIST and CONTIG:
+            # COM: getting the contig ID depending on its format
             if CONTIG.id in d_infile:
                 contig_name = CONTIG.id
             elif CONTIG.id.split(r'.')[0] in d_infile:
@@ -402,7 +418,8 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
             else:
                 contig_name = ''
 
-            if contig_name != '':
+            if contig_name:
+                # COM: initialization or update off incremented values
                 CONTIG_LIST.remove(contig_name)
                 params['INC_CONTIG_REF'] += 1
                 INC_CONTIG_REF = params['INC_CONTIG_REF']
@@ -411,6 +428,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                 TARGET_LIST = d_infile[contig_name]['target_list']
                 logger.debug('Target list for {} contig: {}'.format(contig_name, TARGET_LIST))
 
+                # COM: beginning of the parsing
                 for aFeature in CONTIG.features:
                     if aFeature.type == 'source':
                         contig_info[INC_CONTIG_REF] = get_contig_info(
@@ -438,7 +456,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                                 if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
                                     TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
-                                    cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                                    cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
                                 if contig_content['cds_to_keep']:
                                     cds_info = remove_useless_cds(presumed_kicked_out_cds, cds_info, contig_content)
                                 else:
@@ -449,7 +467,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                                 if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
                                     TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
-                                    cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                                    cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
                     if not TARGET_LIST:
                         break
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
@@ -462,12 +480,12 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                             if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                 TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
                         for presumed_target in window[HALF_SIZE_GC:]:
                             if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                 TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
                             if contig_content['cds_to_keep']:
                                 cds_info = remove_useless_cds(window[0], cds_info, contig_content)
                             else:
@@ -478,7 +496,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                             if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
                                 TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, TARGET_LIST, cds_info, contig_content)
+                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
                     logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                     contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
                 # COM: completed contig parsing, and still one or more targets have not been found
@@ -495,8 +513,9 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
 
 def parse_INSDC_files(d_input, cds_info, contig_info, params):
     ''' every INSDC file in d_input will be parsed
-        information are stored in dictionaries, one relative to contigs, the other relative to cds
-        found targets are listed
+    input: d_input dictionary with filename as key
+    output: cds_in and contig_info dictionaries containing information related to contigs
+    and targets mentioned in the d_input, and cds belonging to the genomic contexts of mentioned targets
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     nbr_of_files = len(d_input)
@@ -504,8 +523,6 @@ def parse_INSDC_files(d_input, cds_info, contig_info, params):
         params['INC_FILE'] += 1
         logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
         cds_info, contig_info, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, params)
-        #print(params['INC_CONTIG_REF'], len(d_input[afile])-2)
-        #os.remove(afile)
     return cds_info, contig_info, params
 
 def concat_by_dot(alist):
@@ -527,29 +544,6 @@ def write_multiFasta(cds_info, output):
         logger.debug('MultiFasta File is empty.')
         exit(1)
     return 0
-
-# def write_pickle(dictionary, output):
-#     ''' writes all dictionaries of INSDC file parsed in a pickle file format
-#     '''
-#     logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
-#     with open(output, 'wb') as pickleFile:
-#         pickle.dump(dictionary, pickleFile)
-#     return 0
-
-# def write_json(dictionary, output):
-#     ''' writes all dictionaries of INSDC file parsed in a json file format
-#     '''
-#     logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
-#     with open(output, 'w') as jsonFile:
-#         json.dump(dictionary, jsonFile, indent=4)
-#     return 0
-
-# def write_list(list, output):
-#     logger = logging.getLogger('{}.{}'.format(write_list.__module__, write_list.__name__))
-#     with open(output, 'w') as opt:
-#         for atarget in list:
-#             opt.write('{}\n'.format(atarget))
-#     return 0
 
 def get_lineage(xml):
     ''' extracts the taxonomic lineage from the provided xml file format
@@ -648,8 +642,26 @@ def get_taxonLineage(taxonIDs, tmpDirectoryProcess):
         all_lineages.update(new_lineage) # no risk of overwriting
     return all_lineages
 
+def taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut):
+    logger.info('Taxonomic lineages research ...')
+    taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != 'NA']))
+    taxonomicLineage = get_taxonLineage(taxonIDs, tmpDirectoryProcess)
+    logger.info('End of taxonomic lineages research')
+    logger.info('Taxonomic lineages information writting ...')
+    common.write_pickle(taxonomicLineage, taxoOut)
+    common.write_json(taxonomicLineage, '{}/{}'.format(tmpDirectoryProcess, 'taxonomicLineage.json'))
+    return 0
+
+def mmseqs_preparation(cds_info, multiFasta, targetsOut):
+    ''' write the multifasta file and the targets list
+    '''
+    write_multiFasta(cds_info, multiFasta)
+    targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
+    common.write_pickle(targets_storage, targetsOut)
+    common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
+
 def mmseqs_createdb(tmpDirectoryProcess, prefix):
-    ''' creates a database using the mmseqs software
+    ''' create database using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     suffix = 'faa'
@@ -660,7 +672,7 @@ def mmseqs_createdb(tmpDirectoryProcess, prefix):
     return 0
 
 def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
-    ''' does the clustering using the mmseqs software
+    ''' cluster sequences using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
     suffixDB = 'DB'
@@ -684,7 +696,7 @@ def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
     return 0
 
 def mmseqs_createTSV(tmpDirectoryProcess, prefix):
-    ''' executes the mmseqs command line 'mmseqs createtsv'
+    ''' execute the mmseqs command line 'mmseqs createtsv'
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
     suffixDB = 'DB'
@@ -714,7 +726,7 @@ def mmseqs_runner(params, tmpDirectoryProcess):
     return 0
 
 def regroup_families(tsv_file, cds_info):
-    ''' creates a dictionary to store families obtained by MMseqs2
+    ''' create a dictionary to store families obtained by MMseqs2
     '''
     logger = logging.getLogger('{}.{}'.format(regroup_families.__module__, regroup_families.__name__))
     INC_FAMILY = 1
@@ -730,22 +742,6 @@ def regroup_families(tsv_file, cds_info):
         cds = int(aline[1]) #cds = int(aline[2])
         cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
-
-def mmseqs_preparation(cds_info, multiFasta, targetsOut):
-    write_multiFasta(cds_info, multiFasta)
-    targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
-    common.write_pickle(targets_storage, targetsOut)
-    common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
-
-def taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut):
-    logger.info('Taxonomic lineages research ...')
-    taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != 'NA']))
-    taxonomicLineage = get_taxonLineage(taxonIDs, tmpDirectoryProcess)
-    logger.info('End of taxonomic lineages research')
-    logger.info('Taxonomic lineages information writting ...')
-    common.write_pickle(taxonomicLineage, taxoOut)
-    common.write_json(taxonomicLineage, '{}/{}'.format(tmpDirectoryProcess, 'taxonomicLineage.json'))
-    return 0
 
 def run(INPUT_II, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
