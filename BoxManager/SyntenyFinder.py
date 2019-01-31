@@ -12,7 +12,7 @@ import json
 import sys
 import math
 import igraph as ig
-import cairocffi
+# import cairocffi
 #############
 # Functions #
 #############
