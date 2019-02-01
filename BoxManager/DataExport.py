@@ -103,6 +103,7 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     contigs = common.read_pickle(CONTIGS)
     metadata = parse_tsv(METADATA) # liste de dicos
 
+    # COM: addition of metadata and taxonomic lineage information to the nodes
     g = ig.Graph()
     for idx, anode in enumerate(list_of_nodes):
         uniP = anode['UniProtAC']
