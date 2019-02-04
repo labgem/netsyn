@@ -378,10 +378,22 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
             dico['Families'][afam]['Products'] = []
             dico['Families'][afam]['EC_numbers'] = []
             for pos in dico['Families'][afam]['positions']:
-                dico['Families'][afam]['id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['uniprot'])
-                dico['Families'][afam]['Protein_id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['protein_id'])
-                dico['Families'][afam]['Products'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['product'])
-                dico['Families'][afam]['EC_numbers'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['ec_number'])
+                dico['Families'][afam]['Protein_id'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['protein_id']
+                    if 'protein_id' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['id'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['uniprot']
+                    if 'uniprot' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['Products'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['product']
+                    if 'product' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['EC_numbers'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['ec_number']
+                    if 'ec_number' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
         list_of_nodes.append(dico)
 
     list_of_edges = []

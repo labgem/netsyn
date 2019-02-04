@@ -139,7 +139,7 @@ def create_d_input(d_rows):
         d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
         d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
 
-        if 'taxon_ID' in arow.keys() and arow['taxon_ID'] != 'NA':
+        if 'taxon_ID' in arow.keys() and arow['taxon_ID'] != common.global_dict['defaultValue']:
             if 'taxon_ID' not in d_input[filename][contig_id]:
                 d_input[filename][contig_id]['taxon_ID'] = arow['taxon_ID']
             else:
@@ -180,7 +180,7 @@ def get_from_dbxref(aFeature, dbref):
     elif dbref == 'UniProt':
         pattern = 'UniProt*'
 
-    result = 'NA'
+    result = common.global_dict['defaultValue']
     if aFeature.qualifiers.get('db_xref'):
         for aRef in aFeature.qualifiers.get('db_xref'):
             if re.match(pattern, aRef):
@@ -202,7 +202,7 @@ def get_uniq_value(aFeature, ref):
             result = get_from_dbxref(aFeature, ref)
             return result
         except:
-            return 'NA'
+            return common.global_dict['defaultValue']
     if len(result) == 1:
         return result[0]
     else:
@@ -219,7 +219,7 @@ def get_required_value(func, aFeature, *args):
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
-    if not func(aFeature, *args) or func(aFeature, *args) == 'NA':
+    if not func(aFeature, *args) or func(aFeature, *args) == common.global_dict['defaultValue']:
         logger.error('A required value is not provided: {}'.format([arg for arg in args]))
         # exit(1)
         return 1
@@ -240,7 +240,7 @@ def get_contig_info(aFeature, contig_content, taxon_ID):
     output: updated contig dictionary
     '''
     logger = logging.getLogger('{}.{}'.format(get_contig_info.__module__, get_contig_info.__name__))
-    if taxon_ID == 'NA':
+    if taxon_ID == common.global_dict['defaultValue']:
         taxon_ID = get_taxonID(aFeature)
     contig_content.update({
             'organism': get_uniq_value(aFeature, 'organism'),
@@ -302,13 +302,11 @@ def get_pseudo_info(aFeature, cds_info, contig_content, params):
         'protein_id': pseudo_id,
         'position': [start, stop],
         'frame': det_frame(str(aFeature.location.strand), start, contig_content.get('size')[1]),
-        'product': aFeature.qualifiers.get('product'),
+        'product': aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else common.global_dict['defaultValue'],
         'sequence': get_uniq_value(aFeature, 'translation'),
         'target': [],
-        'context': None,
         'contig': INC_CONTIG_REF,
         'genome': params['INC_FILE'],
-        'similarityFamily': None
         }
     contig_content['window'].append(INC_CDS_REF)
     return cds_info, contig_content, params
@@ -329,20 +327,18 @@ def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
         ident = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
         logger.info('Protein {} has no field protein_id. A random name has been created: {}'.format(INC_CDS_REF, ident))
     start, stop = aFeature.location.start.real+1, aFeature.location.end.real
-    ec_nums = (aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else 'NA')
+    ec_nums = (aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else common.global_dict['defaultValue'])
     cds_info[INC_CDS_REF] = {
         'protein_id': ident,
         'position': [start, stop],
         'frame': det_frame(str(aFeature.location.strand), start, contig_content.get('size')[1]),
-        'product': aFeature.qualifiers.get('product'),
+        'product': aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else common.global_dict['defaultValue'],
         'sequence': get_required_value(get_uniq_value, aFeature, 'translation'),
         'ec_number': ec_nums,
         'uniprot': get_from_dbxref(aFeature, 'UniProt'),
         'target': [],
-        'context': None,
         'contig': INC_CONTIG_REF,
         'genome': params['INC_FILE'],
-        'similarityFamily': None
         }
     contig_content['window'].append(INC_CDS_REF)
     return cds_info, contig_content, params
@@ -434,7 +430,7 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                         contig_info[INC_CONTIG_REF] = get_contig_info(
                             aFeature,
                             contig_info[INC_CONTIG_REF],
-                            d_infile[contig_name]['taxon_ID'] if 'taxon_ID' in d_infile[contig_name].keys() else 'NA'
+                            d_infile[contig_name]['taxon_ID'] if 'taxon_ID' in d_infile[contig_name].keys() else common.global_dict['defaultValue']
                             )
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
@@ -609,8 +605,8 @@ def get_desired_lineage(lineage_full):
     if desired_ranks != {}:
         for rank in desired_ranks:
             level = desired_ranks[rank]
-            scientificName = 'NA'
-            taxId = 'NA'
+            scientificName = common.global_dict['defaultValue']
+            taxId = common.global_dict['defaultValue']
             desired_lineage.append([level, rank, scientificName, taxId])
     return desired_lineage
 
@@ -643,8 +639,9 @@ def get_taxonLineage(taxonIDs, tmpDirectoryProcess):
     return all_lineages
 
 def taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut):
+    logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
     logger.info('Taxonomic lineages research ...')
-    taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != 'NA']))
+    taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != common.global_dict['defaultValue']]))
     taxonomicLineage = get_taxonLineage(taxonIDs, tmpDirectoryProcess)
     logger.info('End of taxonomic lineages research')
     logger.info('Taxonomic lineages information writting ...')
@@ -658,7 +655,7 @@ def mmseqs_preparation(cds_info, multiFasta, targetsOut):
     write_multiFasta(cds_info, multiFasta)
     targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
     common.write_pickle(targets_storage, targetsOut)
-    common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
+    common.write_json(targets_storage, '{}/{}/{}'.format(common.global_dict['tmpDirectory'], common.global_dict['boxName']['ClusteringIntoFamilies'], 'targets_list.json'))
 
 def mmseqs_createdb(tmpDirectoryProcess, prefix):
     ''' create database using the mmseqs software
@@ -813,6 +810,7 @@ def run(INPUT_II, IDENT, COVERAGE):
         common.write_json(cds_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
 
         mmseqs_preparation(cds_info, multiFasta, targetsOut)
+        exit(1)
         taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
 
     elif ('MMseqs2_run.faa' or 'targets_list.pickle') not in written_files: # and not ('taxonomicLineage.pickle') ???
@@ -820,6 +818,7 @@ def run(INPUT_II, IDENT, COVERAGE):
         contig_info = common.read_pickle(contigsOut)
         cds_info = common.read_pickle(gcOut)
         mmseqs_preparation(cds_info, multiFasta, targetsOut)
+        exit(1)
         taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
 
     elif 'taxonomicLineage.pickle' not in written_files:
@@ -843,7 +842,7 @@ def run(INPUT_II, IDENT, COVERAGE):
             if 'uniprot' in cds_info[inc]:
                 uniprot = cds_info[inc]['uniprot']
             else:
-                uniprot = 'NA'
+                uniprot = common.global_dict['defaultValue']
             file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], uniprot))
 
     logger.info('End of ClusteringIntoFamilies')
