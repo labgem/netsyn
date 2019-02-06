@@ -81,23 +81,6 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
     while uniprotAccessions:
         accessions = '+OR+id:'.join(uniprotAccessions[:batchesSize])
         res = common.httpRequest(PoolManager,'GET','https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
-        # resStatus = 0
-        # remainingTry = 5
-        # while not resStatus == 200 and remainingTry > 0:
-        #     try:
-        #         logger.info('Matching between UniProt and ENA. Connection to https://www.uniprot.org/, remaining try: {}.'.format(remainingTry))
-        #         res = PoolManager.request('GET' ,
-        #             'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
-        #         resStatus = res.status
-        #         remainingTry -= 1
-        #     except:
-        #         logger.error('OUPS')
-        #         exit(1)
-        # if not res.status == 200:
-        #     logger.error('HTTP error {}! Matching between UniProt and ENA failed.'.format(res.status))
-        #     exit(1)
-        # else:
-        #     logger.info('Connection to https://www.uniprot.org/, success!')
         crossReference = resultsFormat(res, crossReference)
         nbEntriesProcessed += len(uniprotAccessions[:batchesSize])
         del uniprotAccessions[:batchesSize]
@@ -117,26 +100,10 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
     '''
     logger = logging.getLogger('{}.{}'.format(getEMBLfromENA.__module__, getEMBLfromENA.__name__))
     res = common.httpRequest(PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
-    # resStatus = 0
-    # remainingTry = 5
-    # while not resStatus == 200 and remainingTry > 0:
-    #     try:
-    #         logger.info('{} dowloading. Connection to https://www.ebi.ac.uk/ena, remaining try: {}.'.format(nucleicFilePath, remainingTry))
-    #         res = PoolManager.request('GET' , 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
-    #         resStatus = res.status
-    #         remainingTry -= 1
-    #     except:
-    #         logger.error('OUPS')
-    #         exit(1)
     contentType = res.info()['Content-Type']
-    # if not res.status == 200:
-    #     logger.error('HTTP error {}! {}.embl couldn\'t be downloaded !'.format(res.status, nucleicFilePath))
-    #     exit(1)
     if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
         logger.error(res.data.decode('utf-8'))
         exit(1)
-    # else:
-    #     logger.info('Connection to https://www.ebi.ac.uk/ena, success!')
     with open(nucleicFilePath, 'w') as file:
         if contentType == 'text/plain;charset=UTF-8':
             file.write(res.data.decode('utf-8'))
