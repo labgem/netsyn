@@ -232,7 +232,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
         }
 
     cds_info = common.read_pickle(GENOMICCONTEXTS)
-    target_list = common.read_pickle(TARGETS_LIST)
+    targets_list = common.read_pickle(TARGETS_LIST)
 
     tmp_dict = {}
     targets_syntons = {}

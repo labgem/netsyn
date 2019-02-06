@@ -107,7 +107,7 @@ def read_file(input):
     '''
     '''
     with open(input, 'r') as file:
-        return file.read()
+        return file.readlines()
 
 #########################
 # Constantes definition #

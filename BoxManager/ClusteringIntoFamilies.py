@@ -522,35 +522,11 @@ def write_multiFasta(cds_info, output):
         exit(1)
     return 0
 
-# def write_pickle(dictionary, output):
-#     ''' writes all dictionaries of INSDC file parsed in a pickle file format
-#     '''
-#     logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
-#     with open(output, 'wb') as pickleFile:
-#         pickle.dump(dictionary, pickleFile)
-#     return 0
-
-# def write_json(dictionary, output):
-#     ''' writes all dictionaries of INSDC file parsed in a json file format
-#     '''
-#     logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
-#     with open(output, 'w') as jsonFile:
-#         json.dump(dictionary, jsonFile, indent=4)
-#     return 0
-
-# def write_list(list, output):
-#     logger = logging.getLogger('{}.{}'.format(write_list.__module__, write_list.__name__))
-#     with open(output, 'w') as opt:
-#         for atarget in list:
-#             opt.write('{}\n'.format(atarget))
-#     return 0
-
 def get_lineage(xml, desiredTaxonIDs):
     logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
     ''' extracts the taxonomic lineage from the provided xml file format
     ??? why initialize rank as False and not NA ???
     '''
-    print('> {}: taxid recherches'.format(desiredTaxonIDs))
     allLineages = []
     root = ET.fromstring(xml)
     if root.findall('Taxon'):
@@ -580,12 +556,9 @@ def get_lineage(xml, desiredTaxonIDs):
                 for taxon in taxon.find('AkaTaxIds').findall('TaxId'):
                     oldTaxonIDs.append(taxon.text)
             allLineages.append([collectedTaxId, fullLineage, oldTaxonIDs])
-    # for l in allLineages:
-    #     print('{}'.format(l))
     indexTaxID = 0
     # indexLineage = 1
     indexOldTaxID = 2
-    print(' > {}: taxid trouves'.format([lineage[indexTaxID] for lineage in allLineages ]))
     if len(desiredTaxonIDs) == len(allLineages):
         # All lineage recovered
         for index, desiredTaxon in enumerate(desiredTaxonIDs):
@@ -627,51 +600,23 @@ def get_lineage(xml, desiredTaxonIDs):
         for desiredTaxon in desiredTaxonIDs:
             logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
     return allLineages
-            # return lineage_full, collected_taxId
-    # lineage_full = {}
-    # root = ET.fromstring(xml)
-    # scientificName = root.find('Taxon').find('ScientificName').text
-    # rank = False
-    # if root.find('Taxon').find('Rank').text:
-    #     rank = root.find('Taxon').find('Rank').text
-    # taxId = root.find('Taxon').find('TaxId').text
-    # collected_taxId = taxId
-    # lineage_full[scientificName] = {'rank' : rank, 'taxId' : taxId}
-
-    # lineage = root.find('Taxon').find('LineageEx')
-    # taxons = lineage.findall('Taxon')
-    # for taxon in taxons:
-    #     scientificName = taxon.find('ScientificName').text
-    #     taxId = taxon.find('TaxId').text
-    #     rank = False
-    #     if taxon.find('Rank').text:
-    #         rank = taxon.find('Rank').text
-    #     lineage_full[scientificName] = {'rank' : rank, 'taxId' : taxId}
-    # return lineage_full, collected_taxId
 
 def get_taxo_from_web(taxonIDs, tmpDirectoryProcess):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    # retry = urllib3.util.Retry(read=5, backoff_factor=2)
     http = urllib3.PoolManager()
     ids = ','.join(taxonIDs)
-    #xml = http.request('GET', 'https://www.ebi.ac.uk/ena/data/view/Taxon:' + str(taxonID) + '&display=xml')
-    # xml = http.request('GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(str(taxonID)), retries=retry)
     xml = common.httpRequest(http,'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(ids))
     with open('{}/xml_file'.format(tmpDirectoryProcess), 'w') as file:
         file.write(xml.data.decode('utf-8'))
     return get_lineage(xml.data.decode('utf-8'), taxonIDs)
-    # taxonLineage, collected_taxId = get_lineage(xml.data.decode('utf-8'), taxonIDs)
-    # return taxonLineage, collected_taxId
 
 def get_desired_lineage(lineages):
     ''' takes the ranks of interest through the taxonomic lineage
     '''
     allLineages = {}
-    print('+ {}'.format(lineages))
     for collectedTaxId, fullLineage, oldTaxonIDs in lineages:
-        print(collectedTaxId, fullLineage, oldTaxonIDs)
         desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
         desired_lineage = []
         for scientificName in fullLineage:
@@ -689,22 +634,6 @@ def get_desired_lineage(lineages):
                 desired_lineage.append([level, rank, scientificName, taxId])
         allLineages.update(store_into_dict(collectedTaxId, desired_lineage))
     return allLineages
-    # desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
-    # desired_lineage = []
-    # for scientificName in fullLineage:
-    #     if fullLineage[scientificName]['rank'] in desired_ranks:
-    #         rank = fullLineage[scientificName]['rank']
-    #         level = desired_ranks[rank]
-    #         taxId = fullLineage[scientificName]['taxId']
-    #         desired_lineage.append([level, rank, scientificName, taxId])
-    #         del desired_ranks[rank]
-    # if desired_ranks != {}:
-    #     for rank in desired_ranks:
-    #         level = desired_ranks[rank]
-    #         scientificName = 'NA'
-    #         taxId = 'NA'
-    #         desired_lineage.append([level, rank, scientificName, taxId])
-    # return desired_lineage
 
 def store_into_dict(ataxon, desired_taxo):
     ''' puts information on taxonomic lineage into a dictionary
@@ -724,30 +653,13 @@ def get_taxonomicLineage(taxonIDs, tmpDirectoryProcess):
     logger = logging.getLogger('{}.{}'.format(get_taxonomicLineage.__module__, get_taxonomicLineage.__name__))
     logger.info('Getting all taxonomic lineages represented in the Project')
     all_lineages = {}
-    batchesSize = 3
-    taxonIDs = ['1884790', '2', '3', '304371', '3','4', '76869','3','4','3','4','3','4','3','4']
+    batchesSize = 100
+    # taxonIDs = ['1884790', '2', '3', '304371', '3','4', '76869','3','4','3','4','3','4','3','4'] # To test
     while taxonIDs:
-        # res_taxo, collected_taxId = get_taxo_from_web(ids, tmpDirectoryProcess)
         lineages = get_taxo_from_web(taxonIDs[:batchesSize], tmpDirectoryProcess)
         all_lineages.update(get_desired_lineage(lineages))
         del taxonIDs[:batchesSize]
-        print()
     return all_lineages
-    # for ataxon in taxonIDs:
-    #     try:
-    #         res_taxo, collected_taxId = get_taxo_from_web(ataxon, tmpDirectoryProcess)
-    #         if collected_taxId != ataxon:
-    #             logger.info('The species having {} as taxonID, has its taxonID change for {}'.format(ataxon, collected_taxId))
-    #             ataxon = collected_taxId
-    #         desired_taxo = get_desired_lineage(res_taxo)
-    #         new_lineage = store_into_dict(ataxon, desired_taxo)
-    #         logger.info('Taxonomic lineage recovered for the taxonID {}.'.format(ataxon))
-    #     except:
-    #         logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(ataxon))
-    #         desired_taxo = get_desired_lineage({})
-    #         new_lineage = store_into_dict(ataxon, desired_taxo)
-    #     all_lineages.update(new_lineage) # no risk of overwriting
-    # return all_lineages
 
 def mmseqs_createdb(tmpDirectoryProcess, prefix):
     ''' creates a database using the mmseqs software
@@ -846,7 +758,6 @@ def taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut):
     logger.info('Taxonomic lineages information writting ...')
     common.write_pickle(taxonomicLineage, taxoOut)
     common.write_json(taxonomicLineage, '{}/{}'.format(tmpDirectoryProcess, 'taxonomicLineage.json'))
-    exit(1)
     return 0
 
 def run(INPUT_II, IDENT, COVERAGE):
