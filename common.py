@@ -6,6 +6,7 @@ import json
 import pickle
 import os
 import logging
+import urllib3
 
 #############
 # Functions #
@@ -31,6 +32,19 @@ def checkFilledFile(fileName, error=False):
         logger.error('{} empty.'.format(fileName))
     return error
 
+def httpRequest(poolManager,method, url):
+    '''
+    Return http request result.
+    '''
+    logger = logging.getLogger('{}.{}'.format(httpRequest.__module__, httpRequest.__name__))
+    retry = urllib3.util.Retry(read=5, backoff_factor=2)
+    try:
+        res = poolManager.request(method, url, retries=retry)
+    except urllib3.exceptions.NewConnectionError:
+        logger.error('Connection failed.')
+        exit(1)
+    return res
+
 def constantsInitialization(projectName, inputFile):
     '''
     Initialization of constants.
@@ -40,7 +54,7 @@ def constantsInitialization(projectName, inputFile):
     global_dict['tmpDirectory'] = '{}/TMP'.format(projectName) #TMPDIRECTORY
     global_dict['settingsFileName'] = '{}/{}'.format(projectName, '.lastSettings.yml') #SETTINGSFILENAME
     global_dict['reportFileName'] = '{}/{}'.format(projectName, '.report.yml') #REPORTFILENAME
-    global_dict['inputFileSaved'] = '{}/{}'.format(projectName, inputFile) #INPUTLIST
+    global_dict['inputFileSaved'] = '{}/{}'.format(projectName, os.path.basename(inputFile)) #INPUTLIST
 
 def filesNameInitialization(resultsDirectory, projectName, analysisNumber):
     global_dict['files'] = {
@@ -68,7 +82,7 @@ def filesNameInitialization(resultsDirectory, projectName, analysisNumber):
     }
 
 def write_pickle(dictionary, output):
-    ''' 
+    '''
     '''
     #logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
     with open(output, 'wb') as pickleFile:
@@ -76,7 +90,7 @@ def write_pickle(dictionary, output):
     return 0
 
 def write_json(dictionary, output):
-    ''' 
+    '''
     '''
     #logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
     with open(output, 'w') as jsonFile:
@@ -84,7 +98,7 @@ def write_json(dictionary, output):
     return 0
 
 def read_pickle(input):
-    ''' 
+    '''
     '''
     with open(input, 'rb') as file:
         return pickle.load(file)
@@ -114,7 +128,16 @@ global_dict = {
         'nucleic_AC',
         'nucleic_File_Format',
         'nucleic_File_Name'
-    ]
+    ],
+    'desired_ranks_lneage' : {
+        'superkingdom' : 1,
+        'phylum' : 5,
+        'class' : 8,
+        'order' : 13,
+        'family' : 17,
+        'genus' : 21,
+        'species' : 26
+    }
 }
 
 

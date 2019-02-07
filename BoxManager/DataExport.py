@@ -75,7 +75,7 @@ def parse_tsv(fname, ac=None, mc=None):
                 rows.append(row)
     if errors:
         logger.error('Madatory columns')
-        sys.exit(1)
+        exit(1)
     return rows
 
 def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
