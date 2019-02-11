@@ -15,29 +15,6 @@ import common
 # Functions #
 #############
 
-def argumentsParser():
-    '''
-    Arguments parsing
-    '''
-    parser = argparse.ArgumentParser(description='''Description of the DataExport usage''',
-                                     epilog='''All's well that ends well.''',
-                                     usage='''DataExport options...''',
-                                     formatter_class=argparse.RawTextHelpFormatter)
-
-    parser.add_argument('-n', '--Nodes', type=str,
-                        required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
-    parser.add_argument('-e', '--Edges', type=str,
-                        required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    parser.add_argument('-taxo', '--Taxonomy', type=str,
-                        required=True, help='Path of the taxonomyLineage file from the ClusteringIntoFamilies part')
-    parser.add_argument('-c', '--ContigsInfo', type=str,
-                        required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
-    parser.add_argument('-md', '--MetaData', type=str,
-                        required=True, help='Path of the metadata file provided by the user')
-    parser.add_argument('-pn', '--ProjectName', type=str, required=True,
-                        help='The project name.')
-    return parser
-
 def parse_tsv(fname, ac=None, mc=None):
     ''' create a list of dictionaries
         get from input file (fname) information by line
@@ -81,7 +58,6 @@ def parse_tsv(fname, ac=None, mc=None):
 def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
-    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
     # Outputs
     graphML = common.global_dict['files']['DataExport']['graphML']
     nodesRes = common.global_dict['files']['DataExport']['nodes']
@@ -92,8 +68,6 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(boxName))
     # Process
-    if not os.path.isdir(tmpDirectoryProcess):
-        os.mkdir(tmpDirectoryProcess)
     if not os.path.isdir(RESULTSDIR):
         os.mkdir(RESULTSDIR)
 
@@ -136,11 +110,60 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     common.write_json(list_of_nodes, nodesRes)
     common.write_json(list_of_edges, edgesRes)
 
+def argumentsParser():
+    '''
+    Arguments parsing
+    '''
+    parser = argparse.ArgumentParser(usage='''DataExport options...''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    group1 = parser.add_argument_group('General settings')
+    group1.add_argument('-n', '--Nodes', type=str,
+                        required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
+    group1.add_argument('-e', '--Edges', type=str,
+                        required=True, help='Path of the edges file obtained from the SyntenyFinder part')
+    group1.add_argument('-taxo', '--Taxonomy', type=str,
+                        required=True, help='Path of the taxonomyLineage file from the ClusteringIntoFamilies part')
+    group1.add_argument('-c', '--ContigsInfo', type=str,
+                        required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
+    group1.add_argument('-md', '--MetaData', type=str,
+                        required=True, help='Path of the metadata file provided by the user')
+    group1.add_argument('-o', '--OutputName', type=str, required=True,
+                        help='Output name files.')
+
+    group2 = parser.add_argument_group('logger')
+    group2.add_argument( '--log_level',
+                         type = str,
+                         nargs = '?',
+                         default = 'INFO',
+                         help = 'log level',
+                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required = False )
+    group2.add_argument( '--log_file',
+                         type = str,
+                         nargs = '?',
+                         help = 'log file (use the stderr by default)',
+                         required = False )
+    return parser.parse_args()
+
 if __name__ == '__main__':
-    parser = argumentsParser()
-    args = parser.parse_args()
-    BOXNAME = 'DataExport'
-    TMPDIRECTORY = '{}/TMP'.format(args.ProjectName)
-    #os.mkdir(TMPDIRECTORY)
-    #MAXGCSIZE = 11
-    run(args.Nodes, args.Edges, args.Taxonomy, args.ContigsInfo, args.MetaData)#MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
+    import argparse
+    ######################
+    # Parse command line #
+    ######################
+    args = argumentsParser()
+    ##########
+    # Logger #
+    ##########
+    common.parametersLogger(args)
+    #############
+    # Constants #
+    #############
+    boxName = common.global_dict['boxName']['DataExport']
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_Results_nodes.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_Results_edges.json'.format(args.OutputName))
+    #######
+    # Run #
+    #######
+    run(args.Nodes, args.Edges, args.Taxonomy, args.ContigsInfo, args.MetaData, '.')

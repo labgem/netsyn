@@ -7,6 +7,8 @@ import pickle
 import os
 import logging
 import urllib3
+import subprocess
+import errno
 
 #############
 # Functions #
@@ -18,6 +20,16 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     print("=D I'M HAPPY!!!")
     if msg:
         print(msg)
+
+def dependanciesChecking():
+    logger = logging.getLogger('{}.{}'.format(checkFilledFile.__module__, checkFilledFile.__name__))
+    try:
+        devnull = open(os.devnull)
+        subprocess.Popen('mmseqs', stdout=devnull, stderr=devnull).communicate()
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            logger.error('mmseqs not found. Please check its installation.')
+            exit(1)
 
 def checkFilledFile(fileName, error=False):
     '''
@@ -109,6 +121,26 @@ def read_file(input):
     with open(input, 'r') as file:
         return file.readlines()
 
+def parametersLogger(args):
+    '''
+    Logger setting.
+    '''
+    logging_std_format = '[%(levelname)s] %(message)s'
+    logging_debug_format = '%(asctime)s [%(levelname)s] [%(threadName)s - %(name)s] %(message)s'
+    log_level = args.log_level.upper()
+    if (log_level == 'DEBUG'):
+        logging_std_format = logging_debug_format
+    logging_datefmt = '%Y/%m/%d - %H:%M:%S'
+    if (args.log_file != None):
+        logging.basicConfig(format = logging_std_format,
+                             datefmt = logging_datefmt,
+                             filename = args.log_file,
+                             filemode = 'w',
+                             level = log_level)
+    else:
+        logging.basicConfig(format = logging_std_format,
+                             datefmt = logging_datefmt,
+                             level = log_level)
 #########################
 # Constantes definition #
 #########################

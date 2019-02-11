@@ -17,28 +17,6 @@ import common
 #############
 # Functions #
 #############
-def argumentsParser():
-    '''
-    Arguments parsing
-    '''
-    parser = argparse.ArgumentParser(description='''Description of the SyntenyFinder usage''',
-                                     epilog='''All's well that ends well.''',
-                                     usage='''SyntenyFinder options...''',
-                                     formatter_class=argparse.RawTextHelpFormatter)
-
-    parser.add_argument('-i', '--input', type=str,
-                        required=True, help='Path of the input obtained from the ClusteringIntoFamilies part')
-    parser.add_argument('-ws', '--WindowSize', type=int,
-                        default=11, help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: 11.')
-    parser.add_argument('-sg', '--SyntenyGap', type=int, default=3,
-                        help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
-    parser.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
-                        default=0, help='Define the minimum Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
-    parser.add_argument('-pn', '--ProjectName', type=str, required=True,
-                        help='The project name.')
-    parser.add_argument('-tl', '--TargetsList', type=str, required=True,
-                        help='Path of the target list obtained from the ClusteringIntoFamilies part')
-    return parser
 
 def set_userGC_similarityContext(targets, cds_info, params):
     ''' reduce the genomic context to the user parameter '--WindowSize'
@@ -419,10 +397,62 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     common.write_json(list_of_nodes, '{}/{}'.format(tmpDirectoryProcess, 'nodes_list.json'))
     common.write_json(list_of_edges, '{}/{}'.format(tmpDirectoryProcess, 'edges_list.json'))
 
+def argumentsParser():
+    '''
+    Arguments parsing
+    '''
+    parser = argparse.ArgumentParser(usage='''SyntenyFinder options...''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    group1 = parser.add_argument_group('General settings')
+    group1.add_argument('-ig', '--inputGenomicContext', type=str,
+                        required=True, help='Genomic Context File.')
+    group1.add_argument('-it', '--inputTargetsList', type=str,
+                        required=True, help='List of targets.')
+    group1.add_argument('-o', '--OutputName', type=str,
+                        required=True, help='Output name files.')
+    group1.add_argument('-ws', '--WindowSize', type=int,
+                        default=common.global_dict['maxGCSize'],
+                        help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: {}.'.format(common.global_dict['maxGCSize']))
+    group1.add_argument('-sg', '--SyntenyGap', type=int, default=3,
+                        help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
+    group1.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
+                        default=0, help='Define the minimum Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+
+
+    group2 = parser.add_argument_group('logger')
+    group2.add_argument( '--log_level',
+                         type = str,
+                         nargs = '?',
+                         default = 'INFO',
+                         help = 'log level',
+                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required = False )
+    group2.add_argument( '--log_file',
+                         type = str,
+                         nargs = '?',
+                         help = 'log file (use the stderr by default)',
+                         required = False )
+    return parser.parse_args()
+
 if __name__ == '__main__':
-    parser = argumentsParser()
-    args = parser.parse_args()
-    BOXNAME = 'SyntenyFinder'
-    TMPDIRECTORY = '{}/TMP'.format(args.ProjectName)
-    MAXGCSIZE = 11
-    run(BOXNAME, TMPDIRECTORY, args.input, args.TargetsList, MAXGCSIZE, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
+    import argparse
+    ######################
+    # Parse command line #
+    ######################
+    args = argumentsParser()
+    ##########
+    # Logger #
+    ##########
+    common.parametersLogger(args)
+    #############
+    # Constants #
+    #############
+    common.global_dict['tmpDirectory'] = '.'
+    boxName = common.global_dict['boxName']['SyntenyFinder']
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_nodes.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_edges.pickle'.format(args.OutputName))
+    #######
+    # Run #
+    #######
+    run(args.inputGenomicContext, args.inputTargetsList ,args.WindowSize, args.SyntenyGap)
