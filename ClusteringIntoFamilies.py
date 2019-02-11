@@ -404,7 +404,6 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 params['INC_CONTIG_REF'] += 1
                 INC_CONTIG_REF = params['INC_CONTIG_REF']
                 params['INC_TARGET_LOADED'] = 0
-                #orgs_info[INC_CONTIG_REF] = {'contig': contig_name}
                 TARGET_LIST = d_infile[contig_name]['target_list']
                 cds_to_keep = []
                 window = []
@@ -422,7 +421,6 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 params['INC_FILE']
                                 )
                             )
-                        print(orgs_info)
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
                         if is_pseudogene(aFeature):
@@ -434,7 +432,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                             feature_info, sequences, window, params = get_prot_info(aFeature, sequences, window, fieldProteinID, params)
                             prots_info.append(feature_info)
                             newCdsAdded = True
-
+                            
                         if newCdsAdded:
                             window_length = len(window)
                             if window_length == MAX_GC:
@@ -447,8 +445,10 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                     prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
                                 if cds_to_keep:
                                     if is_useless_cds(presumed_kicked_out_cds, cds_to_keep):
+                                        del sequences[prots_info[-MAX_GC]['id']]
                                         del prots_info[-MAX_GC]
                                 else:
+                                    del sequences[prots_info[-MAX_GC]['id']]
                                     del prots_info[-MAX_GC]
                                 del window[0]
                             elif window_length > HALF_SIZE_GC:
@@ -461,31 +461,57 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                     if not TARGET_LIST:
                         break
+
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 if TARGET_LIST:
                     window_length = len(window)
+                    # logger.debug('target list:\t{}'.format(TARGET_LIST))
+                    # logger.debug('window_length:\t{}'.format(window_length))
+                    # logger.debug('window content:\t{}'.format(window))
                     if window_length >= HALF_SIZE_GC:
-                        while window_length > HALF_SIZE_GC:
-                            if prots_info[-(window_length-HALF_SIZE_GC)]['protein_id'] in TARGET_LIST:
-                                TARGET_LIST.remove(prots_info[-(window_length-HALF_SIZE_GC)]['protein_id'])
+                        
+                        # logger.debug('for loop 1:\t{}'.format(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]))
+                        for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-HALF_SIZE_GC+idx]['id']))
+                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-HALF_SIZE_GC+idx]['protein_id']))
+                            if prots_info[-HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
+                                TARGET_LIST.remove(prots_info[-HALF_SIZE_GC+idx]['protein_id'])
                                 prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
-                            if cds_to_keep:
-                                if is_useless_cds(prots_info[-window_length]['id'], cds_to_keep):
-                                    del prots_info[-window_length]
-                            else:
-                                del prots_info[-window_length]
-                            del window[0]
-                            window_length = len(window)
-                    # elif window_length < HALF_SIZE_GC:
-                    #     for presumed_target in window:
-                    #         if prots_info[presumed_target]['protein_id'] in TARGET_LIST:
-                    #             TARGET_LIST.remove(prots_info[presumed_target]['protein_id'])
-                    #             params['INC_TARGET_LOADED'] += 1
-                    #             prots_info, contig_content = found_target_procedure(presumed_target, prots_info, contig_content)
 
-                    #logger.debug('proteins in cds_to_keep on this contig: {}'.format(orgs_info[INC_CONTIG_REF]['cds_to_keep']))
-                    #orgs_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(orgs_info[INC_CONTIG_REF]['cds_to_keep']))
+                        # logger.debug('for loop 2:\t{}'.format(window[HALF_SIZE_GC:]))
+                        for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-window_length+HALF_SIZE_GC+idx]['id']))
+                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id']))
+                            if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
+                                params['INC_TARGET_LOADED'] += 1
+                                TARGET_LIST.remove(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'])
+                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+
+                            # logger.debug('cds à tester:\t{}'.format(prots_info[-len(window)]['id']))
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('should we delete it:\t{}'.format(is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep)))
+                            if cds_to_keep:
+                                if is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep):
+                                    del sequences[prots_info[-len(window)]['id']]
+                                    del prots_info[-len(window)]
+
+                            else:
+                                del sequences[prots_info[-len(window)]['id']]
+                                del prots_info[-len(window)]
+
+                            del window[0]
+                            #logger.debug('*************************************************')
+
+                    elif window_length < HALF_SIZE_GC:
+                        for idx, presumed_target in enumerate(window):
+                            if prots_info[-window_length+idx]['protein_id'] in TARGET_LIST:
+                                params['INC_TARGET_LOADED'] += 1
+                                TARGET_LIST.remove(prots_info[-window_length+idx]['protein_id'])
+                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+
                 # COM: completed contig parsing, and still one or more targets have not been found
                 if TARGET_LIST:
                     logger.warning('Target(s) has(have) not been found: {}'.format(TARGET_LIST))
@@ -511,29 +537,31 @@ def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
         params['INC_FILE'] += 1
         logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
         prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
-    exit(1)
-    return prots_info, targets_info, orgs_info, params
+    #exit(1)
+    return prots_info, targets_info, orgs_info, sequences, params
 
 def concat_by_dot(alist):
     ''' does the concatenation by a dot
     '''
     return '.'.join(alist)
 
-def write_multiFasta(prots_info, output):
+def write_multiFasta(sequences, output):
     ''' writes a multiFasta file from the dictionary obtained by the INSDC file
     parser
     '''
     logger = logging.getLogger('{}.{}'.format(write_multiFasta.__module__, write_multiFasta.__name__))
     with open(output, 'w') as fastaFile:
-        for cds in prots_info:
-            fastaFile.write('>{}\n'.format(cds))
-            fastaFile.write(prots_info[cds]['sequence'])
-            fastaFile.write('\n')
+        for a_seq in sequences:
+            if sequences[a_seq] != 'NA':
+                fastaFile.write('>{}\n'.format(a_seq))
+                fastaFile.write(sequences[a_seq][0])
+                fastaFile.write('\n')
+            else:
+                logger.info('The protein {} has no sequence'.format(a_seq))
     if os.path.getsize(output) == 0:
         logger.debug('MultiFasta File is empty.')
         exit(1)
     return 0
-
 
 def get_lineage(xml, desiredTaxonIDs):
     logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
@@ -677,7 +705,9 @@ def get_taxonomicLineage(taxonIDs, tmpDirectoryProcess):
 def taxonomicLineage_runner(orgs_info, tmpDirectoryProcess, taxoOut):
     logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
     logger.info('Taxonomic lineages research ...')
-    taxonIDs = list(set([orgs_info[contig]['taxon_ID'] for contig in orgs_info if orgs_info[contig]['taxon_ID'] != common.global_dict['defaultValue']]))
+    taxonIDs = list(set([orgs_info[orgs_info.index(contig)]['taxon_ID']
+                         for contig in orgs_info
+                         if orgs_info[orgs_info.index(contig)]['taxon_ID'] != common.global_dict['defaultValue']]))
     taxonomicLineage = get_taxonomicLineage(taxonIDs, tmpDirectoryProcess)
     logger.info('End of taxonomic lineages research')
     logger.info('Taxonomic lineages information writting ...')
@@ -685,20 +715,12 @@ def taxonomicLineage_runner(orgs_info, tmpDirectoryProcess, taxoOut):
     common.write_json(taxonomicLineage, '{}/{}'.format(tmpDirectoryProcess, 'taxonomicLineage.json'))
     return 0
 
-def mmseqs_preparation(prots_info, multiFasta, targetsOut, tmpDirectoryProcess):
-    ''' write the multifasta file and the targets list
-    '''
-    write_multiFasta(prots_info, multiFasta)
-    targets_storage = [cds for cds in prots_info if cds in prots_info[cds]['target']]
-    common.write_pickle(targets_storage, targetsOut)
-    common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
-
 def mmseqs_createdb(tmpDirectoryProcess, multiFasta, prefix):
     ''' create database using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
-        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}/{}.{}'.format(tmpDirectoryProcess, prefix, 'DB')], stdout=file, stderr=file, check=True)
+        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}.{}'.format(prefix, 'DB')], stdout=file, stderr=file, check=True)
         logger.info('createdb - exit code: {}'.format(db_creation.returncode))
     return 0
 
@@ -711,8 +733,8 @@ def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
     if os.path.isdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP')):
         shutil.rmtree('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
     os.mkdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
-    dataBase = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixDB]))
-    outputCluster = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixCluster]))
+    dataBase = '{}'.format(concat_by_dot([prefix, suffixDB]))
+    outputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase,
                                          outputCluster, '{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'),
@@ -733,9 +755,9 @@ def mmseqs_createTSV(tmpDirectoryProcess, prefix):
     suffixDB = 'DB'
     suffixCluster = 'cluster'
     suffixTSV = 'tsv'
-    inputDB = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixDB]))
-    inputCluster = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixCluster]))
-    outputTSV = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixTSV]))
+    inputDB = '{}'.format(concat_by_dot([prefix, suffixDB]))
+    inputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
+    outputTSV = '{}'.format(concat_by_dot([prefix, suffixTSV]))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
         tsv_creation = subprocess.run(['mmseqs', 'createtsv', inputDB,
                                        inputDB, inputCluster, outputTSV
@@ -761,6 +783,7 @@ def regroup_families(tsv_file, prots_info):
     '''
     INC_FAMILY = 1
     centroid = None
+    tmp_dict = {}
     lines = common.read_file(tsv_file)
     for aline in lines:
         aline = aline.strip().split('\t')
@@ -770,7 +793,10 @@ def regroup_families(tsv_file, prots_info):
             centroid = aline[0]
             INC_FAMILY += 1
         cds = int(aline[1])
-        prots_info[cds]['similarityFamily'] = INC_FAMILY
+        tmp_dict[cds] = INC_FAMILY
+
+    for idx, prot in enumerate(prots_info):
+        prots_info[idx]['similarityFamily'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
     return prots_info
 
 def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
@@ -808,15 +834,15 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
 
     # MMseq2 files removing (inclure dans netsyn lors nouvelle analyse ?)
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'cluster'))
+        os.remove('{}.{}'.format(params['prefix'], 'cluster'))
     except:
         pass
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'cluster.index'))
+        os.remove('{}.{}'.format(params['prefix'], 'cluster.index'))
     except:
         pass
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'tsv'))
+        os.remove('{}.{}'.format(params['prefix'], 'tsv'))
     except:
         pass
     try:
@@ -835,22 +861,24 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
         #liste
         #usage : map(myFun, myList)
         logger.info('INSDC files parsing ...')
-        prots_info, targets_info, orgs_info, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
+        prots_info, targets_info, orgs_info, sequences, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
         logger.info('End of INSDC files parsing !')
 
         common.write_pickle(orgs_info, contigsOut)
         common.write_json(orgs_info, '{}/{}'.format(tmpDirectoryProcess, 'contigs.json'))
         common.write_pickle(prots_info, gcOut)
         common.write_json(prots_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
+        common.write_pickle(targets_info, targetsOut)
+        common.write_json(targets_info, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
 
-        mmseqs_preparation(prots_info, multiFasta, targetsOut, tmpDirectoryProcess)
+        write_multiFasta(sequences, multiFasta)
         taxonomicLineage_runner(orgs_info, tmpDirectoryProcess, taxoOut)
 
     elif ('MMseqs2_run.faa' or 'targets_list.pickle') not in written_files: # and not ('taxonomicLineage.pickle') ???
         logger.info('Missing the multifasta and targets list files')
         orgs_info = common.read_pickle(contigsOut)
         prots_info = common.read_pickle(gcOut)
-        mmseqs_preparation(prots_info, multiFasta, targetsOut,tmpDirectoryProcess)
+        write_multiFasta(sequences, multiFasta)
         taxonomicLineage_runner(orgs_info, tmpDirectoryProcess, taxoOut)
 
     elif 'taxonomicLineage.pickle' not in written_files:
@@ -865,7 +893,7 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     except:
         prots_info = common.read_pickle(gcOut)
 
-    prots_info = regroup_families('{}/{}'.format(tmpDirectoryProcess, concat_by_dot([params["prefix"], 'tsv'])), prots_info)
+    prots_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), prots_info)
     common.write_pickle(prots_info, gcOut)
     common.write_json(prots_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
 
