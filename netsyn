@@ -6,16 +6,14 @@
 
 import argparse
 import os
-import errno
 import shutil
 import logging
 import re
 import sys
-import subprocess
 import filecmp
 
 import yaml
-from BoxManager import GetINSDCFiles, ClusteringIntoFamilies, SyntenyFinder, DataExport
+import GetINSDCFiles, ClusteringIntoFamilies, SyntenyFinder, DataExport
 import common
 
 #############
@@ -57,11 +55,11 @@ def argumentsParser():
                         required = True, help = 'Protein accession list or file of corresponding (cf: wiki).')
     group1.add_argument('-po', '--ProjectOwner', type = str, required = True,
                         help = 'The project owner.')
-    group1.add_argument('-pn', '--ProjectName', type = str, required = True,
-                        help = 'The project name.')
+    group1.add_argument('-o', '--OutputDirName', type = str, required = True,
+                        help = 'Output directory name, used for define the project name.')
     group1.add_argument('-pd', '--ProjectDescription', type = str,
                         default = 'No description', help = 'The project description.\nDefault value: No description.')
-    group1.add_argument('-insdc', '--INSDCRepertory', type = str,
+    group1.add_argument('-insdc', '--insdcDirectory', type = str,
                         help = 'Directory containing the INSDC files.')
     group1.add_argument('-md', '--MetaDataFile', type = str,
                         help = 'File containing the metadata.')
@@ -114,27 +112,6 @@ def argumentsParser():
     args = checkArguments(parser)
     return(args)
 
-def parametersLogger(args):
-    '''
-    Logger setting.
-    '''
-    logging_std_format = '[%(levelname)s] %(message)s'
-    logging_debug_format = '%(asctime)s [%(levelname)s] [%(threadName)s - %(name)s] %(message)s'
-    log_level = args.log_level.upper()
-    if (log_level == 'DEBUG'):
-        logging_std_format = logging_debug_format
-    logging_datefmt = '%Y/%m/%d - %H:%M:%S'
-    if (args.log_file != None):
-        logging.basicConfig(format = logging_std_format,
-                             datefmt = logging_datefmt,
-                             filename = args.log_file,
-                             filemode = 'w',
-                             level = log_level)
-    else:
-        logging.basicConfig(format = logging_std_format,
-                             datefmt = logging_datefmt,
-                             level = log_level)
-
 def orderDefinition():
     '''
     Setting the code execution order.
@@ -142,7 +119,7 @@ def orderDefinition():
 
     global args
     # logger = logging.getLogger(orderDefinition.__name__)
-    if args.INSDCRepertory:
+    if args.insdcDirectory:
         order = [
             common.global_dict['boxName']['ClusteringIntoFamilies'],
             common.global_dict['boxName']['SyntenyFinder'],
@@ -164,14 +141,14 @@ def createYamlSettingsFile(args):
     '''
     global ORDERBOX
     YAML_File = {}
-    gap = 1 if args.INSDCRepertory else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
+    gap = 1 if args.insdcDirectory else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
     with open(common.global_dict['settingsFileName'], 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['InputFile'] = args.InputFile
         YAML_File['General informations']['ProjectOwner'] = args.ProjectOwner
         YAML_File['General informations']['ProjectName'] = args.ProjectName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
-        YAML_File['General informations']['INSDCRepertory'] = args.INSDCRepertory
+        YAML_File['General informations']['insdcDirectory'] = args.insdcDirectory
         YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
@@ -361,8 +338,13 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         GetINSDCFiles.run(args.InputFile)
     elif nameBox == 'ClusteringIntoFamilies':
         logger = logging.getLogger('runClusteringIntoFamilies')
-        inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
-        ClusteringIntoFamilies.run(inputBoxII, args.Ident, args.MinCoverage)
+        if args.insdcDirectory:
+            inputBoxII = args.InputFile
+            insdcDirectory = args.insdcDirectory
+        else:
+            inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
+            insdcDirectory = '{}/{}'.format(common.global_dict['tmpDirectory'], common.global_dict['boxName']['GetINSDCFiles'])
+        ClusteringIntoFamilies.run(inputBoxII, insdcDirectory, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         genomicContexts = common.global_dict['files']['ClusteringIntoFamilies']['genomicContexts']
@@ -384,9 +366,6 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
 ####################
 
 if __name__ == '__main__':
-    '''
-    + tester l'input a chaque execution du script
-    '''
     ######################
     # Parse command line #
     ######################
@@ -394,18 +373,12 @@ if __name__ == '__main__':
     ##########
     # Logger #
     ##########
-    parametersLogger(args)
+    common.parametersLogger(args)
     logger = logging.getLogger('main')
     #########################
     # Dependancies checking #
     #########################
-    try:
-        devnull = open(os.devnull)
-        subprocess.Popen('mmseqs', stdout=devnull, stderr=devnull).communicate()
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            logger.error('mmseqs not found. Please check its installation.')
-            exit(1)
+    common.dependanciesChecking()
     ##############
     # Constantes #
     ##############

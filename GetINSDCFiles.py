@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 ##########
 # Import #
 ##########
@@ -8,6 +10,7 @@ import urllib3
 import gzip
 import re
 import common
+
 #############
 # Functions #
 #############
@@ -172,3 +175,53 @@ def run(InputName):
     else:
         logger.error('Input header unrecognized.')
         exit(1)
+
+def argumentsParser():
+    '''
+    Arguments parsing.
+    '''
+    parser = argparse.ArgumentParser(
+                                 usage = '''GetINSDCFiles.py -i <UniProtAC.list> -o <OutputName>''', ######################################################################
+                                 formatter_class = argparse.RawTextHelpFormatter)
+
+    group1 = parser.add_argument_group('General settings')
+    group1.add_argument('-i', '--InputFile', type = str,
+                        required = True, help = 'Protein accession list.')
+    group1.add_argument('-o', '--OutputName', type = str,
+                        required = True, help = 'Name of corresponding file.')
+
+    group2 = parser.add_argument_group('logger')
+    group2.add_argument( '--log_level',
+                         type = str,
+                         nargs = '?',
+                         default = 'INFO',
+                         help = 'log level',
+                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required = False )
+    group2.add_argument( '--log_file',
+                         type = str,
+                         nargs = '?',
+                         help = 'log file (use the stderr by default)',
+                         required = False )
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    import argparse
+    ######################
+    # Parse command line #
+    ######################
+    args = argumentsParser()
+    ##########
+    # Logger #
+    ##########
+    common.parametersLogger(args)
+    #############
+    # Constants #
+    #############
+    common.global_dict['tmpDirectory'] = '.'
+    boxName = common.global_dict['boxName']['GetINSDCFiles']
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('inputClusteringStep', args.OutputName)
+    #######
+    # Run #
+    #######
+    run(args.InputFile)

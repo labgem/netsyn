@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
+
 ##########
 # Import #
 ##########
 import common
-import argparse
 import re
 import sys
 import random
@@ -23,24 +24,7 @@ from Bio import SeqIO
 
 #('{}/TMP/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(args.ProjectName), args, TMPDIRECTORY)
 
-def argumentsParser():
-    '''
-    Arguments parsing
-    '''
-    parser = argparse.ArgumentParser(description='''My Description. And what a lovely description it is. ''',
-                                     epilog='''All's well that ends well.''',
-                                     usage='''ClusteringIntoFamilies options...''',
-                                     formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-i', '--input', type=str,
-                        required=True, help='Path of the input obtained from the GetINSDCFiles part')
-    parser.add_argument('-id', '--Ident', type=float,
-                        default=0.3, help='Sequence identity.\nDefault value: 0.3.')
-    parser.add_argument('-mc', '--MinCoverage', type=float,
-                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
-    parser.add_argument('-pn', '--ProjectName', type=str, required=True,
-                        help='The project name.')
-    return parser
 
 def skip_duplicates(iterable, key=lambda x: x):
     ''' remove duplicates from a list keeping the order of the elements
@@ -698,12 +682,10 @@ def mmseqs_preparation(cds_info, multiFasta, targetsOut, tmpDirectoryProcess):
     common.write_pickle(targets_storage, targetsOut)
     common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
 
-def mmseqs_createdb(tmpDirectoryProcess, prefix):
+def mmseqs_createdb(tmpDirectoryProcess, multiFasta, prefix):
     ''' create database using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
-    suffix = 'faa'
-    multiFasta = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffix]))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
         db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}/{}.{}'.format(tmpDirectoryProcess, prefix, 'DB')], stdout=file, stderr=file, check=True)
         logger.info('createdb - exit code: {}'.format(db_creation.returncode))
@@ -750,12 +732,12 @@ def mmseqs_createTSV(tmpDirectoryProcess, prefix):
         logger.info('createTSV - exit code: {}'.format(tsv_creation.returncode))
     return 0
 
-def mmseqs_runner(params, tmpDirectoryProcess):
+def mmseqs_runner(params, tmpDirectoryProcess, multiFasta):
     ''' runs the mmseqs2 software on the multiFasta file 'ALL.faa'
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_runner.__module__, mmseqs_runner.__name__))
     logger.info('MMseqs2 running ...')
-    mmseqs_createdb(tmpDirectoryProcess, params['prefix'])
+    mmseqs_createdb(tmpDirectoryProcess, multiFasta, params['prefix'])
     mmseqs_clustering(tmpDirectoryProcess, params['prefix'], params['coverage'],
                       params['min_id'], params['cov_mode'])
     mmseqs_createTSV(tmpDirectoryProcess, params['prefix'])
@@ -780,7 +762,7 @@ def regroup_families(tsv_file, cds_info):
         cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
 
-def run(INPUT_II, IDENT, COVERAGE):
+def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
     '''
     # Constants
@@ -811,7 +793,7 @@ def run(INPUT_II, IDENT, COVERAGE):
         'cov_mode': 1,
         'coverage': COVERAGE,
         }
-    params['prefix'] = "MMseqs2_run"
+    params['prefix'] = multiFasta.split('.')[0]
 
     # MMseq2 files removing (inclure dans netsyn lors nouvelle analyse ?)
     try:
@@ -864,7 +846,7 @@ def run(INPUT_II, IDENT, COVERAGE):
         contig_info = common.read_pickle(contigsOut)
         taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
 
-    mmseqs_runner(params, tmpDirectoryProcess)
+    mmseqs_runner(params, tmpDirectoryProcess, multiFasta)
 
     try:
         cds_info
@@ -885,13 +867,65 @@ def run(INPUT_II, IDENT, COVERAGE):
 
     logger.info('End of ClusteringIntoFamilies')
 
+def argumentsParser():
+    '''
+    Arguments parsing
+    '''
+    parser = argparse.ArgumentParser(usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName> -insdc <insdcDirectoryName> -id <ident> -mc <MinimuCoverage>''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    group1 = parser.add_argument_group('General settings')
+    group1.add_argument('-i', '--input', type=str,
+                        required=True, help='File of corresponding.')
+    group1.add_argument('-o', '--OutputName', type=str,
+                        required=True, help='Output name files.')
+    group1.add_argument('-insdc', '--insdcDirectory', type = str,
+                        help = 'Directory containing the INSDC files.')
+    group1.add_argument('-id', '--Ident', type=float,
+                        default=0.3, help='Sequence identity.\nDefault value: 0.3.')
+    group1.add_argument('-mc', '--MinCoverage', type=float,
+                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
+
+    group2 = parser.add_argument_group('logger')
+    group2.add_argument( '--log_level',
+                         type = str,
+                         nargs = '?',
+                         default = 'INFO',
+                         help = 'log level',
+                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required = False )
+    group2.add_argument( '--log_file',
+                         type = str,
+                         nargs = '?',
+                         help = 'log file (use the stderr by default)',
+                         required = False )
+    return parser.parse_args()
+
 if __name__ == '__main__':
-    parser = argumentsParser()
-    args = parser.parse_args()
-    print(args)
-    if not os.path.isdir(args.ProjectName):
-        os.mkdir(args.ProjectName)
-        os.mkdir('{}/TMP'.format(args.ProjectName))
-    elif not os.path.isdir('{}/TMP'.format(args.ProjectName)):
-        os.mkdir('{}/TMP'.format(args.ProjectName))
-    run(args.input, args.Ident, args.MinCoverage)
+    import argparse
+    ######################
+    # Parse command line #
+    ######################
+    args = argumentsParser()
+    ##########
+    # Logger #
+    ##########
+    common.parametersLogger(args)
+    #########################
+    # Dependancies checking #
+    #########################
+    common.dependanciesChecking()
+    #############
+    # Constants #
+    #############
+    common.global_dict['tmpDirectory'] = '.'
+    boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('faa', '{}.faa'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('contigs', '{}_contigs.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('genomicContexts', '{}_genomicsContexts.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('lineage', '{}_lineage.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('targets', '{}_targets.pickle'.format(args.OutputName))
+    #######
+    # Run #
+    #######
+    run(args.input, args.insdcDirectory ,args.Ident, args.MinCoverage)
