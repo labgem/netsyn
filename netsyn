@@ -47,7 +47,7 @@ def argumentsParser():
     '''
     parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',################################
                                  epilog = '''All's well that ends well.''', #################################################################
-                                 usage = '''netsyn -i <UniProtAC.list> -po <User> -pn <ProjectName>''', ######################################################################
+                                 usage = '''netsyn -i <UniProtAC.list> -po <User> -o <OutputDirName>''', ######################################################################
                                  formatter_class = argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
@@ -146,7 +146,7 @@ def createYamlSettingsFile(args):
         YAML_File['General informations'] = {}
         YAML_File['General informations']['InputFile'] = args.InputFile
         YAML_File['General informations']['ProjectOwner'] = args.ProjectOwner
-        YAML_File['General informations']['ProjectName'] = args.ProjectName
+        YAML_File['General informations']['OutputDirName'] = args.OutputDirName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
         YAML_File['General informations']['insdcDirectory'] = args.insdcDirectory
         YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
@@ -293,18 +293,18 @@ def updateLastBoxDone(nameBox):
     with open(common.global_dict['reportFileName'], 'w') as file:
         file.write(nameBox)
 
-def getAnalysisNumber(projectName):
+def getAnalysisNumber(outputDirName):
     '''
     Defining of the number of analisys.
     Defining of results directory name for the current analysis.
     '''
     number = 0
-    string = r'{}_Results_[0-9]+$'.format(projectName)
+    string = r'{}_Results_[0-9]+$'.format(outputDirName)
     existingAnalyzes = [f for f in os.listdir(common.global_dict['workingDirectory']) if re.search(string, f)]
     if existingAnalyzes:
         number = max([int(i.split('_')[-1]) for i in existingAnalyzes])
     analysisNumber = (number + 1)
-    resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], projectName, analysisNumber)
+    resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
     return analysisNumber, resultsDirectory
 
 def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
@@ -383,8 +383,8 @@ if __name__ == '__main__':
     # Constantes #
     ##############
     # common.unPetitBonjourPourredonnerLeMoral()
-    common.constantsInitialization(args.ProjectName, args.InputFile)
-    # WORKDIRECTORY = args.ProjectName
+    common.constantsInitialization(args.OutputDirName, args.InputFile)
+    # WORKDIRECTORY = args.OutputDirName
     # TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
     # SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
     # REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
@@ -405,8 +405,8 @@ if __name__ == '__main__':
         logger.info('New NetSyn project: {}'.format(common.global_dict['workingDirectory']))
         os.mkdir(common.global_dict['workingDirectory'])
         os.mkdir(common.global_dict['tmpDirectory'])
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
-        common.filesNameInitialization(resultsDirectory, args.ProjectName, analysisNumber)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
+        common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
         shutil.copyfile(args.InputFile, common.global_dict['inputFileSaved'])
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
@@ -422,8 +422,8 @@ if __name__ == '__main__':
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.ProjectName)
-        common.filesNameInitialization(resultsDirectory, args.ProjectName, analysisNumber)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
+        common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
     createYamlSettingsFile(args)
     runFromBoxIndex = ORDERBOX.index(runFromBox)
     updateLastBoxDone(ORDERBOX[runFromBoxIndex-1] if runFromBoxIndex-1 >= 0 else '')

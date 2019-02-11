@@ -57,18 +57,18 @@ def httpRequest(poolManager,method, url):
         exit(1)
     return res
 
-def constantsInitialization(projectName, inputFile):
+def constantsInitialization(outputDirName, inputFile):
     '''
     Initialization of constants.
     Calling from netsyn or BoxManager modules.
     '''
-    global_dict['workingDirectory'] = projectName
-    global_dict['tmpDirectory'] = '{}/TMP'.format(projectName) #TMPDIRECTORY
-    global_dict['settingsFileName'] = '{}/{}'.format(projectName, '.lastSettings.yml') #SETTINGSFILENAME
-    global_dict['reportFileName'] = '{}/{}'.format(projectName, '.report.yml') #REPORTFILENAME
-    global_dict['inputFileSaved'] = '{}/{}'.format(projectName, os.path.basename(inputFile)) #INPUTLIST
+    global_dict['workingDirectory'] = outputDirName
+    global_dict['tmpDirectory'] = '{}/TMP'.format(outputDirName) #TMPDIRECTORY
+    global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml') #SETTINGSFILENAME
+    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report.yml') #REPORTFILENAME
+    global_dict['inputFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(inputFile)) #INPUTLIST
 
-def filesNameInitialization(resultsDirectory, projectName, analysisNumber):
+def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
     global_dict['files'] = {
         global_dict['boxName']['GetINSDCFiles'] : {
             'inputClusteringStep' : '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['tmpDirectory'], global_dict['boxName']['GetINSDCFiles'])
@@ -85,11 +85,11 @@ def filesNameInitialization(resultsDirectory, projectName, analysisNumber):
             'edges': '{}/{}/edges_list.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['SyntenyFinder'])
         },
         global_dict['boxName']['DataExport'] : {
-            'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, projectName, analysisNumber),
-            'nodes': '{}/{}_Results_{}.nodes.json'.format(resultsDirectory, projectName, analysisNumber),
-            'edges': '{}/{}_Results_{}.edges.json'.format(resultsDirectory, projectName, analysisNumber),
-            #'html' : '{}/{}_Results_{}.html'.format(resultsDirectory, projectName, analysisNumber),
-            #'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, projectName, analysisNumber)
+            'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
+            'nodes': '{}/{}_Results_{}.nodes.json'.format(resultsDirectory, outputDirName, analysisNumber),
+            'edges': '{}/{}_Results_{}.edges.json'.format(resultsDirectory, outputDirName, analysisNumber),
+            #'html' : '{}/{}_Results_{}.html'.format(resultsDirectory, outputDirName, analysisNumber),
+            #'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, outputDirName, analysisNumber)
         }
     }
 

@@ -618,7 +618,7 @@ def get_desired_lineage(lineages):
     ''' takes the ranks of interest through the taxonomic lineage
     '''
     allLineages = {}
-    for collectedTaxId, fullLineage, oldTaxonIDs in lineages:
+    for collectedTaxId, fullLineage, _ in lineages:
         desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
         desired_lineage = []
         for scientificName in fullLineage:
@@ -687,7 +687,7 @@ def mmseqs_createdb(tmpDirectoryProcess, multiFasta, prefix):
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
-        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}/{}.{}'.format(tmpDirectoryProcess, prefix, 'DB')], stdout=file, stderr=file, check=True)
+        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}.{}'.format(prefix, 'DB')], stdout=file, stderr=file, check=True)
         logger.info('createdb - exit code: {}'.format(db_creation.returncode))
     return 0
 
@@ -700,8 +700,8 @@ def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
     if os.path.isdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP')):
         shutil.rmtree('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
     os.mkdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
-    dataBase = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixDB]))
-    outputCluster = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixCluster]))
+    dataBase = '{}'.format(concat_by_dot([prefix, suffixDB]))
+    outputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase,
                                          outputCluster, '{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'),
@@ -722,9 +722,9 @@ def mmseqs_createTSV(tmpDirectoryProcess, prefix):
     suffixDB = 'DB'
     suffixCluster = 'cluster'
     suffixTSV = 'tsv'
-    inputDB = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixDB]))
-    inputCluster = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixCluster]))
-    outputTSV = '{}/{}'.format(tmpDirectoryProcess, concat_by_dot([prefix, suffixTSV]))
+    inputDB = '{}'.format(concat_by_dot([prefix, suffixDB]))
+    inputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
+    outputTSV = '{}'.format(concat_by_dot([prefix, suffixTSV]))
     with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
         tsv_creation = subprocess.run(['mmseqs', 'createtsv', inputDB,
                                        inputDB, inputCluster, outputTSV
@@ -797,15 +797,15 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
 
     # MMseq2 files removing (inclure dans netsyn lors nouvelle analyse ?)
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'cluster'))
+        os.remove('{}.{}'.format(params['prefix'], 'cluster'))
     except:
         pass
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'cluster.index'))
+        os.remove('{}.{}'.format(params['prefix'], 'cluster.index'))
     except:
         pass
     try:
-        os.remove('{}/{}.{}'.format(tmpDirectoryProcess, params['prefix'], 'tsv'))
+        os.remove('{}.{}'.format(params['prefix'], 'tsv'))
     except:
         pass
     try:
@@ -853,7 +853,7 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     except:
         cds_info = common.read_pickle(gcOut)
 
-    cds_info = regroup_families('{}/{}'.format(tmpDirectoryProcess, concat_by_dot([params["prefix"], 'tsv'])), cds_info)
+    cds_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), cds_info)
     common.write_pickle(cds_info, gcOut)
     common.write_json(cds_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
 
