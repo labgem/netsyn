@@ -21,6 +21,9 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     if msg:
         print(msg)
 
+def widowsSizePossibilities(minSize, maxSize):
+    return range(minSize, maxSize+2, 2)
+
 def dependanciesChecking():
     logger = logging.getLogger('{}.{}'.format(checkFilledFile.__module__, checkFilledFile.__name__))
     try:
@@ -63,7 +66,7 @@ def constantsInitialization(outputDirName, inputFile):
     Calling from netsyn or BoxManager modules.
     '''
     global_dict['workingDirectory'] = outputDirName
-    global_dict['tmpDirectory'] = '{}/TMP'.format(outputDirName) #TMPDIRECTORY
+    global_dict['dataDirectory'] = '{}/data'.format(outputDirName) #TMPDIRECTORY
     global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml') #SETTINGSFILENAME
     global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report.yml') #REPORTFILENAME
     global_dict['inputFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(inputFile)) #INPUTLIST
@@ -71,18 +74,18 @@ def constantsInitialization(outputDirName, inputFile):
 def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
     global_dict['files'] = {
         global_dict['boxName']['GetINSDCFiles'] : {
-            'inputClusteringStep' : '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['tmpDirectory'], global_dict['boxName']['GetINSDCFiles'])
+            'inputClusteringStep' : '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'])
         },
         global_dict['boxName']['ClusteringIntoFamilies'] : {
-            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['tmpDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'contigs' : '{}/{}/contigs.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'genomicContexts' : '{}/{}/genomicContexts.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'lineage' : '{}/{}/taxonomicLineage.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'targets' : '{}/{}/targets_list.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
+            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
+            'contigs' : '{}/{}/contigs.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
+            'genomicContexts' : '{}/{}/genomicContexts.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
+            'lineage' : '{}/{}/taxonomicLineage.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
+            'targets' : '{}/{}/targets_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
         },
         global_dict['boxName']['SyntenyFinder'] : {
-            'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'edges': '{}/{}/edges_list.pickle'.format(global_dict['tmpDirectory'], global_dict['boxName']['SyntenyFinder'])
+            'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
+            'edges': '{}/{}/edges_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
         },
         global_dict['boxName']['DataExport'] : {
             'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
@@ -147,6 +150,7 @@ def parametersLogger(args):
 global_dict = {
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
+    'minGCSize': 3,
     'boxName' : {
         'GetINSDCFiles' : 'GetINSDCFiles',
         'ClusteringIntoFamilies' :'ClusteringIntoFamilies',

@@ -603,14 +603,14 @@ def get_lineage(xml, desiredTaxonIDs):
             logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
     return allLineages
 
-def get_taxo_from_web(taxonIDs, tmpDirectoryProcess):
+def get_taxo_from_web(taxonIDs, dataDirectoryProcess):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     ids = ','.join(taxonIDs)
     xml = common.httpRequest(http,'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(ids))
-    with open('{}/xml_file'.format(tmpDirectoryProcess), 'w') as file:
+    with open('{}/xml_file'.format(dataDirectoryProcess), 'w') as file:
         file.write(xml.data.decode('utf-8'))
     return get_lineage(xml.data.decode('utf-8'), taxonIDs)
 
@@ -648,7 +648,7 @@ def store_into_dict(ataxon, desired_taxo):
                                            if alevel.index(level_info) != 1]
     return d_newLineage
 
-def get_taxonomicLineage(taxonIDs, tmpDirectoryProcess):
+def get_taxonomicLineage(taxonIDs, dataDirectoryProcess):
     ''' concatenates the various taxonomic lineage dictionaries in a
     super-dictionary called all_lineages
     '''
@@ -658,53 +658,53 @@ def get_taxonomicLineage(taxonIDs, tmpDirectoryProcess):
     batchesSize = 100
     # taxonIDs = ['1884790', '2', '3', '304371', '3','4', '76869','3','4','3','4','3','4','3','4'] # To test
     while taxonIDs:
-        lineages = get_taxo_from_web(taxonIDs[:batchesSize], tmpDirectoryProcess)
+        lineages = get_taxo_from_web(taxonIDs[:batchesSize], dataDirectoryProcess)
         all_lineages.update(get_desired_lineage(lineages))
         del taxonIDs[:batchesSize]
     return all_lineages
 
-def taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut):
+def taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut):
     logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
     logger.info('Taxonomic lineages research ...')
     taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != 'NA']))
-    taxonomicLineage = get_taxonomicLineage(taxonIDs, tmpDirectoryProcess)
+    taxonomicLineage = get_taxonomicLineage(taxonIDs, dataDirectoryProcess)
     logger.info('End of taxonomic lineages research')
     logger.info('Taxonomic lineages information writting ...')
     common.write_pickle(taxonomicLineage, taxoOut)
-    common.write_json(taxonomicLineage, '{}/{}'.format(tmpDirectoryProcess, 'taxonomicLineage.json'))
+    common.write_json(taxonomicLineage, '{}/{}'.format(dataDirectoryProcess, 'taxonomicLineage.json'))
     return 0
 
-def mmseqs_preparation(cds_info, multiFasta, targetsOut, tmpDirectoryProcess):
+def mmseqs_preparation(cds_info, multiFasta, targetsOut, dataDirectoryProcess):
     ''' write the multifasta file and the targets list
     '''
     write_multiFasta(cds_info, multiFasta)
     targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
     common.write_pickle(targets_storage, targetsOut)
-    common.write_json(targets_storage, '{}/{}'.format(tmpDirectoryProcess, 'targets_list.json'))
+    common.write_json(targets_storage, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
-def mmseqs_createdb(tmpDirectoryProcess, multiFasta, prefix):
+def mmseqs_createdb(dataDirectoryProcess, multiFasta, prefix):
     ''' create database using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
-    with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
+    with open('{}/{}'.format(dataDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
         db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}.{}'.format(prefix, 'DB')], stdout=file, stderr=file, check=True)
         logger.info('createdb - exit code: {}'.format(db_creation.returncode))
     return 0
 
-def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
+def mmseqs_clustering(dataDirectoryProcess, prefix, cov, ident, cov_mode):
     ''' cluster sequences using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
     suffixDB = 'DB'
     suffixCluster = 'cluster'
-    if os.path.isdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP')):
-        shutil.rmtree('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
-    os.mkdir('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'))
+    if os.path.isdir('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP')):
+        shutil.rmtree('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'))
+    os.mkdir('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'))
     dataBase = '{}'.format(concat_by_dot([prefix, suffixDB]))
     outputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
-    with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
+    with open('{}/{}'.format(dataDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase,
-                                         outputCluster, '{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP'),
+                                         outputCluster, '{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'),
                                          '--min-seq-id', str(ident),
                                          '--cov-mode', str(cov_mode),
                                          '-c', str(cov),
@@ -715,7 +715,7 @@ def mmseqs_clustering(tmpDirectoryProcess, prefix, cov, ident, cov_mode):
         logger.info('clustering - exit code: {}'.format(clust_creation.returncode))
     return 0
 
-def mmseqs_createTSV(tmpDirectoryProcess, prefix):
+def mmseqs_createTSV(dataDirectoryProcess, prefix):
     ''' execute the mmseqs command line 'mmseqs createtsv'
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
@@ -725,23 +725,23 @@ def mmseqs_createTSV(tmpDirectoryProcess, prefix):
     inputDB = '{}'.format(concat_by_dot([prefix, suffixDB]))
     inputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
     outputTSV = '{}'.format(concat_by_dot([prefix, suffixTSV]))
-    with open('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
+    with open('{}/{}'.format(dataDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
         tsv_creation = subprocess.run(['mmseqs', 'createtsv', inputDB,
                                        inputDB, inputCluster, outputTSV
                                        ], stdout=file, stderr=file, check=True)
         logger.info('createTSV - exit code: {}'.format(tsv_creation.returncode))
     return 0
 
-def mmseqs_runner(params, tmpDirectoryProcess, multiFasta):
+def mmseqs_runner(params, dataDirectoryProcess, multiFasta):
     ''' runs the mmseqs2 software on the multiFasta file 'ALL.faa'
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_runner.__module__, mmseqs_runner.__name__))
     logger.info('MMseqs2 running ...')
-    mmseqs_createdb(tmpDirectoryProcess, multiFasta, params['prefix'])
-    mmseqs_clustering(tmpDirectoryProcess, params['prefix'], params['coverage'],
+    mmseqs_createdb(dataDirectoryProcess, multiFasta, params['prefix'])
+    mmseqs_clustering(dataDirectoryProcess, params['prefix'], params['coverage'],
                       params['min_id'], params['cov_mode'])
-    mmseqs_createTSV(tmpDirectoryProcess, params['prefix'])
-    shutil.rmtree('{}/{}'.format(tmpDirectoryProcess, 'MMseqsTMP/'))
+    mmseqs_createTSV(dataDirectoryProcess, params['prefix'])
+    shutil.rmtree('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP/'))
     logger.info('End of MMseqs2 running !')
     return 0
 
@@ -768,7 +768,7 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     # Constants
     # common.constantsInitialiszation(args.ProjectName, args.InputFile) # depends on how the function is launched (by hand or via netsyn)
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
+    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
     # Outputs
     multiFasta = common.global_dict['files'][boxName]['faa']
     contigsOut = common.global_dict['files'][boxName]['contigs']
@@ -779,8 +779,8 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(boxName))
     # Process
-    if not os.path.isdir(tmpDirectoryProcess):
-        os.mkdir(tmpDirectoryProcess)
+    if not os.path.isdir(dataDirectoryProcess):
+        os.mkdir(dataDirectoryProcess)
 
     params = {
         'PSEUDOGENE': False, # Tells if pseudogenes are included in the analysis
@@ -809,11 +809,11 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     except:
         pass
     try:
-        os.remove('{}/{}'.format(tmpDirectoryProcess, 'mmseqs_createtsv.log'))
+        os.remove('{}/{}'.format(dataDirectoryProcess, 'mmseqs_createtsv.log'))
     except:
         pass
 
-    written_files = os.listdir(tmpDirectoryProcess)
+    written_files = os.listdir(dataDirectoryProcess)
     if ('genomicContexts.pickle' or 'contigs.pickle') not in written_files:
         logger.info('All files have to be written')
         cds_info = {}
@@ -827,26 +827,26 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
         logger.info('End of INSDC files parsing !')
 
         common.write_pickle(contig_info, contigsOut)
-        common.write_json(contig_info, '{}/{}'.format(tmpDirectoryProcess, 'contigs.json'))
+        common.write_json(contig_info, '{}/{}'.format(dataDirectoryProcess, 'contigs.json'))
         common.write_pickle(cds_info, gcOut)
-        common.write_json(cds_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
+        common.write_json(cds_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
 
-        mmseqs_preparation(cds_info, multiFasta, targetsOut, tmpDirectoryProcess)
-        taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
+        mmseqs_preparation(cds_info, multiFasta, targetsOut, dataDirectoryProcess)
+        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
 
     elif ('MMseqs2_run.faa' or 'targets_list.pickle') not in written_files: # and not ('taxonomicLineage.pickle') ???
         logger.info('Missing the multifasta and targets list files')
         contig_info = common.read_pickle(contigsOut)
         cds_info = common.read_pickle(gcOut)
-        mmseqs_preparation(cds_info, multiFasta, targetsOut,tmpDirectoryProcess)
-        taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
+        mmseqs_preparation(cds_info, multiFasta, targetsOut,dataDirectoryProcess)
+        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
 
     elif 'taxonomicLineage.pickle' not in written_files:
         logger.info('Missing taxonomic lineage file')
         contig_info = common.read_pickle(contigsOut)
-        taxonomicLineage_runner(contig_info, tmpDirectoryProcess, taxoOut)
+        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
 
-    mmseqs_runner(params, tmpDirectoryProcess, multiFasta)
+    mmseqs_runner(params, dataDirectoryProcess, multiFasta)
 
     try:
         cds_info
@@ -855,9 +855,9 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
 
     cds_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), cds_info)
     common.write_pickle(cds_info, gcOut)
-    common.write_json(cds_info, '{}/{}'.format(tmpDirectoryProcess, 'genomicContexts.json'))
+    common.write_json(cds_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
 
-    with open('{}/analysed_cds'.format(tmpDirectoryProcess), 'w') as file:
+    with open('{}/analysed_cds'.format(dataDirectoryProcess), 'w') as file:
         for inc in cds_info.keys():
             if 'uniprot' in cds_info[inc]:
                 uniprot = cds_info[inc]['uniprot']
@@ -918,7 +918,7 @@ if __name__ == '__main__':
     #############
     # Constants #
     #############
-    common.global_dict['tmpDirectory'] = '.'
+    common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('faa', '{}.faa'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('contigs', '{}_contigs.pickle'.format(args.OutputName))

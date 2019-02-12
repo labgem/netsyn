@@ -123,14 +123,14 @@ def run(InputName):
     '''
     # Constants
     boxName = common.global_dict['boxName']['GetINSDCFiles']
-    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
+    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
     outputName = common.global_dict['files'][boxName]['inputClusteringStep']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(boxName))
     # Process
-    if not os.path.isdir(tmpDirectoryProcess):
-        os.mkdir(tmpDirectoryProcess)
+    if not os.path.isdir(dataDirectoryProcess):
+        os.mkdir(dataDirectoryProcess)
     if os.path.isfile(outputName):
         os.remove(outputName)
     header, accessions = parseInputI(InputName)
@@ -143,7 +143,7 @@ def run(InputName):
         for entry in crossReference:
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
-                nucleicFilePath = '{}/{}.embl'.format(tmpDirectoryProcess, getNucleicFialeName(nucleicAccession))
+                nucleicFilePath = '{}/{}.embl'.format(dataDirectoryProcess, getNucleicFialeName(nucleicAccession))
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     #############
     # Constants #
     #############
-    common.global_dict['tmpDirectory'] = '.'
+    common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['GetINSDCFiles']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('inputClusteringStep', args.OutputName)
     #######

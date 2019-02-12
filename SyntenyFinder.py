@@ -189,7 +189,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     '''
     # Constants
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    tmpDirectoryProcess = '{}/{}'.format(common.global_dict['tmpDirectory'], boxName)
+    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
     # Outputs
     nodesOut = common.global_dict['files']['SyntenyFinder']['nodes']
     edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
@@ -197,8 +197,8 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     logger.info('{} running...'.format(boxName))
     # Process
-    if not os.path.isdir(tmpDirectoryProcess):
-        os.mkdir(tmpDirectoryProcess)
+    if not os.path.isdir(dataDirectoryProcess):
+        os.mkdir(dataDirectoryProcess)
 
     params = {
         'MAX_GC': common.global_dict['maxGCSize'],
@@ -243,7 +243,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
                 no_synteny += 1
     #logger.info('Couples of targets computed depending on synteny results')
 
-    common.write_json(cds_info, '{}/genomicContextUser.json'.format(tmpDirectoryProcess))
+    common.write_json(cds_info, '{}/genomicContextUser.json'.format(dataDirectoryProcess))
 
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
@@ -336,8 +336,8 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
 
     common.write_pickle(list_of_nodes, nodesOut)
     common.write_pickle(list_of_edges, edgesOut)
-    common.write_json(list_of_nodes, '{}/{}'.format(tmpDirectoryProcess, 'nodes_list.json'))
-    common.write_json(list_of_edges, '{}/{}'.format(tmpDirectoryProcess, 'edges_list.json'))
+    common.write_json(list_of_nodes, '{}/{}'.format(dataDirectoryProcess, 'nodes_list.json'))
+    common.write_json(list_of_edges, '{}/{}'.format(dataDirectoryProcess, 'edges_list.json'))
 
 def argumentsParser():
     '''
@@ -355,6 +355,7 @@ def argumentsParser():
                         required=True, help='Output name files.')
     group1.add_argument('-ws', '--WindowSize', type=int,
                         default=common.global_dict['maxGCSize'],
+                        choices=common.widowsSizePossibilities(common.global_dict['minGCSize'],common.global_dict['maxGCSize']),
                         help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: {}.'.format(common.global_dict['maxGCSize']))
     group1.add_argument('-sg', '--SyntenyGap', type=int, default=3,
                         help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
@@ -390,7 +391,7 @@ if __name__ == '__main__':
     #############
     # Constants #
     #############
-    common.global_dict['tmpDirectory'] = '.'
+    common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['SyntenyFinder']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_nodes.pickle'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_edges.pickle'.format(args.OutputName))
