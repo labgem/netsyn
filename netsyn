@@ -421,6 +421,7 @@ if __name__ == '__main__':
     ############
     if args.newProject and os.path.isdir(common.global_dict['workingDirectory']):
         shutil.rmtree(common.global_dict['workingDirectory'])
+    checkSameVersion(common.global_dict['versionFileName'])
     if not os.path.isfile(common.global_dict['settingsFileName']):
         if os.path.isdir(common.global_dict['workingDirectory']):
             logger.error('Project name already used. Please change your project name or use --newProject.')
@@ -437,7 +438,6 @@ if __name__ == '__main__':
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
-        checkSameVersion(common.global_dict['versionFileName'])
         inputFileModificationChecking(args.InputFile, common.global_dict['inputFileSaved'])
         nameBoxToResum = getBoxToResum(args)
         if nameBoxToResum == 'General informations':
