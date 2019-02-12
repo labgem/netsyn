@@ -108,7 +108,7 @@ def argumentsParser():
     group7.add_argument( '--log_file',
                          type=str,
                          nargs='?',
-                         help='log file (use the stderr by default)',
+                         help='log file (use the stderr by default). Disable the log colors.',
                          required=False )
 
     args = checkArguments(parser)

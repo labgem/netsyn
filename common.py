@@ -129,8 +129,16 @@ def parametersLogger(args):
     '''
     Logger setting.
     '''
-    logging_std_format = '[%(levelname)s] %(message)s'
-    logging_debug_format = '%(asctime)s [%(levelname)s] [%(threadName)s - %(name)s] %(message)s'
+    if not args.log_file:
+        cyanColor = '\033[36m'
+        yellowColor = '\033[33m'
+        endColor = '\033[0m'
+    else:
+        cyanColor = ''
+        yellowColor = ''
+        endColor = ''
+    logging_std_format = '{}[%(levelname)s]{} %(message)s'.format(yellowColor, endColor)
+    logging_debug_format = '{}%(asctime)s {}[%(levelname)s]{} [%(threadName)s - %(name)s]{} %(message)s'.format(cyanColor, yellowColor, cyanColor, endColor)
     log_level = args.log_level.upper()
     if (log_level == 'DEBUG'):
         logging_std_format = logging_debug_format
