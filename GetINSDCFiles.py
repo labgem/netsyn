@@ -180,7 +180,7 @@ def argumentsParser():
     '''
     Arguments parsing.
     '''
-    parser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
                                  usage = '''GetINSDCFiles.py -i <UniProtAC.list> -o <OutputName>''', ######################################################################
                                  formatter_class = argparse.RawTextHelpFormatter)
 

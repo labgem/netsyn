@@ -19,7 +19,6 @@ import common
 #############
 # Functions #
 #############
-
 def checkArguments(parser):
     '''
     Arguments checking.
@@ -45,10 +44,11 @@ def argumentsParser():
     '''
     Arguments parsing.
     '''
-    parser = argparse.ArgumentParser(description = '''My Description. And what a lovely description it is. ''',################################
-                                 epilog = '''All's well that ends well.''', #################################################################
-                                 usage = '''netsyn -i <UniProtAC.list> -po <User> -o <OutputDirName>''', ######################################################################
-                                 formatter_class = argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
+                                     usage='netsyn -i <UniProtAC.list> -po <User> -o <OutputDirName>', ######################################################################
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('-v', '--version', action='version', version=common.global_dict['version'])
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-i', '--InputFile', type=str,
@@ -113,6 +113,35 @@ def argumentsParser():
 
     args = checkArguments(parser)
     return(args)
+
+def writeCurrentVersion(version, fileName):
+    '''
+    Saved the current version in a file.
+    '''
+    with open(fileName, 'w') as file:
+        file.write(version)
+
+def getLatestVersionUsed(fileName):
+    '''
+    Return the latest version used in the previous analysis.
+    '''
+    if os.path.isfile(fileName):
+        with open(fileName, 'r') as file:
+            version = file.read()
+    else:
+        version = common.global_dict['version']
+    return version
+
+def checkSameVersion(fileName):
+    '''
+    Exit if the latest version and the current version are different.
+    '''
+    logger = logging.getLogger(checkSameVersion.__name__)
+    currentVersion = common.global_dict['version']
+    latestVersion = getLatestVersionUsed(fileName)
+    if not currentVersion == latestVersion:
+        logger.error('The previous version used ({}) are different of the current version ({}).Please, create a new project or use -np option.'.format(latestVersion,currentVersion))
+        exit(1)
 
 def orderDefinition():
     '''
@@ -213,10 +242,10 @@ def getLastBoxDone():
     if os.path.isfile(common.global_dict['reportFileName']):
         with open(common.global_dict['reportFileName'], 'r') as file:
             nameBox = file.read()
-            return nameBox
         if not nameBox in ORDERBOX:
-            logger.error('File of report wrong.')
+            logger.critical('File of report wrong.')
             exit(1)
+        return nameBox
     return None
 
 def inputFileModificationChecking(newInputFile, oldInputFile):
@@ -384,14 +413,7 @@ if __name__ == '__main__':
     ##############
     # Constantes #
     ##############
-    # common.unPetitBonjourPourredonnerLeMoral()
     common.constantsInitialization(args.OutputDirName, args.InputFile)
-    # WORKDIRECTORY = args.OutputDirName
-    # TMPDIRECTORY = '{}/TMP'.format(WORKDIRECTORY)
-    # SETTINGSFILENAME = '{}/{}'.format(WORKDIRECTORY, '.lastSettings.yml')
-    # REPORTFILENAME = '{}/{}'.format(WORKDIRECTORY, '.report.yml')
-    # INPUTLIST = '{}/{}'.format(WORKDIRECTORY, args.InputFile)
-    # MAXGCSIZE = 11
     ORDERBOX = orderDefinition()
     logger.debug('ORDERBOX: {}'.format(ORDERBOX))
     ############
@@ -415,6 +437,7 @@ if __name__ == '__main__':
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
+        checkSameVersion(common.global_dict['versionFileName'])
         inputFileModificationChecking(args.InputFile, common.global_dict['inputFileSaved'])
         nameBoxToResum = getBoxToResum(args)
         if nameBoxToResum == 'General informations':
@@ -427,17 +450,18 @@ if __name__ == '__main__':
         analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
     createYamlSettingsFile(args)
-    runFromBoxIndex = ORDERBOX.index(runFromBox)
-    updateLastBoxDone(ORDERBOX[runFromBoxIndex-1] if runFromBoxIndex-1 >= 0 else '')
     if runFromBox:
         '''Execution a partir de la boite x'''
+        runFromBoxIndex = ORDERBOX.index(runFromBox)
+        updateLastBoxDone(ORDERBOX[runFromBoxIndex-1] if runFromBoxIndex-1 >= 0 else '')
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
+        writeCurrentVersion(common.global_dict['version'], common.global_dict['versionFileName'])
         boxesManager(runFromBox, resultsDirectory, analysisNumber) # Fonction de fin d'execution d'une box
     else:
         '''Nous avons deja des resultats'''
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
-        logger.info('Already existing analysis.')
+        logger.info('This analysis already existing.')

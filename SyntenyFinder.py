@@ -343,7 +343,8 @@ def argumentsParser():
     '''
     Arguments parsing
     '''
-    parser = argparse.ArgumentParser(usage='''SyntenyFinder options...''',
+    parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
+                                     usage='''SyntenyFinder options...''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')

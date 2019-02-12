@@ -68,7 +68,8 @@ def constantsInitialization(outputDirName, inputFile):
     global_dict['workingDirectory'] = outputDirName
     global_dict['dataDirectory'] = '{}/data'.format(outputDirName) #TMPDIRECTORY
     global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml') #SETTINGSFILENAME
-    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report.yml') #REPORTFILENAME
+    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report') #REPORTFILENAME
+    global_dict['versionFileName'] = '{}/{}'.format(outputDirName, '.version') #REPORTFILENAME
     global_dict['inputFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(inputFile)) #INPUTLIST
 
 def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
@@ -148,6 +149,7 @@ def parametersLogger(args):
 # Constantes definition #
 #########################
 global_dict = {
+    'version': '0.0.1',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,

@@ -871,7 +871,8 @@ def argumentsParser():
     '''
     Arguments parsing
     '''
-    parser = argparse.ArgumentParser(usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName> -insdc <insdcDirectoryName> -id <ident> -mc <MinimuCoverage>''',
+    parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
+                                     usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName> -insdc <insdcDirectoryName> -id <ident> -mc <MinimuCoverage>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
