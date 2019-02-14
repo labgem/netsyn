@@ -237,7 +237,7 @@ def get_orgs_info(aFeature, taxon_ID, numFile):
 def is_pseudogene(aFeature):
     ''' test if a CDS is a pseudogene
     '''
-    return ('pseudo' in aFeature.qualifiers)
+    return ('pseudo' in aFeature.qualifiers or 'pseudogene' in aFeature.qualifiers)
 # if 'pseudo' in aFeature.qualifiers:
 #     return True
 # else:
@@ -302,9 +302,6 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
     INC_CDS_REF = params['INC_CDS_REF']
 
     ident = get_required_value(get_uniq_value, aFeature, proteinField)
-    if ident == 1:
-        ident = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
-        logger.info('Protein {} has no field protein_id. A random name has been created: {}'.format(INC_CDS_REF, ident))
     begin, end = aFeature.location.start.real+1, aFeature.location.end.real
     ec_nums = (aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else common.global_dict['defaultValue'])
 
@@ -317,9 +314,9 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
         'product': aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else common.global_dict['defaultValue'],
         'ec_number': ec_nums,
         'uniprot': get_from_dbxref(aFeature, 'UniProt'),
-        'targets': []
-        #'gene_name'
-        #'locus_tag'
+        'targets': [],
+        'gene_name': aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') is not null else common.global_dict['defaultValue'],
+        'locus_tag': aFeature.qualifiers.get('locus_tag') if aFeature.qualifiers.get('locus_tag') else common.global_dict['defaultValue']
         }
 
     sequences[INC_CDS_REF] = get_required_value(get_uniq_value, aFeature, 'translation'),
@@ -338,7 +335,7 @@ def set_target_to_gc(ref_target, gcList, prots_info):
             prots_info[prot_idx]['targets'].append(ref_target)
     return prots_info
 
-def found_target_procedure(target, prots_info, targets_info, cds_to_keep, window):
+def found_target_procedure(target, prots_info, targets_info, cds_to_keep, window, org_id):
     ''' add the genomic context to the 'cds_to_keep' list, copy the 'window'
     to the 'context'
     input: target reference
@@ -350,8 +347,8 @@ def found_target_procedure(target, prots_info, targets_info, cds_to_keep, window
 
     targets_info.append({
             'id': target,
+            'organism_id': org_id,
             'context': window.copy()
-            #'organism_id': ,
             })
     prots_info = set_target_to_gc(target, window, prots_info)
     #logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
@@ -442,7 +439,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
                                     TARGET_LIST.remove(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
-                                    prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+                                    prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
                                 if cds_to_keep:
                                     if is_useless_cds(presumed_kicked_out_cds, cds_to_keep):
                                         del sequences[prots_info[-MAX_GC]['id']]
@@ -457,7 +454,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
                                     TARGET_LIST.remove(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
-                                    prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+                                    prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
 
                     if not TARGET_LIST:
                         break
@@ -478,7 +475,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                             if prots_info[-HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
                                 TARGET_LIST.remove(prots_info[-HALF_SIZE_GC+idx]['protein_id'])
-                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
 
                         # logger.debug('for loop 2:\t{}'.format(window[HALF_SIZE_GC:]))
                         for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
@@ -488,7 +485,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                             if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
                                 TARGET_LIST.remove(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'])
-                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
 
                             # logger.debug('cds à tester:\t{}'.format(prots_info[-len(window)]['id']))
                             # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
@@ -510,7 +507,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                             if prots_info[-window_length+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
                                 TARGET_LIST.remove(prots_info[-window_length+idx]['protein_id'])
-                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window)
+                                prots_info, cds_to_keep = found_target_procedure(presumed_target, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
 
                 # COM: completed contig parsing, and still one or more targets have not been found
                 if TARGET_LIST:
