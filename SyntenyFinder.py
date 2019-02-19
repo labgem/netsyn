@@ -195,6 +195,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    print('')
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(dataDirectoryProcess):

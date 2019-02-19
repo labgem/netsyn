@@ -66,6 +66,7 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     #settingsOut = common.global_dict['files']['DataExport']['settings']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    print('')
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(RESULTSDIR):

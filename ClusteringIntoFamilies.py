@@ -24,8 +24,6 @@ from Bio import SeqIO
 
 #('{}/TMP/GetINSDCFiles/inputClusteringIntoFamiliesStep.tsv'.format(args.ProjectName), args, TMPDIRECTORY)
 
-
-
 def skip_duplicates(iterable, key=lambda x: x):
     ''' remove duplicates from a list keeping the order of the elements
     Use a generator
@@ -46,54 +44,6 @@ def skip_duplicates(iterable, key=lambda x: x):
             yield x
             fingerprints.add(fingerprint)
 
-def check_headers(errors, mandatory_columns, headers):
-    ''' check if all mandatory columns are provided
-    '''
-    logger = logging.getLogger('check_headers')
-    for mandatory_column in mandatory_columns:
-        if not mandatory_column in headers.values():
-            logger.error('{}: Missing column!'.format(mandatory_column))
-            errors = True
-    return errors
-
-def parse_tsv(fname, authorized_columns, mandatory_columns):
-    ''' create a list of dictionaries
-        get from input file (fname) information by line
-        every line is a dictionary stored in a list
-    '''
-    logger = logging.getLogger('parse_tsv')
-    first_line = True
-    errors = False
-    rows = []
-    line_number = 0
-    with open(fname, 'r') as file:
-        for line in file:
-            if first_line:
-                headers = {}
-                for index, header in enumerate(line.split('\t')):
-                    header = header.replace('\r\n', '').replace('\n', '') # header.strip() ???
-                    p = re.compile(r'(?:{})'.format('|'.join(authorized_columns)))
-                    if not p.search(header):
-                        logger.error('{}: Column name not valid.'.format(header))
-                        errors = True
-                    if header in headers.values():
-                        logger.error('{}: Duplicated column.'.format(header))
-                        errors = True
-                    headers[index] = header
-                errors = check_headers(errors, mandatory_columns, headers)
-                first_line = False
-            else:
-                line_number += 1
-                row = {}
-                row['line_number'] = line_number
-                for index, column in enumerate(line.split('\t')):
-                    row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
-                rows.append(row)
-    if errors:
-        logger.error('Madatory columns')
-        sys.exit(1)
-    return rows
-
 def read_rows(rows):
     ''' print rows information by row
     '''
@@ -112,7 +62,7 @@ def create_d_input(d_rows):
     errors = False
 
     for arow in d_rows: # skips the first line, with headers
-        filename = arow['nucleic_File_Name']
+        filename = arow['nucleic_File_Path']
         contig_id = arow['nucleic_AC']
         d_input.setdefault(
             filename, {}).setdefault(contig_id, {}).setdefault('target_list', [])
@@ -128,7 +78,7 @@ def create_d_input(d_rows):
                 d_input[filename][contig_id]['taxon_ID'] = arow['taxon_ID']
             else:
                 if d_input[filename][contig_id]['taxon_ID'] != arow['taxon_ID']:
-                    logger.error('Taxon ID provided in line {} is different than a previously provided one for the same INSDC file {}'.format(arow['line_number'], filename))
+                    logger.error('Taxon ID associated to protein {} is different than a previously provided one for the same INSDC file {}'.format(arow['protein_AC'], filename))
                     errors = True
     if errors:
         logger.info('Taxon ID inconsistency. Please review your input file')
@@ -142,14 +92,9 @@ def check_and_get_input(input):
     -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
     '''
-    ## from JL
-    authorized_columns = common.global_dict['inputIIheaders'] + ['taxon_ID']
-    mandatory_columns = list(common.global_dict['inputIIheaders'])
-    mandatory_columns.remove('UniProt_AC')
-    # mandatory_columns = ['protein_AC', 'protein_AC_field', 'nucleic_AC', 'nucleic_File_Format', 'nucleic_File_Name']
-    d_rows = parse_tsv(input, authorized_columns, mandatory_columns)
-    #read_rows(d_rows)
-    ## End from JL
+    authorized_columns = common.definesAuthorizedColumns()
+    mandatory_columns = common.definesMandatoryColumns()
+    d_rows = common.parseInputII(input, authorized_columns, mandatory_columns)
     d_input = create_d_input(d_rows)
     return d_input
 
@@ -762,7 +707,7 @@ def regroup_families(tsv_file, cds_info):
         cds_info[cds]['similarityFamily'] = INC_FAMILY
     return cds_info
 
-def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
+def run(INPUT_II, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
     '''
     # Constants
@@ -777,6 +722,7 @@ def run(INPUT_II, insdcDirectory, IDENT, COVERAGE):
     targetsOut = common.global_dict['files'][boxName]['targets']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    print('')
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(dataDirectoryProcess):
@@ -872,7 +818,7 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName> -insdc <insdcDirectoryName> -id <ident> -mc <MinimuCoverage>''',
+                                     usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName> -id <ident> -mc <MinimuCoverage>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
@@ -880,8 +826,6 @@ def argumentsParser():
                         required=True, help='File of corresponding.')
     group1.add_argument('-o', '--OutputName', type=str,
                         required=True, help='Output name files.')
-    group1.add_argument('-insdc', '--insdcDirectory', type = str,
-                        help = 'Directory containing the INSDC files.')
     group1.add_argument('-id', '--Ident', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3.')
     group1.add_argument('-mc', '--MinCoverage', type=float,
@@ -929,4 +873,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.input, args.insdcDirectory ,args.Ident, args.MinCoverage)
+    run(args.input, args.Ident, args.MinCoverage)

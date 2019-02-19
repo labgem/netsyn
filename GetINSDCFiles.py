@@ -37,7 +37,7 @@ def parseInputI(filename): # Fonction a deplacer dans tools ??
                 accessions.append(value)
             else:
                 error = True
-                logger.error('{}: Entry duplicated.'.format(seps))
+                logger.error('{}: Entry duplicated.'.format(value))
     if error:
         logger.error('Input invalidated.')
         exit(1)
@@ -127,6 +127,7 @@ def run(InputName):
     outputName = common.global_dict['files'][boxName]['inputClusteringStep']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    print('')
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(dataDirectoryProcess):
@@ -134,16 +135,17 @@ def run(InputName):
     if os.path.isfile(outputName):
         os.remove(outputName)
     header, accessions = parseInputI(InputName)
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager()
-    if header == 'UniProtAC':
+    if header == common.global_dict['inputIheader']:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        http = urllib3.PoolManager()
         crossReference = getENAidMatchingToUniProtid(accessions, 500, http)
         outputContent = []
         logger.info('Beginning of EMBL file downloading...')
         for entry in crossReference:
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
-                nucleicFilePath = '{}/{}.embl'.format(dataDirectoryProcess, getNucleicFialeName(nucleicAccession))
+                filesExtension = common.global_dict['filesExtension']
+                nucleicFilePath = '{}/{}.{}'.format(dataDirectoryProcess, getNucleicFialeName(nucleicAccession), filesExtension)
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
@@ -185,7 +187,7 @@ def argumentsParser():
                                  formatter_class = argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-i', '--InputFile', type = str,
+    group1.add_argument('-u', '--UniProtACList', type = str,
                         required = True, help = 'Protein accession list.')
     group1.add_argument('-o', '--OutputName', type = str,
                         required = True, help = 'Name of corresponding file.')
@@ -224,4 +226,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.InputFile)
+    run(args.UniProtACList)

@@ -9,6 +9,7 @@ import logging
 import urllib3
 import subprocess
 import errno
+import re
 
 #############
 # Functions #
@@ -20,6 +21,71 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     print("=D I'M HAPPY!!!")
     if msg:
         print(msg)
+
+def check_headers(errors, mandatory_columns, headers):
+    ''' check if all mandatory columns are provided
+    '''
+    logger = logging.getLogger('{}.{}'.format(check_headers.__module__, check_headers.__name__))
+    for mandatory_column in mandatory_columns:
+        if not mandatory_column in headers.values():
+            logger.error('{}: Missing column!'.format(mandatory_column))
+            errors = True
+    return errors
+
+def parseInputII(fname, authorized_columns, mandatory_columns):
+    ''' create a list of dictionaries
+        get from input file (fname) information by line
+        every line is a dictionary stored in a list
+    '''
+    logger = logging.getLogger('{}.{}'.format(parseInputII.__module__, parseInputII.__name__))
+    first_line = True
+    errors = False
+    rows = []
+    line_number = 0
+    with open(fname, 'r') as file:
+        accessions = []
+        for line in file:
+            if first_line:
+                headers = {}
+                for index, header in enumerate(line.split('\t')):
+                    header = header.replace('\r\n', '').replace('\n', '') # header.strip() ???
+                    p = re.compile(r'(?:{})'.format('|'.join(authorized_columns)))
+                    if not p.search(header):
+                        logger.error('{}: Column name not valid.'.format(header))
+                        errors = True
+                    if header in headers.values():
+                        logger.error('{}: Duplicated column.'.format(header))
+                        errors = True
+                    headers[index] = header
+                errors = check_headers(errors, mandatory_columns, headers)
+                first_line = False
+            else:
+                line_number += 1
+                row = {}
+                for index, column in enumerate(line.split('\t')):
+                    if column == '':
+                        logger.error('Empty field: line "{}", column "{}"'.format(line_number, headers[index]))
+                        errors = True
+                    elif headers[index] == 'protein_AC':
+                        if column in accessions:
+                            logger.error('{}: Entry duplicated.'.format(column))
+                            errors = True
+                        else:
+                            accessions.append(column)
+                    row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
+                rows.append(row)
+    if errors:
+        logger.error('Input invalidated.')
+        exit(1)
+    return rows
+
+def definesAuthorizedColumns():
+    return global_dict['inputIIheaders'] + ['taxon_ID']
+
+def definesMandatoryColumns():
+    mandatory_columns = list(global_dict['inputIIheaders'])
+    mandatory_columns.remove('UniProt_AC')
+    return mandatory_columns
 
 def widowsSizePossibilities(minSize, maxSize):
     return range(minSize, maxSize+2, 2)
@@ -60,17 +126,21 @@ def httpRequest(poolManager,method, url):
         exit(1)
     return res
 
-def constantsInitialization(outputDirName, inputFile):
+def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
     '''
     Initialization of constants.
     Calling from netsyn or BoxManager modules.
     '''
     global_dict['workingDirectory'] = outputDirName
-    global_dict['dataDirectory'] = '{}/data'.format(outputDirName) #TMPDIRECTORY
-    global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml') #SETTINGSFILENAME
-    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report') #REPORTFILENAME
-    global_dict['versionFileName'] = '{}/{}'.format(outputDirName, '.version') #REPORTFILENAME
-    global_dict['inputFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(inputFile)) #INPUTLIST
+    global_dict['dataDirectory'] = '{}/data'.format(outputDirName)
+    global_dict['inputsMergedName'] = '{}/inputsMerged.tsv'.format(outputDirName)
+    global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml')
+    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report')
+    global_dict['versionFileName'] = '{}/{}'.format(outputDirName, '.version')
+    if uniprotACList:
+        global_dict['uniprotACListSaved'] = '{}/{}'.format(outputDirName, os.path.basename(uniprotACList))
+    if correspondingFile:
+        global_dict['correspondingFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(correspondingFile))
 
 def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
     global_dict['files'] = {
@@ -156,24 +226,27 @@ def parametersLogger(args):
 #########################
 # Constantes definition #
 #########################
+inputIheader = 'UniProt_AC'
 global_dict = {
     'version': '0.0.1',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
-    'boxName' : {
-        'GetINSDCFiles' : 'GetINSDCFiles',
-        'ClusteringIntoFamilies' :'ClusteringIntoFamilies',
-        'SyntenyFinder' : 'SyntenyFinder',
-        'DataExport' : 'DataExport'
+    'filesExtension': 'embl',
+    'boxName': {
+        'GetINSDCFiles': 'GetINSDCFiles',
+        'ClusteringIntoFamilies': 'ClusteringIntoFamilies',
+        'SyntenyFinder': 'SyntenyFinder',
+        'DataExport': 'DataExport'
     },
-    'inputIIheaders' : [
-        'UniProt_AC',
+    'inputIheader': inputIheader,
+    'inputIIheaders': [
+        inputIheader,
         'protein_AC',
         'protein_AC_field',
         'nucleic_AC',
         'nucleic_File_Format',
-        'nucleic_File_Name'
+        'nucleic_File_Path'
     ],
     'desired_ranks_lneage' : {
         'superkingdom' : 1,
