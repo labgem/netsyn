@@ -357,7 +357,9 @@ def found_target_procedure(target, target_idx, prots_info, targets_info, cds_to_
         #'target_idx': target_idx,
         'organism_id': org_id,
         'context': window.copy(),
-        'context_idx': context_idx
+        'context_idx': context_idx,
+        'uniprot': prots_info[target_idx]['uniprot'],
+        'protein_id': prots_info[target_idx]['protein_id']
         }
     #logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
     #logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
