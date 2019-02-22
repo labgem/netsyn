@@ -60,6 +60,7 @@ def create_d_input(d_rows):
     logger = logging.getLogger('{}.{}'.format(create_d_input.__module__, create_d_input.__name__))
     d_input = {}
     errors = False
+    protein_AC = common.global_dict['proteinACHeader']
 
     for arow in d_rows: # skips the first line, with headers
         filename = arow['nucleic_File_Path']
@@ -67,8 +68,8 @@ def create_d_input(d_rows):
         d_input.setdefault(
             filename, {}).setdefault(contig_id, {}).setdefault('target_list', [])
 
-        if arow['protein_AC'] not in d_input[filename][contig_id]['target_list']:
-            d_input[filename][contig_id]['target_list'].append(arow['protein_AC'])
+        if arow[protein_AC] not in d_input[filename][contig_id]['target_list']:
+            d_input[filename][contig_id]['target_list'].append(arow[protein_AC])
 
         d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
         d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
@@ -78,7 +79,7 @@ def create_d_input(d_rows):
                 d_input[filename][contig_id]['taxon_ID'] = arow['taxon_ID']
             else:
                 if d_input[filename][contig_id]['taxon_ID'] != arow['taxon_ID']:
-                    logger.error('Taxon ID associated to protein {} is different than a previously provided one for the same INSDC file {}'.format(arow['protein_AC'], filename))
+                    logger.error('Taxon ID associated to protein {} is different than a previously provided one for the same INSDC file {}'.format(arow[protein_AC], filename))
                     errors = True
     if errors:
         logger.info('Taxon ID inconsistency. Please review your input file')

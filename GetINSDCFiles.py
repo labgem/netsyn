@@ -14,35 +14,6 @@ import common
 #############
 # Functions #
 #############
-def parseInputI(filename): # Fonction a deplacer dans tools ??
-    '''
-    Input file parssing.
-    '''
-    logger = logging.getLogger('{}.{}'.format(parseInputI.__module__, parseInputI.__name__))
-    with open(filename, 'r') as file:
-        error = False
-        firstLine = True
-        accessions = []
-        seps = [' ','\t',',',';']
-        for line in file:
-            for sep in seps:
-                if len(line.split(sep)) > 1:
-                    logger.error('Input invalidated: unauthorized character {}'.format(seps))
-                    exit(1)
-            value = line.rstrip()
-            if firstLine:
-                header = value
-                firstLine = False
-            elif not value in accessions:
-                accessions.append(value)
-            else:
-                error = True
-                logger.error('{}: Entry duplicated.'.format(value))
-    if error:
-        logger.error('Input invalidated.')
-        exit(1)
-    return header, accessions
-
 def resultsFormat(res, dico):
     '''
     Formating ID match and update dico.
@@ -134,7 +105,7 @@ def run(InputName):
         os.mkdir(dataDirectoryProcess)
     if os.path.isfile(outputName):
         os.remove(outputName)
-    header, accessions = parseInputI(InputName)
+    header, accessions = common.parseInputI(InputName)
     if header == common.global_dict['inputIheader']:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         http = urllib3.PoolManager()

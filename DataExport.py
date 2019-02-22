@@ -41,7 +41,7 @@ def parse_tsv(fname, ac=None, mc=None):
                         errors = True
                     headers[index] = header
                 # if mc:
-                #     errors = check_headers(errors, mc, headers)
+                #     errors = checkInputHeaders(errors, mc, headers)
                 first_line = False
             else:
                 #line_number += 1
@@ -55,7 +55,7 @@ def parse_tsv(fname, ac=None, mc=None):
         exit(1)
     return rows
 
-def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
+def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR, INPUTI, INPUTII):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
@@ -69,6 +69,8 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR):
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
+    if METADATA:
+        contentMetadata = common.checkAndFormatMetadataFile(METADATA, INPUTI, INPUTII)
     if not os.path.isdir(RESULTSDIR):
         os.mkdir(RESULTSDIR)
 
@@ -119,28 +121,34 @@ def argumentsParser():
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-n', '--Nodes', type=str,
+    group1.add_argument('--Nodes', type=str,
                         required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
-    group1.add_argument('-e', '--Edges', type=str,
+    group1.add_argument('--Edges', type=str,
                         required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    group1.add_argument('-taxo', '--Taxonomy', type=str,
+    group1.add_argument('--Taxonomy', type=str,
                         required=True, help='Path of the taxonomyLineage file from the ClusteringIntoFamilies part')
-    group1.add_argument('-c', '--ContigsInfo', type=str,
+    group1.add_argument('--ContigsInfo', type=str,
                         required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
-    group1.add_argument('-md', '--MetaData', type=str,
+    group1.add_argument('--MetaData', type=str,
                         required=True, help='Path of the metadata file provided by the user')
-    group1.add_argument('-o', '--OutputName', type=str, required=True,
+    group1.add_argument('--OutputName', type=str, required=True,
                         help='Output name files.')
 
-    group2 = parser.add_argument_group('logger')
-    group2.add_argument( '--log_level',
+    group2 = parser.add_argument_group('General settings')
+    group2.add_argument('--UniProtACList', type=str,
+                        help='UniProt accession list input(cf: wiki).')
+    group2.add_argument('--CorrespondingFile', type=str,
+                        help='Input file of corresponding between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki).')
+
+    group3 = parser.add_argument_group('logger')
+    group3.add_argument( '--log_level',
                          type = str,
                          nargs = '?',
                          default = 'INFO',
                          help = 'log level',
                          choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                          required = False )
-    group2.add_argument( '--log_file',
+    group3.add_argument( '--log_file',
                          type = str,
                          nargs = '?',
                          help = 'log file (use the stderr by default)',

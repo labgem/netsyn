@@ -474,8 +474,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         edges = common.global_dict['files']['SyntenyFinder']['edges']
         taxonomy = common.global_dict['files']['ClusteringIntoFamilies']['lineage']
         contigs_info = common.global_dict['files']['ClusteringIntoFamilies']['contigs']
-        metadata = args.MetaDataFile #'BKACE_id.dat' #### chemain en dur !!!! #######################   *******************    ######################
-        DataExport.run(nodes, edges, taxonomy, contigs_info, metadata, resultsDirectory)
+        DataExport.run(nodes, edges, taxonomy, contigs_info, args.MetaDataFile, resultsDirectory, args.UniProtACList, args.CorrespondingFile)
     else:
         logger.critical('No execution planned for {}'.format(runBox))
         exit(1)

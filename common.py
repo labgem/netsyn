@@ -22,10 +22,39 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     if msg:
         print(msg)
 
-def check_headers(errors, mandatory_columns, headers):
+def parseInputI(filename): # Fonction a deplacer dans tools ??
+    '''
+    Input file parssing.
+    '''
+    logger = logging.getLogger('{}.{}'.format(parseInputI.__module__, parseInputI.__name__))
+    with open(filename, 'r') as file:
+        error = False
+        firstLine = True
+        accessions = []
+        seps = [' ','\t',',',';']
+        for line in file:
+            for sep in seps:
+                if len(line.split(sep)) > 1:
+                    logger.error('Input invalidated: unauthorized character {}'.format(seps))
+                    exit(1)
+            value = line.rstrip()
+            if firstLine:
+                header = value
+                firstLine = False
+            elif not value in accessions:
+                accessions.append(value)
+            else:
+                error = True
+                logger.error('{}: Entry duplicated.'.format(value))
+    if error:
+        logger.error('Input invalidated.')
+        exit(1)
+    return header, accessions
+
+def checkInputHeaders(errors, mandatory_columns, headers):
     ''' check if all mandatory columns are provided
     '''
-    logger = logging.getLogger('{}.{}'.format(check_headers.__module__, check_headers.__name__))
+    logger = logging.getLogger('{}.{}'.format(checkInputHeaders.__module__, checkInputHeaders.__name__))
     for mandatory_column in mandatory_columns:
         if not mandatory_column in headers.values():
             logger.error('{}: Missing column!'.format(mandatory_column))
@@ -57,7 +86,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                         logger.error('{}: Duplicated column.'.format(header))
                         errors = True
                     headers[index] = header
-                errors = check_headers(errors, mandatory_columns, headers)
+                errors = checkInputHeaders(errors, mandatory_columns, headers)
                 first_line = False
             else:
                 line_number += 1
@@ -66,7 +95,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                     if column == '':
                         logger.error('Empty field: line "{}", column "{}"'.format(line_number, headers[index]))
                         errors = True
-                    elif headers[index] == 'protein_AC':
+                    elif headers[index] == proteinACHeader:
                         if column in accessions:
                             logger.error('{}: Entry duplicated.'.format(column))
                             errors = True
@@ -86,6 +115,97 @@ def definesMandatoryColumns():
     mandatory_columns = list(global_dict['inputIIheaders'])
     mandatory_columns.remove('UniProt_AC')
     return mandatory_columns
+
+def checkAndFormatMetadataFile(metadataFileName, inputIFileName=None, inputIIFileName=None):
+    '''
+    Valide or unvalide the metadata file.
+    Initializes to "default value" the undefined metadata and accession whitout metadata.
+    '''
+    logger = logging.getLogger('{}.{}'.format(checkAndFormatMetadataFile.__module__, checkAndFormatMetadataFile.__name__))
+    sep = '\t'
+    error = False
+    metadataContent = []
+    accessionsWithMetadata = []
+    with open(metadataFileName, 'r') as file:
+        nbLines = 0
+        for line in file:
+            nbLines += 1
+            values = [value.rstrip() for value in line.split(sep)]
+            if nbLines == 1:
+                headersMD = {}
+                nbHeaders = len(values)
+                for index, value in enumerate(values):
+                    if value in headersMD.values():
+                        logger.error('{}: Duplicated column.'.format(value))
+                        error = True
+                    elif value == '':
+                        logger.error('Empty field at line of headers.')
+                        error = True
+                    else:
+                        headersMD[index] = value
+                        if value == 'accession_type':
+                            accessionTypeIndex = index
+                for mandatorycolumn in global_dict['metadataMadatoryColumn']:
+                    if not mandatorycolumn in headersMD.values():
+                        logger.error('Missing column, {} column is mandatory.'.format(mandatorycolumn))
+                        error = True
+                if error:
+                    break
+            else:
+                if not len(values) == nbHeaders:
+                    logger.error('At line {}: the number of columns is not egal than the number of headers.'.format(nbLines))
+                    error = True
+                    continue
+                row = {}
+                for index, value in enumerate(values):
+                    if index == accessionTypeIndex and value not in global_dict['metadataAccessionAuthorized']:
+                        logger.error('At line {}: the "accession_type" must be egal to {}.'.format(nbLines,' or '.join(global_dict['metadataAccessionAuthorized'])))
+                        error = True
+                    else:
+                        row[headersMD[index]] = global_dict['defaultValue'] if value == '' else value
+                metadataContent.append(row)
+                accessionsWithMetadata.append(row['accession'])
+    if error:
+        logger.error('Improper metadata file.')
+        exit(1)
+
+    if inputIFileName:
+        headerI, accessionsI = parseInputI(inputIFileName)
+        for accession in accessionsI:
+            if not accession in accessionsWithMetadata:
+                row = {}
+                for header in headersMD.values():
+                    if header == 'accession_type':
+                       row[header] =  headerI
+                    elif header == 'accession':
+                       row[header] =  accession
+                    else:
+                       row[header] =  global_dict['defaultValue']
+                metadataContent.append(row)
+                accessionsWithMetadata.append(row['accession'])
+
+    if inputIIFileName:
+        authorized_columns =definesAuthorizedColumns()
+        mandatory_columns = definesMandatoryColumns()
+        contentII = parseInputII(inputIIFileName, authorized_columns, mandatory_columns)
+        for row in contentII:
+            print(row)
+            if row[global_dict['inputIheader']]:
+                if row[global_dict['inputIheader']] in accessionsWithMetadata:
+                    continue
+            if row[global_dict['proteinACHeader']] in accessionsWithMetadata:
+                continue
+            row = {}
+            for header in headersMD.values():
+                if header == 'accession_type':
+                    row[header] =  headerI
+                elif header == 'accession':
+                    row[header] =  accession
+                else:
+                    row[header] =  global_dict['defaultValue']
+            metadataContent.append(row)
+            accessionsWithMetadata.append(row['accession'])
+    return metadataContent
 
 def widowsSizePossibilities(minSize, maxSize):
     return range(minSize, maxSize+2, 2)
@@ -227,8 +347,9 @@ def parametersLogger(args):
 # Constantes definition #
 #########################
 inputIheader = 'UniProt_AC'
+proteinACHeader = 'protein_AC'
 global_dict = {
-    'version': '0.0.1',
+    'version': '0.0.2',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
@@ -240,25 +361,33 @@ global_dict = {
         'DataExport': 'DataExport'
     },
     'inputIheader': inputIheader,
+    'proteinACHeader': proteinACHeader,
     'inputIIheaders': [
         inputIheader,
-        'protein_AC',
+        proteinACHeader,
         'protein_AC_field',
         'nucleic_AC',
         'nucleic_File_Format',
         'nucleic_File_Path'
     ],
-    'desired_ranks_lneage' : {
-        'superkingdom' : 1,
-        'phylum' : 5,
-        'class' : 8,
-        'order' : 13,
-        'family' : 17,
-        'genus' : 21,
-        'species' : 26
-    }
+    'desired_ranks_lneage': {
+        'superkingdom': 1,
+        'phylum': 5,
+        'class': 8,
+        'order': 13,
+        'family': 17,
+        'genus': 21,
+        'species': 26
+    },
+    'metadataMadatoryColumn': [
+        'accession_type',
+        'accession'
+    ],
+    'metadataAccessionAuthorized': [
+        inputIheader,
+        proteinACHeader
+    ]
 }
-
 
 ##############################
 # Add variables to namespace #
