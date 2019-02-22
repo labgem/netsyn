@@ -6,10 +6,10 @@
 import common
 import re
 import sys
-import random
-import string
-import pickle
-import json
+#import random
+#import string
+#import pickle
+#import json
 import os
 import math
 import shutil
@@ -74,7 +74,7 @@ def create_d_input(d_rows):
         d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
         d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
 
-        if 'taxon_ID' in arow.keys() and arow['taxon_ID'] != 'NA':
+        if 'taxon_ID' in arow.keys() and arow['taxon_ID'] != common.global_dict['defaultValue']:
             if 'taxon_ID' not in d_input[filename][contig_id]:
                 d_input[filename][contig_id]['taxon_ID'] = arow['taxon_ID']
             else:
@@ -109,7 +109,7 @@ def get_from_dbxref(aFeature, dbref):
     elif dbref == 'UniProt':
         pattern = 'UniProt*'
 
-    result = 'NA'
+    result = common.global_dict['defaultValue']
     if aFeature.qualifiers.get('db_xref'):
         for aRef in aFeature.qualifiers.get('db_xref'):
             if re.match(pattern, aRef):
@@ -131,12 +131,13 @@ def get_uniq_value(aFeature, ref):
             result = get_from_dbxref(aFeature, ref)
             return result
         except:
-            return 'NA'
+            return common.global_dict['defaultValue']
     if len(result) == 1:
         return result[0]
-    else:
-        logger.warning('there are several values instead of a uniq value for {} field: {}'.format(ref, result))
+    #else:
+    logger.warning('there are several values instead of a uniq value for {} field: {}'.format(ref, result))
         # exit(1)
+    return(1)
 
 def get_required_value(func, aFeature, *args):
     ''' function called if the value is mandatory (protein ID (ident),
@@ -148,12 +149,12 @@ def get_required_value(func, aFeature, *args):
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
-    if not func(aFeature, *args) or func(aFeature, *args) == 'NA':
+    if not func(aFeature, *args) or func(aFeature, *args) == common.global_dict['defaultValue']:
         logger.error('A required value is not provided: {}'.format([arg for arg in args]))
         # exit(1)
         return 1
-    else:
-        return func(aFeature, *args)
+    #else:
+    return func(aFeature, *args)
 
 def get_taxonID(aFeature):
     ''' get taxon ID provided in a INSDC file
@@ -161,30 +162,26 @@ def get_taxonID(aFeature):
     taxon_ID = get_uniq_value(aFeature, 'taxon')
     return taxon_ID
 
-def get_contig_info(aFeature, contig_content, taxon_ID):
+def get_orgs_info(aFeature, numFile):
     ''' get the relied information to a contig as organism, strain, size
     and taxon ID
     input: source feature from an INSDC file
     output: updated contig dictionary
     '''
-    if taxon_ID == 'NA':
-        taxon_ID = get_taxonID(aFeature)
-    contig_content.update({
-            'organism': get_uniq_value(aFeature, 'organism'),
-            'strain': get_uniq_value(aFeature, 'strain'),
-            'taxon_ID': taxon_ID,
-            'size': [aFeature.location.start.real+1,
-                     aFeature.location.end.real
-                     ],
-            'cds_to_keep': [],
-            'window': []
-            })
-    return contig_content
+    org_content = {
+        'id': numFile,
+        'name': get_uniq_value(aFeature, 'organism'),
+        'strain': get_uniq_value(aFeature, 'strain'),
+        # 'size': [aFeature.location.start.real+1,
+        #          aFeature.location.end.real
+        #          ]
+        }
+    return org_content
 
 def is_pseudogene(aFeature):
     ''' test if a CDS is a pseudogene
     '''
-    return ('pseudo' in aFeature.qualifiers)
+    return ('pseudo' in aFeature.qualifiers or 'pseudogene' in aFeature.qualifiers)
 # if 'pseudo' in aFeature.qualifiers:
 #     return True
 # else:
@@ -197,131 +194,142 @@ def get_pseudo_id(params):
     INC_PSEUDO_REF = params['INC_PSEUDO_REF']
     return ':'.join(['PSEUDO', str(INC_PSEUDO_REF)])
 
-def det_frame(direction, startCDS, endGenome):
-    ''' determine the frame of the CDS
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-    -*-*-*- needs to be rethought because of cases where there is a   -*-*-*-
-    -*-*-*- join(##..##, ##..###)                                     -*-*-*-
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-    '''
-    if direction == '1':
-        window = ((int(startCDS)-1)%3)+1
-        strand = ''.join(['+', str(window)])
-    elif direction == '-1':
-        window = ((int(endGenome)-int(startCDS))%3)+1
-        strand = ''.join(['-', str(window)])
-    return strand
+# def det_frame(direction, startCDS, endGenome):
+#     ''' determine the frame of the CDS
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+#     -*-*-*- needs to be rethought because of cases where there is a   -*-*-*-
+#     -*-*-*- join(##..##, ##..###)                                     -*-*-*-
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+#     '''
+#     if direction == '1':
+#         window = ((int(startCDS)-1)%3)+1
+#         strand = ''.join(['+', str(window)])
+#     elif direction == '-1':
+#         window = ((int(endGenome)-int(startCDS))%3)+1
+#         strand = ''.join(['-', str(window)])
+#     return strand
 
-def get_pseudo_info(aFeature, cds_info, contig_content, params):
-    ''' add information of the pseudogene to cds_info dictionary
+def get_pseudo_info(aFeature, sequences, window, params):
+    ''' add information of the pseudogene to prots_info dictionary
     input: CDS feature having a '/pseudo' qualifier
-    output: updated cds_info dictionary, window list of the contig_content
+    output: updated prots_info dictionary, window list of the contig_content
     modified to contain afeature
     '''
     params['INC_CDS_REF'] += 1
     INC_CDS_REF = params['INC_CDS_REF']
-    INC_CONTIG_REF = params['INC_CONTIG_REF']
 
     pseudo_id = get_pseudo_id(params)
-    start, stop = aFeature.location.start.real+1, aFeature.location.end.real
-    cds_info[INC_CDS_REF] = {
-        'protein_id': pseudo_id,
-        'position': [start, stop],
-        'frame': det_frame(str(aFeature.location.strand), start, contig_content.get('size')[1]),
-        'product': aFeature.qualifiers.get('product'),
-        'sequence': get_uniq_value(aFeature, 'translation'),
-        'target': [],
-        'context': None,
-        'contig': INC_CONTIG_REF,
-        'genome': params['INC_FILE'],
-        'similarityFamily': None
-        }
-    contig_content['window'].append(INC_CDS_REF)
-    return cds_info, contig_content, params
+    begin, end = aFeature.location.start.real+1, aFeature.location.end.real
 
-def get_prot_info(aFeature, cds_info, contig_content, proteinField, params):
-    ''' add information of the protein to cds_info dictionary
+    feature_info = {
+        'id': INC_CDS_REF,
+        'protein_id': pseudo_id,
+        'begin': begin,
+        'end': end,
+        'strand': str(aFeature.location.strand),
+        'product': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
+        'targets': [],
+        'targets_idx': []
+        }
+
+    sequences[INC_CDS_REF] = get_uniq_value(aFeature, 'translation')
+    window.append(INC_CDS_REF)
+    return feature_info, sequences, window, params
+
+def get_prot_info(aFeature, sequences, window, proteinField, params):
+    ''' add information of the protein to prots_info dictionary
     input: CDS feature of an INSDC file
-    output: updated cds_info dictionary, window list of the contig_content
+    output: updated prots_info dictionary, window list of the contig_content
     modified to contain afeature
     '''
-    logger = logging.getLogger('{}.{}'.format(get_prot_info.__module__, get_prot_info.__name__))
-    INC_CONTIG_REF = params['INC_CONTIG_REF']
+    # logger = logging.getLogger('{}.{}'.format(get_prot_info.__module__, get_prot_info.__name__))
     params['INC_CDS_REF'] += 1
     INC_CDS_REF = params['INC_CDS_REF']
 
     ident = get_required_value(get_uniq_value, aFeature, proteinField)
-    if ident == 1:
-        ident = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
-        logger.info('Protein {} has no field protein_id. A random name has been created: {}'.format(INC_CDS_REF, ident))
-    start, stop = aFeature.location.start.real+1, aFeature.location.end.real
-    ec_nums = (aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else 'NA')
-    cds_info[INC_CDS_REF] = {
-        'protein_id': ident,
-        'position': [start, stop],
-        'frame': det_frame(str(aFeature.location.strand), start, contig_content.get('size')[1]),
-        'product': aFeature.qualifiers.get('product'),
-        'sequence': get_required_value(get_uniq_value, aFeature, 'translation'),
-        'ec_number': ec_nums,
-        'uniprot': get_from_dbxref(aFeature, 'UniProt'),
-        'target': [],
-        'context': None,
-        'contig': INC_CONTIG_REF,
-        'genome': params['INC_FILE'],
-        'similarityFamily': None
-        }
-    contig_content['window'].append(INC_CDS_REF)
-    return cds_info, contig_content, params
+    begin, end = aFeature.location.start.real+1, aFeature.location.end.real
 
-def set_target_to_gc(ref_target, gcList, cds_info):
+    #logger.debug('value returned by qualifiers.get: {}'.format(aFeature.qualifiers.get('gene')))
+    #logger.debug('value returned by qualifiers.get: {}'.format(aFeature.qualifiers.get('locus_tag')))
+
+    feature_info = {
+        'id': INC_CDS_REF,
+        'protein_id': ident,
+        'begin': begin,
+        'end': end,
+        'strand': str(aFeature.location.strand),
+        'product': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
+        'ec_number': ', '.join(aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else [common.global_dict['defaultValue']]),
+        'uniprot': get_from_dbxref(aFeature, 'UniProt'),
+        'gene_name': ', '.join(aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') else [common.global_dict['defaultValue']]),
+        'locus_tag': ', '.join(aFeature.qualifiers.get('locus_tag') if aFeature.qualifiers.get('locus_tag') else [common.global_dict['defaultValue']]),
+        'targets': [],
+        'targets_idx': []
+        }
+
+    sequences[INC_CDS_REF] = get_required_value(get_uniq_value, aFeature, 'translation')
+    window.append(INC_CDS_REF)
+    return feature_info, sequences, window, params
+
+def set_target_to_gc(ref_target, target_idx, gcList, prots_info):
     ''' add the target reference to members of its genomic context
     input: target reference, list of target's genomic context
-    output: updated cds_info dictionary on genomic context cds key
+    output: updated prots_info dictionary on genomic context cds key
     '''
-    for gc_member in gcList:
-        #if ref_target not in cds_info[gc_member]['target']:
-        cds_info[gc_member]['target'].append(ref_target)
-    return cds_info
+    context_idx = []
+    for prot_dict in prots_info[-common.global_dict['maxGCSize']:]:
+        prot_idx = prots_info.index(prot_dict)
+        if prots_info[prot_idx]['id'] in gcList:
+        #if ref_target not in prots_info[gc_member]['target']:
+            prots_info[prot_idx]['targets'].append(ref_target)
+            prots_info[prot_idx]['targets_idx'].append(target_idx)
+            context_idx.append(prot_idx)
+    return prots_info, context_idx
 
-def found_target_procedure(target, cds_info, contig_content):
+def found_target_procedure(target, target_idx, prots_info, targets_info, cds_to_keep, window, org_id):
     ''' add the genomic context to the 'cds_to_keep' list, copy the 'window'
     to the 'context'
     input: target reference
-    output: updated cds_info on target's context and updated contig_content on
+    output: updated prots_info on target's context and updated contig_content on
     cds_to_keep
     '''
-    logger = logging.getLogger('{}.{}'.format(found_target_procedure.__module__, found_target_procedure.__name__))
-    contig_content['cds_to_keep'].extend(contig_content['window'])
+    # logger = logging.getLogger('{}.{}'.format(found_target_procedure.__module__, found_target_procedure.__name__))
+    cds_to_keep.extend(window)
 
-    cds_info[target]['context'] = contig_content['window'].copy()
+    prots_info, context_idx = set_target_to_gc(target, target_idx, window, prots_info)
 
-    cds_info = set_target_to_gc(target, cds_info[target]['context'], cds_info)
-    logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, cds_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
-    logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, cds_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
-    return cds_info, contig_content
+    targets_info[target_idx] = {
+        'id': target,
+        #'target_idx': target_idx,
+        'organism_id': org_id,
+        'context': window.copy(),
+        'context_idx': context_idx,
+        'uniprot': prots_info[target_idx]['uniprot'],
+        'protein_id': prots_info[target_idx]['protein_id']
+        }
+    #logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
+    #logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
+    return prots_info, targets_info, cds_to_keep
 
-def remove_useless_cds(cds, cds_info, contig_content):
+def is_useless_cds(cds, cds_to_keep):
     ''' remove the cds if is not in cds_to_keep
     input: cds to test
-    output: potential modified cds_info dictionary where cds entry is removed
+    output: potential modified prots_info dictionary where cds entry is removed
     '''
-    if cds not in [ref for ref in contig_content['cds_to_keep']]:
-        del cds_info[cds]
-    return cds_info
+    return cds not in cds_to_keep
 
-def parse_insdc(afile, d_infile, cds_info, contig_info, params):
+def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences, params):
     ''' get information for every contig mentionned in the input
     and get information for every cds that is contained in a (MAX_GC sized-)
     window centered on a target
     input: INSDC file, file input information in d_infile dictionary
-    output: cds_info dictionary containing the cds belonging to the genomic context
+    output: prots_info dictionary containing the cds belonging to the genomic context
     of the targets and targets itself, and
-    contig_info dictionary containing the explored contig information
-    (see get_contig_info function), and
+    orgs_info dictionary containing the explored contig information
+    (see get_orgs_info function), and
     params is modified where values are incremented (INC_CONTIG_REF, INC_CDS_REF)
     '''
     logger = logging.getLogger('{}.{}'.format(parse_insdc.__module__, parse_insdc.__name__))
-
     NOT_CONTIG = ['protein_AC_field', 'nucleic_File_Format'] #### ~~~~~~~~ Probably should be changed ~~~~~~~~~~ #####
     CONTIG_LIST = [contig for contig in d_infile if contig not in NOT_CONTIG]
     logger.debug('Contig list: {}'.format(CONTIG_LIST))
@@ -346,84 +354,130 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
             if contig_name:
                 # COM: initialization or update off incremented values
                 CONTIG_LIST.remove(contig_name)
-                params['INC_CONTIG_REF'] += 1
-                INC_CONTIG_REF = params['INC_CONTIG_REF']
                 params['INC_TARGET_LOADED'] = 0
-                contig_info[INC_CONTIG_REF] = {'contig': contig_name}
                 TARGET_LIST = d_infile[contig_name]['target_list']
+                cds_to_keep = []
+                window = []
                 logger.debug('Target list for {} contig: {}'.format(contig_name, TARGET_LIST))
 
                 # COM: beginning of the parsing
+                first_source = True
                 for aFeature in CONTIG.features:
-                    if aFeature.type == 'source':
-                        contig_info[INC_CONTIG_REF] = get_contig_info(
-                            aFeature,
-                            contig_info[INC_CONTIG_REF],
-                            d_infile[contig_name]['taxon_ID'] if 'taxon_ID' in d_infile[contig_name].keys() else 'NA'
-                            )
+                    if aFeature.type == 'source' and first_source: ####### il faut encore tester si on a déjà récupéré les infos dans le cas d'un fichier INSDC multicontig
+                        first_source = False
+                        if 'taxon_ID' in d_infile[contig_name] and d_infile[contig_name]['taxon_ID'] != common.global_dict['defaultValue']:
+                            taxon_ID = d_infile[contig_name]['taxon_ID']
+                        else:
+                            taxon_ID = get_taxonID(aFeature)
+                        orgs_info.setdefault(taxon_ID, {}).setdefault('organisms', [])
+
+                        if params['INC_FILE'] not in [org['id']
+                                                      for tax_ID in orgs_info
+                                                      for idx, org in enumerate(orgs_info[tax_ID]['organisms'])
+                                                      if tax_ID == taxon_ID]:
+                            orgs_info[taxon_ID]['organisms'].append(get_orgs_info(aFeature, params['INC_FILE']))
+
                     elif aFeature.type == 'CDS':
                         newCdsAdded = False
                         if is_pseudogene(aFeature):
                             if params['PSEUDOGENE']:
-                                cds_info, contig_info[INC_CONTIG_REF], params = get_pseudo_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], params)
+                                feature_info, sequences, window, params = get_pseudo_info(aFeature, sequences, window, params)
+                                prots_info.append(feature_info)
                                 newCdsAdded = True
                         else:
-                            cds_info, contig_info[INC_CONTIG_REF], params = get_prot_info(aFeature, cds_info, contig_info[INC_CONTIG_REF], fieldProteinID, params)
+                            feature_info, sequences, window, params = get_prot_info(aFeature, sequences, window, fieldProteinID, params)
+                            prots_info.append(feature_info)
                             newCdsAdded = True
 
                         if newCdsAdded:
-                            window = contig_info[INC_CONTIG_REF]['window']
                             window_length = len(window)
-                            contig_content = contig_info[INC_CONTIG_REF]
                             if window_length == MAX_GC:
                                 presumed_target = window[HALF_SIZE_GC]
                                 presumed_kicked_out_cds = window[0]
-                                if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
+
+                                if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
-                                    TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
-                                    cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
-                                if contig_content['cds_to_keep']:
-                                    cds_info = remove_useless_cds(presumed_kicked_out_cds, cds_info, contig_content)
+                                    TARGET_LIST.remove(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
+                                    presumed_target_index = prots_info.index(prots_info[-(HALF_SIZE_GC+1)])
+                                    prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
+                                    orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
+                                if cds_to_keep:
+                                    if is_useless_cds(presumed_kicked_out_cds, cds_to_keep):
+                                        del sequences[prots_info[-MAX_GC]['id']]
+                                        del prots_info[-MAX_GC]
                                 else:
-                                    del cds_info[presumed_kicked_out_cds]
+                                    del sequences[prots_info[-MAX_GC]['id']]
+                                    del prots_info[-MAX_GC]
                                 del window[0]
                             elif window_length > HALF_SIZE_GC:
-                                presumed_target = window[window_length-(HALF_SIZE_GC+1)]
-                                if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
+                                presumed_target = window[-(HALF_SIZE_GC+1)]
+
+                                if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
                                     params['INC_TARGET_LOADED'] += 1
-                                    TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
-                                    cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
+                                    TARGET_LIST.remove(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
+                                    presumed_target_index = prots_info.index(prots_info[-(HALF_SIZE_GC+1)])
+                                    prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
+                                    orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
+
                     if not TARGET_LIST:
                         break
+
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 if TARGET_LIST:
-                    window = contig_info[INC_CONTIG_REF]['window']
                     window_length = len(window)
-                    contig_content = contig_info[INC_CONTIG_REF]
+                    # logger.debug('target list:\t{}'.format(TARGET_LIST))
+                    # logger.debug('window_length:\t{}'.format(window_length))
+                    # logger.debug('window content:\t{}'.format(window))
                     if window_length >= HALF_SIZE_GC:
-                        for presumed_target in window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]:
-                            if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
-                                TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
+
+                        # logger.debug('for loop 1:\t{}'.format(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]))
+                        for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-HALF_SIZE_GC+idx]['id']))
+                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-HALF_SIZE_GC+idx]['protein_id']))
+                            if prots_info[-HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
-                        for presumed_target in window[HALF_SIZE_GC:]:
-                            if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
-                                TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
+                                TARGET_LIST.remove(prots_info[-HALF_SIZE_GC+idx]['protein_id'])
+                                presumed_target_index = prots_info.index(prots_info[-HALF_SIZE_GC+idx])
+                                prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
+                                orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
+
+                        # logger.debug('for loop 2:\t{}'.format(window[HALF_SIZE_GC:]))
+                        for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-window_length+HALF_SIZE_GC+idx]['id']))
+                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id']))
+                            if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
-                            if contig_content['cds_to_keep']:
-                                cds_info = remove_useless_cds(window[0], cds_info, contig_content)
+                                TARGET_LIST.remove(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'])
+                                presumed_target_index = prots_info.index(prots_info[-window_length+HALF_SIZE_GC+idx])
+                                prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
+                                orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
+
+                            # logger.debug('cds à tester:\t{}'.format(prots_info[-len(window)]['id']))
+                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
+                            # logger.debug('should we delete it:\t{}'.format(is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep)))
+                            if cds_to_keep:
+                                if is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep):
+                                    del sequences[prots_info[-len(window)]['id']]
+                                    del prots_info[-len(window)]
+
                             else:
-                                del cds_info[window[0]]
+                                del sequences[prots_info[-len(window)]['id']]
+                                del prots_info[-len(window)]
+
                             del window[0]
+                            #logger.debug('*************************************************')
+
                     elif window_length < HALF_SIZE_GC:
-                        for presumed_target in window:
-                            if cds_info[presumed_target]['protein_id'] in TARGET_LIST:
-                                TARGET_LIST.remove(cds_info[presumed_target]['protein_id'])
+                        for idx, presumed_target in enumerate(window):
+                            if prots_info[-window_length+idx]['protein_id'] in TARGET_LIST:
                                 params['INC_TARGET_LOADED'] += 1
-                                cds_info, contig_content = found_target_procedure(presumed_target, cds_info, contig_content)
-                    logger.debug('proteins in cds_to_keep on this contig: {}'.format(contig_info[INC_CONTIG_REF]['cds_to_keep']))
-                    contig_info[INC_CONTIG_REF]['cds_to_keep'] = list(skip_duplicates(contig_info[INC_CONTIG_REF]['cds_to_keep']))
+                                TARGET_LIST.remove(prots_info[-window_length+idx]['protein_id'])
+                                presumed_target_index = prots_info.index(prots_info[-window_length+idx])
+                                prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'])
+                                orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
+
                 # COM: completed contig parsing, and still one or more targets have not been found
                 if TARGET_LIST:
                     logger.warning('Target(s) has(have) not been found: {}'.format(TARGET_LIST))
@@ -434,47 +488,52 @@ def parse_insdc(afile, d_infile, cds_info, contig_info, params):
                 if CONTIG_LIST:
                     logger.warning('Contig(s) has(have) not been found: {}'.format(CONTIG_LIST))
                 break
-    return cds_info, contig_info, params
+    return prots_info, targets_info, orgs_info, sequences, params
 
-def parse_INSDC_files(d_input, cds_info, contig_info, params):
+def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
     ''' every INSDC file in d_input will be parsed
     input: d_input dictionary with filename as key
-    output: cds_in and contig_info dictionaries containing information related to contigs
+    output: cds_in and orgs_info dictionaries containing information related to contigs
     and targets mentioned in the d_input, and cds belonging to the genomic contexts of mentioned targets
     '''
     logger = logging.getLogger('{}.{}'.format(parse_INSDC_files.__module__, parse_INSDC_files.__name__))
     nbr_of_files = len(d_input)
+    sequences = {}
     for afile in d_input:
         params['INC_FILE'] += 1
         logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
-        cds_info, contig_info, params = parse_insdc(afile, d_input[afile], cds_info, contig_info, params)
-    return cds_info, contig_info, params
+        prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
+    #exit(1)
+    return prots_info, targets_info, orgs_info, sequences, params
 
 def concat_by_dot(alist):
     ''' does the concatenation by a dot
     '''
     return '.'.join(alist)
 
-def write_multiFasta(cds_info, output):
+def write_multiFasta(sequences, output):
     ''' writes a multiFasta file from the dictionary obtained by the INSDC file
     parser
     '''
     logger = logging.getLogger('{}.{}'.format(write_multiFasta.__module__, write_multiFasta.__name__))
     with open(output, 'w') as fastaFile:
-        for cds in cds_info:
-            fastaFile.write('>{}\n'.format(cds))
-            fastaFile.write(cds_info[cds]['sequence'])
-            fastaFile.write('\n')
+        for a_seq in sequences:
+            if sequences[a_seq] != 'NA':
+                fastaFile.write('>{}\n'.format(a_seq))
+                fastaFile.write(sequences[a_seq])
+                fastaFile.write('\n')
+            else:
+                logger.info('The protein {} has no sequence'.format(a_seq))
     if os.path.getsize(output) == 0:
         logger.debug('MultiFasta File is empty.')
         exit(1)
     return 0
 
-def get_lineage(xml, desiredTaxonIDs):
-    logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
+def get_lineage(xml, desiredTaxonIDs, orgs_info):
     ''' extracts the taxonomic lineage from the provided xml file format
     ??? why initialize rank as False and not NA ???
     '''
+    logger = logging.getLogger('{}.{}'.format(get_lineage.__module__, get_lineage.__name__))
     allLineages = []
     root = ET.fromstring(xml)
     if root.findall('Taxon'):
@@ -501,8 +560,8 @@ def get_lineage(xml, desiredTaxonIDs):
                                     }
             oldTaxonIDs = []
             if taxon.find('AkaTaxIds'):
-                for taxon in taxon.find('AkaTaxIds').findall('TaxId'):
-                    oldTaxonIDs.append(taxon.text)
+                for ataxon in taxon.find('AkaTaxIds').findall('TaxId'):
+                    oldTaxonIDs.append(ataxon.text)
             allLineages.append([collectedTaxId, fullLineage, oldTaxonIDs])
     indexTaxID = 0
     # indexLineage = 1
@@ -515,8 +574,10 @@ def get_lineage(xml, desiredTaxonIDs):
                 logger.info('Taxonomic lineage recovered for the taxonID {}.'.format(desiredTaxon))
             elif desiredTaxon in allLineages[index][indexOldTaxID]:
                 logger.info('The species having {} as taxonID, has its taxonID change for {}'.format(desiredTaxon, collectedTaxId))
-                logger.warning('§§§§§ IL FAUT METTRE A JOUR LE TAXID DES ORGANISMES CORRESPONDANTS DANS CONTIGS §§§§§')
-    elif len(allLineages) > 0:
+                orgs_info.setdefault(collectedTaxId, {}).setdefault('organisms', [])
+                orgs_info[collectedTaxId]['organisms'].extend(orgs_info[desiredTaxon]['organisms'])
+                del orgs_info[desiredTaxon]
+    elif len(allLineages) > 0: # Do not use `len(SEQUENCE)` to determine if a sequence is empty (len-as-condition)
         # Lineage missing
         indexLineage = 0
         indexDesiredTaxon = 0
@@ -530,7 +591,9 @@ def get_lineage(xml, desiredTaxonIDs):
                 indexDesiredTaxon += 1
             elif desiredTaxon in allLineages[indexLineage][indexOldTaxID]:
                 logger.info('The species having {} as taxonID, has its taxonID change for {}'.format(desiredTaxon, collectedTaxId))
-                logger.warning('§§§§§ IL FAUT METTRE A JOUR LE TAXID DES ORGANISMES CORRESPONDANTS DANS CONTIGS §§§§§')
+                orgs_info.setdefault(collectedTaxId, {}).setdefault('organisms', [])
+                orgs_info[collectedTaxId]['organisms'].extend(orgs_info[desiredTaxon]['organisms'])
+                del orgs_info[desiredTaxon]
                 indexLineage += 1
                 indexDesiredTaxon += 1
             else:
@@ -547,24 +610,22 @@ def get_lineage(xml, desiredTaxonIDs):
     else:
         for desiredTaxon in desiredTaxonIDs:
             logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
-    return allLineages
+    return allLineages, orgs_info
 
-def get_taxo_from_web(taxonIDs, dataDirectoryProcess):
+def get_taxo_from_web(taxonIDs, dataDirectoryProcess, orgs_info):
     ''' does web request to get the taxonomic lineage for a taxon ID
     '''
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     ids = ','.join(taxonIDs)
-    xml = common.httpRequest(http,'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(ids))
-    with open('{}/xml_file'.format(dataDirectoryProcess), 'w') as file:
-        file.write(xml.data.decode('utf-8'))
-    return get_lineage(xml.data.decode('utf-8'), taxonIDs)
+    xml = common.httpRequest(http, 'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(ids))
+    return get_lineage(xml.data.decode('utf-8'), taxonIDs, orgs_info)
 
 def get_desired_lineage(lineages):
     ''' takes the ranks of interest through the taxonomic lineage
     '''
-    allLineages = {}
-    for collectedTaxId, fullLineage, _ in lineages:
+    allDesiredLineages = {}
+    for collectedTaxId, fullLineage, _ in lineages: # unused_variable 'oldTaxonIDs'
         desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
         desired_lineage = []
         for scientificName in fullLineage:
@@ -572,29 +633,28 @@ def get_desired_lineage(lineages):
                 rank = fullLineage[scientificName]['rank']
                 level = desired_ranks[rank]
                 taxId = fullLineage[scientificName]['taxId']
-                desired_lineage.append([level, rank, scientificName, taxId])
+                desired_lineage.append({
+                        'rank': rank,
+                        'scientificName': scientificName,
+                        'tax_id': taxId,
+                        'level': level
+                        })
                 del desired_ranks[rank]
         if desired_ranks != {}:
             for rank in desired_ranks:
                 level = desired_ranks[rank]
                 scientificName = 'NA'
                 taxId = 'NA'
-                desired_lineage.append([level, rank, scientificName, taxId])
-        allLineages.update(store_into_dict(collectedTaxId, desired_lineage))
-    return allLineages
+                desired_lineage.append({
+                        'rank': rank,
+                        'scientificName': scientificName,
+                        'tax_id': taxId,
+                        'level': level
+                        })
+        allDesiredLineages[collectedTaxId] = desired_lineage
+    return allDesiredLineages
 
-def store_into_dict(ataxon, desired_taxo):
-    ''' puts information on taxonomic lineage into a dictionary
-    '''
-    d_newLineage = {}
-    d_newLineage[ataxon] = {}
-    for alevel in desired_taxo:
-        d_newLineage[ataxon][alevel[1]] = [level_info
-                                           for level_info in alevel
-                                           if alevel.index(level_info) != 1]
-    return d_newLineage
-
-def get_taxonomicLineage(taxonIDs, dataDirectoryProcess):
+def get_taxonomicLineage(taxonIDs, dataDirectoryProcess, orgs_info):
     ''' concatenates the various taxonomic lineage dictionaries in a
     super-dictionary called all_lineages
     '''
@@ -604,29 +664,43 @@ def get_taxonomicLineage(taxonIDs, dataDirectoryProcess):
     batchesSize = 100
     # taxonIDs = ['1884790', '2', '3', '304371', '3','4', '76869','3','4','3','4','3','4','3','4'] # To test
     while taxonIDs:
-        lineages = get_taxo_from_web(taxonIDs[:batchesSize], dataDirectoryProcess)
-        all_lineages.update(get_desired_lineage(lineages))
+        lineages, orgs_info = get_taxo_from_web(taxonIDs[:batchesSize], dataDirectoryProcess, orgs_info)
+        desiredLineages = get_desired_lineage(lineages)
+        all_lineages.update(desiredLineages)
         del taxonIDs[:batchesSize]
-    return all_lineages
+    return all_lineages, orgs_info
 
-def taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut):
+def orgs_output_formatting(orgs_info, taxoOut):
+    ''' modify the structure of orgs_info dictionary to edit it in a correct format
+    '''
+    toprint = []
+    for taxon_id, taxon_content in orgs_info.items():
+        for idx, _ in enumerate(taxon_content['organisms']): # unused_variable 'organism'
+            one_organism = {
+                'id': taxon_content['organisms'][idx]['id'],
+                'name': taxon_content['organisms'][idx]['name'],
+                'strain': taxon_content['organisms'][idx]['strain'],
+                'taxon_id': taxon_id,
+                'targets_idx': taxon_content['organisms'][idx]['targets_idx'],
+                'lineage': list(taxon_content['lineage'])
+                }
+            toprint.append(one_organism)
+    common.write_pickle(toprint, taxoOut)
+    return toprint
+
+def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut):
+    ''' get all taxonomic lineages of taxon ids represented in the analysis
+    '''
     logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
     logger.info('Taxonomic lineages research ...')
-    taxonIDs = list(set([contig_info[contig]['taxon_ID'] for contig in contig_info if contig_info[contig]['taxon_ID'] != 'NA']))
-    taxonomicLineage = get_taxonomicLineage(taxonIDs, dataDirectoryProcess)
+    taxonIDs = list(orgs_info.keys())
+    desiredLineages, orgs_info = get_taxonomicLineage(taxonIDs, dataDirectoryProcess, orgs_info)
     logger.info('End of taxonomic lineages research')
-    logger.info('Taxonomic lineages information writting ...')
-    common.write_pickle(taxonomicLineage, taxoOut)
-    common.write_json(taxonomicLineage, '{}/{}'.format(dataDirectoryProcess, 'taxonomicLineage.json'))
-    return 0
-
-def mmseqs_preparation(cds_info, multiFasta, targetsOut, dataDirectoryProcess):
-    ''' write the multifasta file and the targets list
-    '''
-    write_multiFasta(cds_info, multiFasta)
-    targets_storage = [cds for cds in cds_info if cds in cds_info[cds]['target']]
-    common.write_pickle(targets_storage, targetsOut)
-    common.write_json(targets_storage, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
+    for taxon in orgs_info:
+        orgs_info[taxon].setdefault('lineage', []).extend(desiredLineages[taxon])
+    toprint = orgs_output_formatting(orgs_info, taxoOut)
+    common.write_json(toprint, '{}/{}'.format(dataDirectoryProcess, 'taxonomicLineage.json'))
+    return orgs_info
 
 def mmseqs_createdb(dataDirectoryProcess, multiFasta, prefix):
     ''' create database using the mmseqs software
@@ -691,11 +765,12 @@ def mmseqs_runner(params, dataDirectoryProcess, multiFasta):
     logger.info('End of MMseqs2 running !')
     return 0
 
-def regroup_families(tsv_file, cds_info):
+def regroup_families(tsv_file, prots_info):
     ''' create a dictionary to store families obtained by MMseqs2
     '''
     INC_FAMILY = 1
     centroid = None
+    tmp_dict = {}
     lines = common.read_file(tsv_file)
     for aline in lines:
         aline = aline.strip().split('\t')
@@ -704,9 +779,26 @@ def regroup_families(tsv_file, cds_info):
         elif centroid != aline[0]:
             centroid = aline[0]
             INC_FAMILY += 1
-        cds = int(aline[1]) #cds = int(aline[2])
-        cds_info[cds]['similarityFamily'] = INC_FAMILY
-    return cds_info
+        cds = int(aline[1])
+        tmp_dict[cds] = INC_FAMILY
+
+    for idx, _ in enumerate(prots_info): ### unused_variable 'prot'
+        prots_info[idx]['similarityFamily'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
+    return prots_info
+
+def get_organisms_idx(targets_info, taxoOut, targetsOut):
+    ''' get the organism index in the organisms list
+    input: edited file containing all organisms information
+    output: targets_info dictionary updated with a new field 'organism_idx'
+    '''
+    orgs = common.read_pickle(taxoOut)
+    for idx, organism in enumerate(orgs):
+        for target_idx in organism['targets_idx']:
+            targets_info[target_idx].update({
+                    'organism_idx': idx
+                    })
+    common.write_pickle(targets_info, targetsOut)
+    return targets_info
 
 def run(INPUT_II, IDENT, COVERAGE):
     ''' main script to run the second box of NetSyn2
@@ -734,7 +826,6 @@ def run(INPUT_II, IDENT, COVERAGE):
         'MAX_GC': common.global_dict['maxGCSize'],
         'INC_PSEUDO_REF': 0, # counter of pseusogenes
         'INC_CDS_REF': 0,
-        'INC_CONTIG_REF': 0,
         'INC_FILE': 0,
         'min_id': IDENT,
         'cov_mode': 1,
@@ -763,55 +854,57 @@ def run(INPUT_II, IDENT, COVERAGE):
     written_files = os.listdir(dataDirectoryProcess)
     if ('genomicContexts.pickle' or 'contigs.pickle') not in written_files:
         logger.info('All files have to be written')
-        cds_info = {}
-        contig_info = {}
+        prots_info = []
+        targets_info = {}
+        orgs_info = {}
         d_input = check_and_get_input(INPUT_II)
         #tester la fonction map() de python pour appliquer une fonction sur une
         #liste
         #usage : map(myFun, myList)
         logger.info('INSDC files parsing ...')
-        cds_info, contig_info, params = parse_INSDC_files(d_input, cds_info, contig_info, params)
+        prots_info, targets_info, orgs_info, sequences, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
         logger.info('End of INSDC files parsing !')
 
-        common.write_pickle(contig_info, contigsOut)
-        common.write_json(contig_info, '{}/{}'.format(dataDirectoryProcess, 'contigs.json'))
-        common.write_pickle(cds_info, gcOut)
-        common.write_json(cds_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
+        common.write_pickle(orgs_info, contigsOut)
+        common.write_json(orgs_info, '{}/{}'.format(dataDirectoryProcess, 'contigs.json'))
+        common.write_pickle(prots_info, gcOut)
+        common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
+        common.write_pickle(targets_info, targetsOut)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
-        mmseqs_preparation(cds_info, multiFasta, targetsOut, dataDirectoryProcess)
-        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
+        write_multiFasta(sequences, multiFasta)
+        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
+        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
     elif ('MMseqs2_run.faa' or 'targets_list.pickle') not in written_files: # and not ('taxonomicLineage.pickle') ???
         logger.info('Missing the multifasta and targets list files')
-        contig_info = common.read_pickle(contigsOut)
-        cds_info = common.read_pickle(gcOut)
-        mmseqs_preparation(cds_info, multiFasta, targetsOut,dataDirectoryProcess)
-        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
+        orgs_info = common.read_pickle(contigsOut)
+        prots_info = common.read_pickle(gcOut)
+        targets_info = common.read_pickle(targetsOut)
+        write_multiFasta(sequences, multiFasta) ########## il faut rattacher multifasta avec le parsing car on perd 'sequences'
+        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
+        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
     elif 'taxonomicLineage.pickle' not in written_files:
         logger.info('Missing taxonomic lineage file')
-        contig_info = common.read_pickle(contigsOut)
-        taxonomicLineage_runner(contig_info, dataDirectoryProcess, taxoOut)
+        orgs_info = common.read_pickle(contigsOut)
+        targets_info = common.read_pickle(targetsOut)
+        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
+        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
     mmseqs_runner(params, dataDirectoryProcess, multiFasta)
 
     try:
-        cds_info
+        prots_info
     except:
-        cds_info = common.read_pickle(gcOut)
+        prots_info = common.read_pickle(gcOut)
 
-    cds_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), cds_info)
-    common.write_pickle(cds_info, gcOut)
-    common.write_json(cds_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
-
-    with open('{}/analysed_cds'.format(dataDirectoryProcess), 'w') as file:
-        for inc in cds_info.keys():
-            if 'uniprot' in cds_info[inc]:
-                uniprot = cds_info[inc]['uniprot']
-            else:
-                uniprot = 'NA'
-            file.write('{}\t{}\t{}\n'.format(inc, cds_info[inc]['protein_id'], uniprot))
-
+    prots_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), prots_info)
+    common.write_pickle(prots_info, gcOut)
+    common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
     logger.info('End of ClusteringIntoFamilies')
 
 def argumentsParser():
@@ -833,18 +926,18 @@ def argumentsParser():
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
 
     group2 = parser.add_argument_group('logger')
-    group2.add_argument( '--log_level',
-                         type = str,
-                         nargs = '?',
-                         default = 'INFO',
-                         help = 'log level',
-                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
-                         required = False )
-    group2.add_argument( '--log_file',
-                         type = str,
-                         nargs = '?',
-                         help = 'log file (use the stderr by default)',
-                         required = False )
+    group2.add_argument('--log_level',
+                         type=str,
+                         nargs='?',
+                         default='INFO',
+                         help='log level',
+                         choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                         required=False)
+    group2.add_argument('--log_file',
+                         type=str,
+                         nargs='?',
+                         help='log file (use the stderr by default)',
+                         required=False)
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -866,11 +959,11 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('faa', '{}.faa'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('contigs', '{}_contigs.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('genomicContexts', '{}_genomicsContexts.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('lineage', '{}_lineage.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('targets', '{}_targets.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('contigs', '{}_contigs.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('genomicContexts', '{}_genomicsContexts.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('lineage', '{}_lineage.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets', '{}_targets.pickle'.format(args.OutputName))
     #######
     # Run #
     #######

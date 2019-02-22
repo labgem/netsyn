@@ -3,21 +3,27 @@
 ##########
 # Import #
 ##########
-import common
 import argparse
 import os
 import logging
-import pickle
-import json
-import sys
+#import pickle
+#import json
+#import sys
 import math
 import igraph as ig
-# import cairocffi
+#import cairocffi
+import common
+
 #############
 # Functions #
 #############
 
 def set_userGC_similarityContext(targets, cds_info, params):
+    ''' reduce the genomic context to the user parameter '--WindowSize'
+    input: list of targets, '-ws' user parameter
+    output: cds_info dictionary updated with 2 new fields 1)cds_info[target]['userGC'] and
+    2)cds_info[target]['similarityContext']
+    '''
     half_user_window = math.floor(params['USER_GC']/2)
     for target in targets:
         center = cds_info[target]['context'].index(target)
@@ -37,19 +43,42 @@ def set_userGC_similarityContext(targets, cds_info, params):
     return cds_info
 
 def get_families_and_pos_in_context(target_info, tmp_target_families):
+    ''' get list index of every family in a context
+    input: cds_info[target] as target_info, and tmp_dict[target]['families'] as
+    tmp_target_families
+    output: tmp_target_families filled with a list of indices for every family
+    represented in the genomic context of the target
+    '''
     for idx, afam in enumerate(target_info['similarityContext']):
         tmp_target_families.setdefault(afam, []).append(idx)
     return tmp_target_families
 
 def intersect_families(keysA, keysB):
+    ''' return a list of families existing in genomic contexts of targets A AND B
+    '''
     return list(keysA & keysB)
 
 
 def cartesian_product(listA, listB):
+    ''' 
+    input: lists of indices stored in tmp_dict[targetA(B)]['families'][afam]
+    output: list containing all possible pairs between listA and listB
+    i.e.
+    listA = [1, 2]
+    listB = [0, 2, 6]
+    output = [(1,0), (1,2), (1,6), (2,0), (2,2), (2,6)]
+    '''
     cartesian_prod = [(a, b) for a in listA for b in listB]
     return cartesian_prod
 
 def add_synton_of_targets(targetA, targetB, tmp_dict, targets_syntons):
+    ''' determine if the synton of targets A and B is in synteny and add it to
+    the set of syntons if necessary
+    input: reference of targets A and B, tmp_dict and targets_syntons dictionary
+    output: updated targets_syntons where 1)'synton_of_targets' between A and B is
+     characterized, 2)boolean value is set to False if this synton is not
+     stored in the 'syntons' list yet, and 3)is added to the list in that case
+    '''
     tarA_pos = tmp_dict[targetA]['target_pos']
     tarB_pos = tmp_dict[targetB]['target_pos']
     targets_syntons[(targetA, targetB)]['synton_of_targets'] = (tarA_pos, tarB_pos)
@@ -60,37 +89,44 @@ def add_synton_of_targets(targetA, targetB, tmp_dict, targets_syntons):
         targets_syntons[(targetA, targetB)]['boolean_targets_synton'] = False
     return targets_syntons
 
-def evaluate_proximity(syntons, graph, params, look_at):
-    gap = params['GAP']
+def evaluate_proximity(syntons, graph, gapValue, look_at):
+    ''' add new edges in graph when nodes are enough close to each other
+    input: list of syntons between targets A and B, specific graph of genomeA or
+    genomeB, user parameter for '--SyntenyGap', and value look_at (0/1 for the
+    genomic context A/B)
+    output: no output, but the graph has a new edge if the gapValue constraint is fulfilled
+    '''
     for idx, synton1 in enumerate(syntons[:-1]):
         synton2 = syntons[idx+1]
-        if synton2[look_at]-synton1[look_at] <= gap+1:
+        if synton2[look_at]-synton1[look_at] <= gapValue+1:
             graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
     return 0
 
-def get_connected_components(graph, synton_of_targets, params, mode='A'):
+def get_connected_components(graph, synton_of_targets, gapValue, mode='A'):
+    ''' get the connected component of the A/B graph containing the
+    'synton_of_targets'
+    input: A or B graph, gapValue and the mode that allows which part of
+    nodes(syntons) to look at (graph A/B -> look at index 0/1 of nodes)
+    output: iGraph VertexClustering object with the 'synton_of_targets'
+    '''
     if mode == 'A':
         look_at = 0
     else:
         look_at = 1
     sorted_syntons = sorted(graph.vs['name'], key=lambda synton: synton[look_at])
-    evaluate_proximity(sorted_syntons, graph, params, look_at)
+    evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
     ccs = graph.components()
     for component_connexe in ccs:
         if synton_of_targets in graph.vs[component_connexe]['name']:
             cc_with_target_target = component_connexe
             break
-    # largest_cluster = []
-    # for cluster in cc:
-    #     if len(cluster) > len(largest_cluster):
-    #         largest_cluster = cluster
-    # [cc_with_target_target] = [cluster
-    #                            for cluster in cc
-    #                            if synton_of_targets in graph.vs[cluster]['name']]
-    # print('leave get_connected_components function')
-    return cc_with_target_target # largest_cluster #cc_with_target_target
+    return cc_with_target_target
 
 def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
+    ''' return the score of the synteny between targets A and B
+    if boolean value is false, the node is removed from connected component list
+    (syntons)
+    '''
     targetPosA = synton_of_targets[0]
     targetPosB = synton_of_targets[1]
     if not boolean_synton_of_targets:
@@ -103,10 +139,10 @@ def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     ### to not create a gap ponderation on the target
     if minGA < targetPosA < maxGA and targetPosA not in [synton[0] for synton in syntons]:
         syntons = [(posA-1, posB) if posA > targetPosA else (posA, posB) for posA, posB in syntons]
-        maxGA = max([posA for posA, posB in syntons])
+        maxGA = maxGA-1
     if minGB < targetPosB < maxGB and targetPosB not in [synton[1] for synton in syntons]:
         syntons = [(posA, posB-1) if posB > targetPosB else (posA, posB) for posA, posB in syntons]
-        maxGB = max([posB for posA, posB in syntons])
+        maxGB = maxGB-1
     ### COM: score calculation
     synt_coverage = (maxGA-minGA+1) + (maxGB-minGB+1)
     geneA_in_synt = len(set([synton[0] for synton in syntons]))
@@ -117,12 +153,18 @@ def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     return score
 
 def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params):
-    '''
+    ''' recursive function to detect a common connected component set in the set
+    of nodes in genome A and genome B
+    input: maxi graph, subgraphs A and B (nodes are identical, edges differ),
+    targets_sytons[(targetA, targetB)] dictionary as AB_targets_syntons
+    output: updated params dictionary, and updated maxi graph regarding
+    1)added nodes if necessary, 2) added edges weighted by the score between nodes that represent
+    targets A and B
     '''
     synton_of_targets = AB_targets_syntons['synton_of_targets']
     boolean_synton_of_targets = AB_targets_syntons['boolean_targets_synton']
-    ccA = get_connected_components(gA, synton_of_targets, params)
-    ccB = get_connected_components(gB, synton_of_targets, params, mode='B')
+    ccA = get_connected_components(gA, synton_of_targets, params['GAP'])
+    ccB = get_connected_components(gB, synton_of_targets, params['GAP'], mode='B')
     itrsect = list(set(ccA) & set(ccB))
     if (len(itrsect) >= 2 and boolean_synton_of_targets) or (not boolean_synton_of_targets and len(itrsect) >= 3):
         if ccA == ccB == itrsect:
@@ -138,7 +180,7 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
             edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
             maxiG.es[edge_idx_AB]['weight'] = score
-            params["INC_TARGETS_PAIR"] += 1
+            params['INC_TARGETS_PAIR'] += 1
         else:
             gA_memory = gA.copy()
             gA = ig.Graph()
@@ -150,11 +192,18 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
     return maxiG, params
 
 def build_maxi_graph(maxiG, targets_syntons, params):
+    ''' construction of the maxi graph where nodes are equivalent to targets and
+    edges represent a synteny relation between targets
+    input: empty graph (maxiG), targets_syntons dictionary
+    output: graph with every synteny relation weighted by the score of the
+    relation
+    '''
     logger = logging.getLogger('{}.{}'.format(build_maxi_graph.__module__, build_maxi_graph.__name__))
     logger.info('Synteny graph in construction')
     for (targetA, targetB) in targets_syntons:
         gA = ig.Graph()
         gA.add_vertices(targets_syntons[(targetA, targetB)]['syntons'])
+        # COM: gA and gB have the same nodes, only edges diff
         gB = gA.copy()
         maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
     return maxiG, params
@@ -217,7 +266,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     no_synteny = 0
     targets_list = sorted(list(set(targets_list))) # ligne à supprimer quand problème des doublons réglé dans CIF.py
     logger.debug('Length of the targets list: {}'.format(len(targets_list)))
-
+    # COM: addition of last information relative to the user window size to the cds_info dictionary
     cds_info = set_userGC_similarityContext(targets_list, cds_info, params)
     for target in targets_list:
         tmp_dict[target] = {'families': {}}
@@ -267,7 +316,6 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
     ### Walktrap clustering
     logger.info('\n*** Walktrap clustering ***')
     graph_walktrap = maxi_graph.community_walktrap(weights=maxi_graph.es['weight'])
-    # print(graph_walktrap) # VertexDendrogram object
     walktrap_clustering = graph_walktrap.as_clustering()
     logger.info(walktrap_clustering) # list of VertexClustering objects
 
@@ -309,10 +357,22 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
             dico['Families'][afam]['Products'] = []
             dico['Families'][afam]['EC_numbers'] = []
             for pos in dico['Families'][afam]['positions']:
-                dico['Families'][afam]['id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['uniprot'])
-                dico['Families'][afam]['Protein_id'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['protein_id'])
-                dico['Families'][afam]['Products'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['product'])
-                dico['Families'][afam]['EC_numbers'].append(cds_info[cds_info[cds_inc]['userGC'][pos]]['ec_number'])
+                dico['Families'][afam]['Protein_id'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['protein_id']
+                    if 'protein_id' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['id'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['uniprot']
+                    if 'uniprot' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['Products'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['product']
+                    if 'product' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
+                dico['Families'][afam]['EC_numbers'].append(
+                    cds_info[cds_info[cds_inc]['userGC'][pos]]['ec_number']
+                    if 'ec_number' in cds_info[cds_info[cds_inc]['userGC'][pos]]
+                    else common.global_dict['defaultValue'])
         list_of_nodes.append(dico)
 
     list_of_edges = []
@@ -320,9 +380,7 @@ def run(GENOMICCONTEXTS, TARGETS_LIST, GCUSER, GAP):
         targetA = min(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
         targetB = max(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
         if targets_syntons[targetA, targetB]:
-            families = targets_syntons[(targetA,
-                                        targetB)
-                                       ]['families_intersect']
+            families = targets_syntons[(targetA, targetB)]['families_intersect']
         else:
             logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
             families = targets_syntons[(targetB,
