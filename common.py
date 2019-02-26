@@ -106,7 +106,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
     if errors:
         logger.error('Input invalidated.')
         exit(1)
-    return rows
+    return rows, list(headers.values())
 
 def definesAuthorizedColumns():
     return global_dict['inputIIheaders'] + ['taxon_ID']
@@ -187,7 +187,7 @@ def checkAndFormatMetadataFile(metadataFileName, inputIFileName=None, inputIIFil
     if inputIIFileName:
         authorized_columns =definesAuthorizedColumns()
         mandatory_columns = definesMandatoryColumns()
-        contentII = parseInputII(inputIIFileName, authorized_columns, mandatory_columns)
+        contentII, _ = parseInputII(inputIIFileName, authorized_columns, mandatory_columns)
         for row in contentII:
             print(row)
             if row[global_dict['inputIheader']]:

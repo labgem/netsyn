@@ -359,7 +359,7 @@ def run(GENOMICCONTEXTS, TARGETS_INFO, GCUSER, GAP):
         target_idx = target_node['name']
         dico = {'target_idx': target_idx,
                 'id': prots_info[target_idx]['id'],
-                'UniProt_AC': prots_info[target_idx]['uniprot'],
+                'UniProt_AC': prots_info[target_idx]['UniProt_AC'],
                 'protein_AC': prots_info[target_idx]['protein_id'],
                 #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
                 #'GC_size': len(prots_info[cds_inc]['userGC']),
