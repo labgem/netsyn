@@ -783,7 +783,7 @@ def regroup_families(tsv_file, prots_info):
         tmp_dict[cds] = INC_FAMILY
 
     for idx, _ in enumerate(prots_info): ### unused_variable 'prot'
-        prots_info[idx]['similarityFamily'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
+        prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
     return prots_info
 
 def get_organisms_idx(targets_info, taxoOut, targetsOut):
