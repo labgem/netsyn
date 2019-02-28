@@ -402,8 +402,8 @@ def mergeInputsII(outputStepI, inputII, inputMergedName):
     authorized_columns = common.definesAuthorizedColumns()
     mandatory_columns = common.definesMandatoryColumns()
 
-    rowsI = common.parseInputII(outputStepI, authorized_columns, mandatory_columns)
-    rowsII = common.parseInputII(inputII, authorized_columns, mandatory_columns)
+    rowsI, _ = common.parseInputII(outputStepI, authorized_columns, mandatory_columns)
+    rowsII, _ = common.parseInputII(inputII, authorized_columns, mandatory_columns)
 
     errors = False
     accessions = []
@@ -465,16 +465,15 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
             logger.info('Conserving downloded files in GetINSDC step.')
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
-        genomicContexts = common.global_dict['files']['ClusteringIntoFamilies']['genomicContexts']
-        targets_list = common.global_dict['files']['ClusteringIntoFamilies']['targets']
-        SyntenyFinder.run(genomicContexts, targets_list, args.WindowSize, args.SyntenyGap)
+        proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
+        targets = common.global_dict['files']['ClusteringIntoFamilies']['targets_2']
+        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap)
     elif nameBox == 'DataExport':
         logger = logging.getLogger('runDataExport')
         nodes = common.global_dict['files']['SyntenyFinder']['nodes']
         edges = common.global_dict['files']['SyntenyFinder']['edges']
-        taxonomy = common.global_dict['files']['ClusteringIntoFamilies']['lineage']
-        contigs_info = common.global_dict['files']['ClusteringIntoFamilies']['contigs']
-        DataExport.run(nodes, edges, taxonomy, contigs_info, args.MetaDataFile, resultsDirectory, args.UniProtACList, args.CorrespondingFile)
+        organisms = common.global_dict['files']['ClusteringIntoFamilies']['organisms_2']
+        DataExport.run(nodes, edges, organisms, args.MetaDataFile, resultsDirectory, args.UniProtACList, args.CorrespondingFile)
     else:
         logger.critical('No execution planned for {}'.format(runBox))
         exit(1)

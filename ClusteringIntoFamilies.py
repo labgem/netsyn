@@ -722,7 +722,7 @@ def orgs_output_formatting(orgs_info, taxoOut):
     common.write_pickle(toprint, taxoOut)
     return toprint
 
-def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut):
+def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out):
     ''' get all taxonomic lineages of taxon ids represented in the analysis
     '''
     logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
@@ -732,8 +732,8 @@ def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut):
     logger.info('End of taxonomic lineages research')
     for taxon in orgs_info:
         orgs_info[taxon].setdefault('lineage', []).extend(desiredLineages[taxon])
-    toprint = orgs_output_formatting(orgs_info, taxoOut)
-    common.write_json(toprint, '{}/{}'.format(dataDirectoryProcess, 'taxonomicLineage.json'))
+    toprint = orgs_output_formatting(orgs_info, orgs_2_Out)
+    common.write_json(toprint, '{}/{}'.format(dataDirectoryProcess, 'organisms_2.json'))
     return orgs_info
 
 def mmseqs_createdb(dataDirectoryProcess, multiFasta, prefix):
@@ -820,18 +820,18 @@ def regroup_families(tsv_file, prots_info):
         prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
     return prots_info
 
-def get_organisms_idx(targets_info, taxoOut, targetsOut):
+def get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out):
     ''' get the organism index in the organisms list
     input: edited file containing all organisms information
     output: targets_info dictionary updated with a new field 'organism_idx'
     '''
-    orgs = common.read_pickle(taxoOut)
+    orgs = common.read_pickle(orgs_2_Out)
     for idx, organism in enumerate(orgs):
         for target_idx in organism['targets_idx']:
             targets_info[target_idx].update({
                     'organism_idx': idx
                     })
-    common.write_pickle(targets_info, targetsOut)
+    common.write_pickle(targets_info, targets_2_Out)
     return targets_info
 
 def run(INPUT_II, IDENT, COVERAGE):
@@ -843,10 +843,12 @@ def run(INPUT_II, IDENT, COVERAGE):
     dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
     # Outputs
     multiFasta = common.global_dict['files'][boxName]['faa']
-    contigsOut = common.global_dict['files'][boxName]['contigs']
-    gcOut = common.global_dict['files'][boxName]['genomicContexts']
-    taxoOut = common.global_dict['files'][boxName]['lineage']
-    targetsOut = common.global_dict['files'][boxName]['targets']
+    proteins_1_Out = common.global_dict['files'][boxName]['proteins_1']
+    proteins_2_Out = common.global_dict['files'][boxName]['proteins_2']
+    orgs_1_Out = common.global_dict['files'][boxName]['organisms_1']
+    orgs_2_Out = common.global_dict['files'][boxName]['organisms_2']
+    targets_1_Out = common.global_dict['files'][boxName]['targets_1']
+    targets_2_Out = common.global_dict['files'][boxName]['targets_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     print('')
@@ -886,7 +888,7 @@ def run(INPUT_II, IDENT, COVERAGE):
         pass
 
     written_files = os.listdir(dataDirectoryProcess)
-    if ('genomicContexts.pickle' or 'contigs.pickle') not in written_files:
+    if ('proteins_1.pickle' or 'organisms_1.pickle' or 'targets_1.pickle' or 'MMseqs2_run.faa') not in written_files:
         logger.info('All files have to be written')
         prots_info = []
         targets_info = {}
@@ -898,47 +900,37 @@ def run(INPUT_II, IDENT, COVERAGE):
         logger.info('INSDC files parsing ...')
         prots_info, targets_info, orgs_info, sequences, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
         logger.info('End of INSDC files parsing !')
-
-        common.write_pickle(orgs_info, contigsOut)
-        common.write_json(orgs_info, '{}/{}'.format(dataDirectoryProcess, 'contigs.json'))
-        common.write_pickle(prots_info, gcOut)
-        common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
-        common.write_pickle(targets_info, targetsOut)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
-
         write_multiFasta(sequences, multiFasta)
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
-        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
 
-    elif ('MMseqs2_run.faa' or 'targets_list.pickle') not in written_files: # and not ('taxonomicLineage.pickle') ???
-        logger.info('Missing the multifasta and targets list files')
-        orgs_info = common.read_pickle(contigsOut)
-        prots_info = common.read_pickle(gcOut)
-        targets_info = common.read_pickle(targetsOut)
-        write_multiFasta(sequences, multiFasta) ########## il faut rattacher multifasta avec le parsing car on perd 'sequences'
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
-        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
+        common.write_pickle(orgs_info, orgs_1_Out)
+        common.write_json(orgs_info, '{}/{}'.format(dataDirectoryProcess, 'organisms_1.json'))
+        common.write_pickle(prots_info, proteins_1_Out)
+        common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'proteins_1.json'))
+        common.write_pickle(targets_info, targets_1_Out)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_1.json'))
 
-    elif 'taxonomicLineage.pickle' not in written_files:
-        logger.info('Missing taxonomic lineage file')
-        orgs_info = common.read_pickle(contigsOut)
-        targets_info = common.read_pickle(targetsOut)
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, taxoOut)
-        targets_info = get_organisms_idx(targets_info, taxoOut, targetsOut)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_list.json'))
+        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out)
+        targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
+
+    elif ('targets_2.pickle' or 'organisms_2.pickle') not in written_files:
+        orgs_info = common.read_pickle(org_1_Out)
+        targets_info = common.read_pickle(targets_1_Out)
+
+        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out)
+        targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
+        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
 
     mmseqs_runner(params, dataDirectoryProcess, multiFasta)
 
     try:
         prots_info
     except:
-        prots_info = common.read_pickle(gcOut)
+        prots_info = common.read_pickle(proteins_1_Out)
 
     prots_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), prots_info)
-    common.write_pickle(prots_info, gcOut)
-    common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'genomicContexts.json'))
+    common.write_pickle(prots_info, proteins_2_Out)
+    common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'proteins_2.json'))
     logger.info('End of ClusteringIntoFamilies')
 
 def argumentsParser():
@@ -994,10 +986,12 @@ if __name__ == '__main__':
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('contigs', '{}_contigs.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('genomicContexts', '{}_genomicsContexts.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('lineage', '{}_lineage.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets', '{}_targets.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}_organisms_1.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}_organisms_2.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_1.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_2.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_1.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_2.pickle'.format(args.OutputName))
     #######
     # Run #
     #######

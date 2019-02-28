@@ -55,7 +55,7 @@ def parse_tsv(fname, ac=None, mc=None):
         exit(1)
     return rows
 
-def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR, INPUTI, INPUTII):
+def run(NODES, EDGES, ORGANISMS, METADATA, RESULTSDIR, INPUTI, INPUTII):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
@@ -76,8 +76,8 @@ def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR, INPUTI, INPUTII):
 
     list_of_nodes = common.read_pickle(NODES)
     list_of_edges = common.read_pickle(EDGES)
-    taxonomicLineage = common.read_pickle(TAXONOMY)
-    contigs = common.read_pickle(CONTIGS)
+    organisms = common.read_pickle(ORGANISMS)
+    #contigs = common.read_pickle(CONTIGS)
     metadata = parse_tsv(METADATA) # liste de dicos
 
     # COM: addition of metadata and taxonomic lineage information to the nodes
@@ -126,10 +126,10 @@ def argumentsParser():
                         required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
     group1.add_argument('--Edges', type=str,
                         required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    group1.add_argument('--Taxonomy', type=str,
+    group1.add_argument('--Organisms', type=str,
                         required=True, help='Path of the taxonomyLineage file from the ClusteringIntoFamilies part')
-    group1.add_argument('--ContigsInfo', type=str,
-                        required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
+    # group1.add_argument('--ContigsInfo', type=str,
+    #                     required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
     group1.add_argument('--MetaData', type=str,
                         required=True, help='Path of the metadata file provided by the user')
     group1.add_argument('--OutputName', type=str, required=True,
@@ -176,4 +176,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.Nodes, args.Edges, args.Taxonomy, args.ContigsInfo, args.MetaData, '.')
+    run(args.Nodes, args.Edges, args.Organisms, args.MetaData, '.')

@@ -244,7 +244,7 @@ def get_genes_in_synteny(families, targetAinfo, targetBinfo, prots_info):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
-def run(GENOMICCONTEXTS, TARGETS_INFO, GCUSER, GAP):
+def run(PROTEINS, TARGETS, GCUSER, GAP):
     '''
     '''
     # Constants
@@ -269,8 +269,8 @@ def run(GENOMICCONTEXTS, TARGETS_INFO, GCUSER, GAP):
         'INC_NO_SYNTENY': 0
         }
 
-    prots_info = common.read_pickle(GENOMICCONTEXTS)
-    targets_info = common.read_pickle(TARGETS_INFO)
+    prots_info = common.read_pickle(PROTEINS)
+    targets_info = common.read_pickle(TARGETS)
 
     targets_syntons = {}
     no_synteny = 0
@@ -432,10 +432,10 @@ def argumentsParser():
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-ig', '--inputGenomicContext', type=str,
-                        required=True, help='Genomic Context File.')
-    group1.add_argument('-it', '--inputTargetsList', type=str,
-                        required=True, help='List of targets.')
+    group1.add_argument('-ip', '--inputProteins', type=str,
+                        required=True, help='Proteins File.')
+    group1.add_argument('-it', '--inputTargets', type=str,
+                        required=True, help='Targets File.')
     group1.add_argument('-o', '--OutputName', type=str,
                         required=True, help='Output name files.')
     group1.add_argument('-ws', '--WindowSize', type=int,
@@ -483,4 +483,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.inputGenomicContext, args.inputTargetsList ,args.WindowSize, args.SyntenyGap)
+    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap)
