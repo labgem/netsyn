@@ -537,7 +537,6 @@ def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
         params['INC_FILE'] += 1
         logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
         prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
-    #exit(1)
     return prots_info, targets_info, orgs_info, sequences, params
 
 def concat_by_dot(alist):
@@ -558,8 +557,7 @@ def write_multiFasta(sequences, output):
                 fastaFile.write('\n')
             else:
                 logger.info('The protein {} has no sequence'.format(a_seq))
-    if os.path.getsize(output) == 0:
-        logger.debug('MultiFasta File is empty.')
+    if common.checkFilledFile(output, error=False):
         exit(1)
     return 0
 

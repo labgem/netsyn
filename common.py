@@ -91,7 +91,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
             else:
                 line_number += 1
                 row = {}
-                for index, column in enumerate(line.split('\t')):
+                for index, column in enumerate(line.strip().split('\t')):
                     if column == '':
                         logger.error('Empty field: line "{}", column "{}"'.format(line_number, headers[index]))
                         errors = True
@@ -101,6 +101,9 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                             errors = True
                         else:
                             accessions.append(column)
+                    elif headers[index] == global_dict['inputIIheaders'][global_dict['inputIIheaders'].index('nucleic_File_Path')]:
+                        errors = checkFilledFile(column, errors)
+
                     row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
                 rows.append(row)
     if errors:
