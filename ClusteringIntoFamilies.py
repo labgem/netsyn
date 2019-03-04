@@ -145,7 +145,7 @@ def get_uniq_value(aFeature, ref):
     if len(result) == 1:
         return result[0]
     #else:
-    logger.warning('there are several values instead of a uniq value for {} field: {}'.format(ref, result))
+    logger.warning('The field {} of the protein {} has several values while a uniq value expected: {}'.format(ref, aFeature.qualifiers.get('protein_id'), result))
         # exit(1)
     return(1)
 
@@ -539,11 +539,6 @@ def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
         prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
     return prots_info, targets_info, orgs_info, sequences, params
 
-def concat_by_dot(alist):
-    ''' does the concatenation by a dot
-    '''
-    return '.'.join(alist)
-
 def write_multiFasta(sequences, output):
     ''' writes a multiFasta file from the dictionary obtained by the INSDC file
     parser
@@ -752,8 +747,8 @@ def mmseqs_clustering(dataDirectoryProcess, prefix, cov, ident, cov_mode):
     if os.path.isdir('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP')):
         shutil.rmtree('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'))
     os.mkdir('{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'))
-    dataBase = '{}'.format(concat_by_dot([prefix, suffixDB]))
-    outputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
+    dataBase = '.'.join([prefix, suffixDB])
+    outputCluster = '.'.join([prefix, suffixCluster])
     with open('{}/{}'.format(dataDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase,
                                          outputCluster, '{}/{}'.format(dataDirectoryProcess, 'MMseqsTMP'),
@@ -774,9 +769,9 @@ def mmseqs_createTSV(dataDirectoryProcess, prefix):
     suffixDB = 'DB'
     suffixCluster = 'cluster'
     suffixTSV = 'tsv'
-    inputDB = '{}'.format(concat_by_dot([prefix, suffixDB]))
-    inputCluster = '{}'.format(concat_by_dot([prefix, suffixCluster]))
-    outputTSV = '{}'.format(concat_by_dot([prefix, suffixTSV]))
+    inputDB = '.'.join([prefix, suffixDB])
+    inputCluster = '.'.join([prefix, suffixCluster])
+    outputTSV = '.'.join([prefix, suffixTSV])
     with open('{}/{}'.format(dataDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
         tsv_creation = subprocess.run(['mmseqs', 'createtsv', inputDB,
                                        inputDB, inputCluster, outputTSV
@@ -926,7 +921,7 @@ def run(INPUT_II, IDENT, COVERAGE):
     except:
         prots_info = common.read_pickle(proteins_1_Out)
 
-    prots_info = regroup_families('{}'.format(concat_by_dot([params["prefix"], 'tsv'])), prots_info)
+    prots_info = regroup_families('.'.join([params["prefix"], 'tsv']), prots_info)
     common.write_pickle(prots_info, proteins_2_Out)
     common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'proteins_2.json'))
     logger.info('End of ClusteringIntoFamilies')
