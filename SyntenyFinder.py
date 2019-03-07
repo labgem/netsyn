@@ -175,7 +175,7 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
             edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
             maxiG.es[edge_idx_AB]['weight'] = score
-            params['INC_TARGETS_PAIR'] += 1
+            #params['INC_TARGETS_PAIR'] += 1
         else:
             gA_memory = gA.copy()
             gA = ig.Graph()
@@ -265,7 +265,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
         'MAX_GC': common.global_dict['maxGCSize'],
         'USER_GC': GCUSER,
         'GAP': GAP,
-        'INC_TARGETS_PAIR': 0,
+        #'INC_TARGETS_PAIR': 0,
         'INC_NO_SYNTENY': 0
         }
 
@@ -274,7 +274,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
 
     targets_syntons = {}
     no_synteny = 0
-    #targets_list = sorted(list(set(targets_list))) # ligne à supprimer quand problème des doublons réglé dans CIF.py
     logger.debug('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
@@ -288,7 +287,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
     common.write_json(targets_info, nodesOut)
 
     targets_list = list(targets_info.keys())
-
     for idx, targetAidx in enumerate(targets_list[:-1]):
         targetA = targets_info[targetAidx]
         for targetBidx in targets_list[idx+1:]:
@@ -305,18 +303,16 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
                         targets_syntons.setdefault((targetAidx, targetBidx), {}).setdefault('syntons', []).extend(syntons)
                     targets_syntons[(targetAidx, targetBidx)]['families_intersect'] = [family for family in families_intersect if family != None]
                     targets_syntons[(targetAidx, targetBidx)] = add_synton_of_targets(targetA, targetB, targets_syntons[(targetAidx, targetBidx)])
-                    # print('dictionary of targets {} and {}:\n{}\n'.format(targetA, targetB, targets_syntons[(targetA, targetB)]))
                 else:
                     no_synteny += 1
             else:
                 no_synteny += 1
-    #logger.info('Couples of targets computed depending on synteny results')
 
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
     logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
     logger.info('Number of pairs where synteny doesn\'t respect gap parameter or on target filter: {}'.format(params['INC_NO_SYNTENY']))
-    logger.info('Number of pairs of targets in synteny: {}'.format(params['INC_TARGETS_PAIR']))
+    logger.info('Number of pairs of targets in synteny: {}'.format(len(maxi_graph.es)))
 
     ### Edge-betweenness clustering
     # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
@@ -331,8 +327,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
     #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
 
     ### Walktrap clustering
-    logger.info('\n*** Walktrap clustering ***')
-    graph_walktrap = maxi_graph.community_walktrap(weights=maxi_graph.es['weight'])
+    logger.info('*** Walktrap clustering ***')
+    graph_walktrap = maxi_graph.community_walktrap(weights='weight')
     walktrap_clustering = graph_walktrap.as_clustering()
     logger.info(walktrap_clustering) # list of VertexClustering objects
 
@@ -340,19 +336,50 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
         for vertex in walktrap_clustering[cluster]:
             maxi_graph.vs[vertex]['cluster_WT'] = cluster
 
-    # ### Louvain clustering
-    # print('\n*** Louvain clustering ***')
-    # graph_louvain = maxi_graph.community_multilevel()
-    # print(graph_louvain) # list of VertexClustering objects
+    ### Louvain clustering
+    logger.info('*** Louvain clustering ***')
+    graph_louvain = maxi_graph.community_multilevel(weights='weight')
+    logger.info(graph_louvain) # list of VertexClustering objects
 
-    # for cluster in graph_louvain:
-    #     for elt in cluster:
-    #         if maxi_graph.vs[elt]['name'] not in targets_list:
-    #             print(elt)
-    #             print(targets_list)
-    #         else:
-    #             print('element {} corresponding to the target {} in the list'.format(elt, maxi_graph.vs[elt]['name']))
+    for cluster in range(len(graph_louvain)):
+        for vertex in graph_louvain[cluster]:
+            maxi_graph.vs[vertex]['cluster_Louvain'] = cluster
 
+    # ### Spinglass clustering
+    # # algorithm dont le résultat peut varier (changements mineurs)
+    # # méthode trop lente ~40sec pour clusteriser 526 noeuds
+    # logger.info('*** Spinglass clustering ***')
+    # connected_components = maxi_graph.components()
+    # for cluster in connected_components:
+    #     graph_cluster = maxi_graph.subgraph(cluster)
+    #     graph_spinglass = graph_cluster.community_spinglass()#weigths=maxi_graph.es['weight'])
+    #     logger.info('{} -- {}'.format(cluster, graph_spinglass))
+
+    # ### Label Propagation Clustering
+    # # solutions variant entre les résultats retournés par Louvain et WalkTrap
+    # # cependant, ne prends pas en compte le poids des arêtes
+    # # algorithme stochastique, il faudrait obtenir un clustering consensus à partir de plusieurs runs (>100-200)
+    # logger.info('*** Label Propagation Clustering***')
+    # graph_labelPropagation = maxi_graph.community_label_propagation()#weigths=maxi_graph.es['weight'])
+    # logger.info(graph_labelPropagation) # list of VertexClustering objects
+
+    ### Infomap Clustering
+    # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
+    # l'algo n'utilise pas non plus le poids des arêtes
+    logger.info('*** Infomap Clustering***')
+    graph_infomap = maxi_graph.community_infomap(edge_weights='weight')
+    logger.info(graph_infomap) # list of VertexClustering objects
+
+    for cluster in range(len(graph_infomap)):
+        for vertex in graph_infomap[cluster]:
+            maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
+
+    # ### Leading EigenVector Clustering
+    # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
+    # # ne génère que 11 clusters à partir d'un graph formé de 10 composantes connexes (en split 1 seul en 2)
+    # logger.info('*** Leading EigenVector Clustering***')
+    # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
+    # logger.info(graph_eigenvector) # list of VertexClustering objects
 
     list_of_nodes = []
     for target_node in maxi_graph.vs:
@@ -368,7 +395,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
                 'context_idx': targets_info[target_idx]['context_idx'],
                 'organism_id': targets_info[target_idx]['organism_id'],
                 'organism_idx': targets_info[target_idx]['organism_idx'],
-                'Clustering': {'WalkTrap': maxi_graph.vs[target_node.index]['cluster_WT']},
+                'Clustering': {'WalkTrap':
+                                   maxi_graph.vs[target_node.index]['cluster_WT'],
+                               'Louvain':
+                                   maxi_graph.vs[target_node.index]['cluster_Louvain'],
+                               'Infomap':
+                                   maxi_graph.vs[target_node.index]['cluster_Infomap']
+                               },
                 'families': list(set(targets_info[target_idx]['families']))
                 }
                 # 'Families': {}
@@ -422,6 +455,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
     common.write_pickle(list_of_edges, edgesOut)
     common.write_json(list_of_nodes, '{}/{}'.format(dataDirectoryProcess, 'nodes_list.json'))
     common.write_json(list_of_edges, '{}/{}'.format(dataDirectoryProcess, 'edges_list.json'))
+
 
 def argumentsParser():
     '''
