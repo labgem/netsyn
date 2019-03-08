@@ -270,15 +270,17 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
         global_dict['boxName']['GetINSDCFiles'] : {
             'inputClusteringStep' : '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'])
         },
-        global_dict['boxName']['ClusteringIntoFamilies'] : {
-            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'proteins_1' : '{}/{}/proteins_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'proteins_2' : '{}/{}/proteins_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'organisms_1' : '{}/{}/organisms_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'organisms_2' : '{}/{}/organisms_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'targets_1' : '{}/{}/targets_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'targets_2' : '{}/{}/targets_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
+        global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'] : {
+            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'proteins_1' : '{}/{}/proteins_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'organisms_1' : '{}/{}/organisms_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'organisms_2' : '{}/{}/organisms_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'targets_1' : '{}/{}/targets_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'targets_2' : '{}/{}/targets_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'])
 
+        },
+        global_dict['boxName']['ClusteringIntoFamilies'] : {
+            'proteins_2' : '{}/{}/proteins_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
         },
         global_dict['boxName']['SyntenyFinder'] : {
             'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
@@ -362,6 +364,7 @@ global_dict = {
     'filesExtension': 'embl',
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
+        'ParseINSDCFiles_GetTaxonomy': 'ParseINSDCFiles_GetTaxonomy',
         'ClusteringIntoFamilies': 'ClusteringIntoFamilies',
         'SyntenyFinder': 'SyntenyFinder',
         'DataExport': 'DataExport'
