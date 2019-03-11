@@ -512,8 +512,8 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_nodes.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_edges.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}/{}_nodes.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}/{}_edges.pickle'.format(boxName, args.OutputName))
     #######
     # Run #
     #######

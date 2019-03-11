@@ -851,14 +851,13 @@ if __name__ == '__main__':
     # Constants #
     #############
     common.global_dict['dataDirectory'] = '.'
-    boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}_organisms_1.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}_organisms_2.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_1.pickle'.format(args.OutputName))
-    #common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_2.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_1.pickle'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_2.pickle'.format(args.OutputName))
+    boxName = common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}/{}.faa'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}/{}_organisms_1.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}/{}_organisms_2.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}/{}_proteins_1.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}/{}_targets_1.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}/{}_targets_2.pickle'.format(boxName, args.OutputName))
     #######
     # Run #
     #######

@@ -218,7 +218,7 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_2.pickle'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}/{}_proteins_2.pickle'.format(boxName, args.OutputName))
     #######
     # Run #
     #######
