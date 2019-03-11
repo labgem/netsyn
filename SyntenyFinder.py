@@ -164,18 +164,20 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
     if (len(itrsect) >= 2 and boolean_synton_of_targets) or (not boolean_synton_of_targets and len(itrsect) >= 3):
         if ccA == ccB == itrsect:
             score = compute_score(gA.vs[itrsect]['name'], synton_of_targets, boolean_synton_of_targets)
-            if not maxiG.vertex_attributes() or targetA not in maxiG.vs['name']:
-                maxiG.add_vertex(targetA)
-                maxiG.vs[maxiG.vs['name'].index(targetA)]['targetPosition'] = synton_of_targets[0]
-            if not maxiG.vertex_attributes() or targetB not in maxiG.vs['name']:
-                maxiG.add_vertex(targetB)
-                maxiG.vs[maxiG.vs['name'].index(targetB)]['targetPosition'] = synton_of_targets[1]
-            vertex_idx_targetA = maxiG.vs['name'].index(targetA)
-            vertex_idx_targetB = maxiG.vs['name'].index(targetB)
-            maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
-            edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
-            maxiG.es[edge_idx_AB]['weight'] = score
-            #params['INC_TARGETS_PAIR'] += 1
+            if score < params['SCORE_CUTOFF']:
+                params['INC_CUTOFF'] += 1
+            else:
+                if not maxiG.vertex_attributes() or targetA not in maxiG.vs['name']:
+                    maxiG.add_vertex(targetA)
+                    maxiG.vs[maxiG.vs['name'].index(targetA)]['targetPosition'] = synton_of_targets[0]
+                if not maxiG.vertex_attributes() or targetB not in maxiG.vs['name']:
+                    maxiG.add_vertex(targetB)
+                    maxiG.vs[maxiG.vs['name'].index(targetB)]['targetPosition'] = synton_of_targets[1]
+                vertex_idx_targetA = maxiG.vs['name'].index(targetA)
+                vertex_idx_targetB = maxiG.vs['name'].index(targetB)
+                maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
+                edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
+                maxiG.es[edge_idx_AB]['weight'] = score
         else:
             gA_memory = gA.copy()
             gA = ig.Graph()
@@ -244,7 +246,7 @@ def get_genes_in_synteny(families, targetAinfo, targetBinfo, prots_info):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
-def run(PROTEINS, TARGETS, GCUSER, GAP):
+def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     '''
     '''
     # Constants
@@ -265,7 +267,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
         'MAX_GC': common.global_dict['maxGCSize'],
         'USER_GC': GCUSER,
         'GAP': GAP,
-        #'INC_TARGETS_PAIR': 0,
+        'SCORE_CUTOFF': CUTOFF,
+        'INC_CUTOFF': 0,
         'INC_NO_SYNTENY': 0
         }
 
@@ -312,6 +315,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP):
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
     logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
     logger.info('Number of pairs where synteny doesn\'t respect gap parameter or on target filter: {}'.format(params['INC_NO_SYNTENY']))
+    logger.info('Number of pairs where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
     logger.info('Number of pairs of targets in synteny: {}'.format(len(maxi_graph.es)))
 
     ### Edge-betweenness clustering
@@ -517,4 +521,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap)
+    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)

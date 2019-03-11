@@ -474,7 +474,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
-        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap)
+        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
         logger = logging.getLogger('runDataExport')
         nodes = common.global_dict['files']['SyntenyFinder']['nodes']
