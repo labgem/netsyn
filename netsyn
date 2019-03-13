@@ -474,7 +474,9 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         edges = common.global_dict['files']['SyntenyFinder']['edges']
         taxonomy = common.global_dict['files']['ClusteringIntoFamilies']['lineage']
         contigs_info = common.global_dict['files']['ClusteringIntoFamilies']['contigs']
-        DataExport.run(nodes, edges, taxonomy, contigs_info, args.MetaDataFile, resultsDirectory, args.UniProtACList, args.CorrespondingFile)
+        #### to update start after merge
+        DataExport.run(nodes, edges, taxonomy, contigs_info, args.MetaDataFile, resultsDirectory)
+        #### end
     else:
         logger.critical('No execution planned for {}'.format(runBox))
         exit(1)

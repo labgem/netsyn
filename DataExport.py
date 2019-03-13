@@ -4,114 +4,135 @@
 # Import #
 ##########
 import argparse
-#import json
-#import pickle
+import json
 import logging
 import os
-#import time
-import igraph as ig
 import common
 #############
 # Functions #
 #############
-
-def parse_tsv(fname, ac=None, mc=None):
-    ''' create a list of dictionaries
-        get from input file (fname) information by line
-        every line is a dictionary
+def checkAndGetMetadata(metadataFileName):
     '''
-    logger = logging.getLogger('parse_tsv')
-    first_line = True
-    errors = False
-    rows = []
-    #replicons_index = {}
-    #line_number = 0
-    with open(fname, 'r') as file:
+    Valide or unvalide the metadata file.
+    Initializes to "default value" the undefined metadata.
+    '''
+    logger = logging.getLogger('{}.{}'.format(checkAndGetMetadata.__module__, checkAndGetMetadata.__name__))
+    sep = '\t'
+    error = False
+    metadataContent = {}
+    with open(metadataFileName, 'r') as file:
+        nbLines = 0
         for line in file:
-            if first_line:
-                headers = {}
-                for index, header in enumerate(line.split('\t')):
-                    header = header.replace('\r\n', '').replace('\n', '') # header.strip() ???
-                    # p = re.compile(r'(?:{})'.format('|'.join(ac)))
-                    # if not p.search(header):
-                    #     logger.error('{}: Column name not valid.'.format(header))
-                    #     errors = True
-                    if header in headers.values():
-                        logger.error('{}: Duplicated column.'.format(header))
-                        errors = True
-                    headers[index] = header
-                # if mc:
-                #     errors = checkInputHeaders(errors, mc, headers)
-                first_line = False
+            nbLines += 1
+            values = [value.rstrip() for value in line.split(sep)]
+            if nbLines == 1:
+                headersMD = {}
+                nbHeaders = len(values)
+                for index, value in enumerate(values):
+                    if value in headersMD.values():
+                        logger.error('{}: Duplicated column.'.format(value))
+                        error = True
+                    elif value == '':
+                        logger.error('Empty field at line of headers.')
+                        error = True
+                    else:
+                        headersMD[index] = value
+                        if value == 'accession_type':
+                            accessionTypeIndex = index
+                for mandatorycolumn in common.global_dict['metadataMadatoryColumn']:
+                    if not mandatorycolumn in headersMD.values():
+                        logger.error('Missing column, {} column is mandatory.'.format(mandatorycolumn))
+                        error = True
+                if error:
+                    break
             else:
-                #line_number += 1
-                row = {}
-                #row['line_number'] = line_number
-                for index, column in enumerate(line.split('\t')):
-                    row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
-                rows.append(row)
-    if errors:
-        logger.error('Madatory columns')
+                if not len(values) == nbHeaders:
+                    logger.error('At line {}: the number of columns is not egal than the number of headers.'.format(nbLines))
+                    error = True
+                    continue
+                metadata = {}
+                for index, value in enumerate(values):
+                    if index == accessionTypeIndex and value not in common.global_dict['metadataAccessionAuthorized']:
+                        logger.error('At line {}: the "accession_type" must be egal to {}.'.format(nbLines,' or '.join(common.global_dict['metadataAccessionAuthorized'])))
+                        error = True
+                    else:
+                        if headersMD[index] == 'accession_type':
+                            continue
+                        elif headersMD[index] == 'accession':
+                            currentAccession = value
+                        else:
+                            metadata[headersMD[index]] = common.global_dict['defaultValue'] if value == '' else value
+                metadataContent[currentAccession] = metadata
+    if error:
+        logger.error('Improper metadata file.')
         exit(1)
-    return rows
+    return metadataContent, headersMD
 
-def run(NODES, EDGES, TAXONOMY, CONTIGS, METADATA, RESULTSDIR, INPUTI, INPUTII):
+def insertMetadata(nodesContent, metadataContent, headersMD):
+    for node in nodesContent:
+        if node[common.global_dict['inputIheader']] not in metadataContent.keys() and node[common.global_dict['proteinACHeader']] not in metadataContent.keys():
+            node['metadata'] = {}
+            for header in headersMD.values():
+                if header != 'accession_type' and header != 'accession':
+                    node['metadata'][header] = common.global_dict['defaultValue']
+        else:
+            if node[common.global_dict['inputIheader']] in metadataContent.keys():
+                accession = node[common.global_dict['inputIheader']]
+            elif node[common.global_dict['proteinACHeader']] in metadataContent.keys():
+                accession = node[common.global_dict['proteinACHeader']]
+            node['metadata'] = metadataContent[accession]
+    return nodesContent
+
+def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultDir):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
     graphML = common.global_dict['files']['DataExport']['graphML']
-    nodesRes = common.global_dict['files']['DataExport']['nodes']
-    edgesRes = common.global_dict['files']['DataExport']['edges']
-    #htmlOut = common.global_dict['files']['DataExport']['html']
+    htmlOut = common.global_dict['files']['DataExport']['html']
     #settingsOut = common.global_dict['files']['DataExport']['settings']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
-    if METADATA:
-        contentMetadata = common.checkAndFormatMetadataFile(METADATA, INPUTI, INPUTII)
-    if not os.path.isdir(RESULTSDIR):
-        os.mkdir(RESULTSDIR)
+    metadataContent, headersMD = checkAndGetMetadata(metadataFile) if metadataFile else {}
+    nodesContent = common.readJSON(nodesFile)
+    nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
 
-    list_of_nodes = common.read_pickle(NODES)
-    list_of_edges = common.read_pickle(EDGES)
-    taxonomicLineage = common.read_pickle(TAXONOMY)
-    contigs = common.read_pickle(CONTIGS)
-    metadata = parse_tsv(METADATA) # liste de dicos
+    edgesContent = common.readJSON(edgesFile)
+    organismsContent = common.readJSON(organismsFile)
+    proteinsContent = common.readJSON(proteinsFile)
 
-    # COM: addition of metadata and taxonomic lineage information to the nodes
-    g = ig.Graph()
-    for idx, anode in enumerate(list_of_nodes):
-        uniP = anode['UniProtAC']
-        g.add_vertex(uniP)
-        g.vs[idx]['inc_cds'] = anode['cds_ref']
-        for adata in metadata:
-            if adata['UniProtAC'] == uniP:
-                anode.setdefault('MetaData', {})
-                for key, value in adata.items():
-                    if key != 'UniProtAC':
-                        anode['MetaData'].update({key:value})
-                        g.vs[idx][key] = value
-                break
-        contig_ref = anode['Contig']
-        taxon_id = contigs[contig_ref]['taxon_ID']
-        anode['Lineage'] = taxonomicLineage[taxon_id].copy()
-        for key, value in anode['Lineage'].items():
-            g.vs[idx][key] = value[1]
-        for key, value in anode['Clustering'].items():
-            g.vs[idx][key] = value
+    # print('> nodesContent')
+    # for i in nodesContent:
+    #     print(i)
+    # print('------------------')
 
-    for idx, aedge in enumerate(list_of_edges):
-        source = aedge['source']
-        target = aedge['target']
-        g.add_edge(g.vs['name'].index(source), g.vs['name'].index(target))
-        g.es[idx]['Families'] = aedge['families']
-        g.es[idx]['weight'] = aedge['score']
+    # print('> edgesContent')
+    # for i in edgesContent:
+    #     print(i)
+    # print('------------------')
 
-    g.write_graphml(graphML)
-    common.write_json(list_of_nodes, nodesRes)
-    common.write_json(list_of_edges, edgesRes)
+    # print('> organismsContent')
+    # for i in organismsContent:
+    #     print(i)
+    # print('------------------')
+
+    # print('> proteinsContent')
+    # for i in proteinsContent:
+    #     print(i)
+    # print('------------------')
+
+    if not os.path.isdir(resultDir):
+        os.mkdir(resultDir)
+
+    netsynResult = {
+        'nodes': nodesContent,
+        'edges': edgesContent,
+        'proteins': proteinsContent,
+        'organisms': organismsContent
+    }
+    common.write_json(netsynResult, htmlOut)
 
 def argumentsParser():
     '''
@@ -171,8 +192,7 @@ if __name__ == '__main__':
     #############
     boxName = common.global_dict['boxName']['DataExport']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_Results_nodes.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_Results_edges.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.OutputName))
     #######
     # Run #
     #######

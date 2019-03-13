@@ -116,96 +116,6 @@ def definesMandatoryColumns():
     mandatory_columns.remove('UniProt_AC')
     return mandatory_columns
 
-def checkAndFormatMetadataFile(metadataFileName, inputIFileName=None, inputIIFileName=None):
-    '''
-    Valide or unvalide the metadata file.
-    Initializes to "default value" the undefined metadata and accession whitout metadata.
-    '''
-    logger = logging.getLogger('{}.{}'.format(checkAndFormatMetadataFile.__module__, checkAndFormatMetadataFile.__name__))
-    sep = '\t'
-    error = False
-    metadataContent = []
-    accessionsWithMetadata = []
-    with open(metadataFileName, 'r') as file:
-        nbLines = 0
-        for line in file:
-            nbLines += 1
-            values = [value.rstrip() for value in line.split(sep)]
-            if nbLines == 1:
-                headersMD = {}
-                nbHeaders = len(values)
-                for index, value in enumerate(values):
-                    if value in headersMD.values():
-                        logger.error('{}: Duplicated column.'.format(value))
-                        error = True
-                    elif value == '':
-                        logger.error('Empty field at line of headers.')
-                        error = True
-                    else:
-                        headersMD[index] = value
-                        if value == 'accession_type':
-                            accessionTypeIndex = index
-                for mandatorycolumn in global_dict['metadataMadatoryColumn']:
-                    if not mandatorycolumn in headersMD.values():
-                        logger.error('Missing column, {} column is mandatory.'.format(mandatorycolumn))
-                        error = True
-                if error:
-                    break
-            else:
-                if not len(values) == nbHeaders:
-                    logger.error('At line {}: the number of columns is not egal than the number of headers.'.format(nbLines))
-                    error = True
-                    continue
-                row = {}
-                for index, value in enumerate(values):
-                    if index == accessionTypeIndex and value not in global_dict['metadataAccessionAuthorized']:
-                        logger.error('At line {}: the "accession_type" must be egal to {}.'.format(nbLines,' or '.join(global_dict['metadataAccessionAuthorized'])))
-                        error = True
-                    else:
-                        row[headersMD[index]] = global_dict['defaultValue'] if value == '' else value
-                metadataContent.append(row)
-                accessionsWithMetadata.append(row['accession'])
-    if error:
-        logger.error('Improper metadata file.')
-        exit(1)
-
-    if inputIFileName:
-        headerI, accessionsI = parseInputI(inputIFileName)
-        for accession in accessionsI:
-            if not accession in accessionsWithMetadata:
-                row = {}
-                for header in headersMD.values():
-                    if header == 'accession_type':
-                       row[header] =  headerI
-                    elif header == 'accession':
-                       row[header] =  accession
-                    else:
-                       row[header] =  global_dict['defaultValue']
-                metadataContent.append(row)
-                accessionsWithMetadata.append(row['accession'])
-
-    if inputIIFileName:
-        authorized_columns =definesAuthorizedColumns()
-        mandatory_columns = definesMandatoryColumns()
-        contentII = parseInputII(inputIIFileName, authorized_columns, mandatory_columns)
-        for row in contentII:
-            print(row)
-            if row[global_dict['inputIheader']]:
-                if row[global_dict['inputIheader']] in accessionsWithMetadata:
-                    continue
-            if row[global_dict['proteinACHeader']] in accessionsWithMetadata:
-                continue
-            row = {}
-            for header in headersMD.values():
-                if header == 'accession_type':
-                    row[header] =  headerI
-                elif header == 'accession':
-                    row[header] =  accession
-                else:
-                    row[header] =  global_dict['defaultValue']
-            metadataContent.append(row)
-            accessionsWithMetadata.append(row['accession'])
-    return metadataContent
 
 def widowsSizePossibilities(minSize, maxSize):
     return range(minSize, maxSize+2, 2)
@@ -280,9 +190,7 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
         },
         global_dict['boxName']['DataExport'] : {
             'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
-            'nodes': '{}/{}_Results_{}.nodes.json'.format(resultsDirectory, outputDirName, analysisNumber),
-            'edges': '{}/{}_Results_{}.edges.json'.format(resultsDirectory, outputDirName, analysisNumber),
-            #'html' : '{}/{}_Results_{}.html'.format(resultsDirectory, outputDirName, analysisNumber),
+            'html' : '{}/{}_Results_{}.html'.format(resultsDirectory, outputDirName, analysisNumber),
             #'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, outputDirName, analysisNumber)
         }
     }
@@ -308,6 +216,12 @@ def read_pickle(input):
     '''
     with open(input, 'rb') as file:
         return pickle.load(file)
+
+def readJSON(nameFile):
+    '''
+    '''
+    with open(nameFile, 'r') as file:
+        return json.load(file)
 
 def read_file(input):
     '''
