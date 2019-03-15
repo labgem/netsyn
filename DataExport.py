@@ -87,7 +87,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
-    graphML = common.global_dict['files']['DataExport']['graphML']
+    # graphML = common.global_dict['files']['DataExport']['graphML']
     htmlOut = common.global_dict['files']['DataExport']['html']
     #settingsOut = common.global_dict['files']['DataExport']['settings']
     # Logger
@@ -143,15 +143,15 @@ def argumentsParser():
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('--Nodes', type=str,
+    group1.add_argument('--nodesFile', type=str,
                         required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
-    group1.add_argument('--Edges', type=str,
+    group1.add_argument('--edgesFile', type=str,
                         required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    group1.add_argument('--Taxonomy', type=str,
-                        required=True, help='Path of the taxonomyLineage file from the ClusteringIntoFamilies part')
-    group1.add_argument('--ContigsInfo', type=str,
-                        required=True, help='Path of the contigs file from the ClusteringIntoFamilies part')
-    group1.add_argument('--MetaData', type=str,
+    group1.add_argument('--organismsFile', type=str,
+                        required=True, help='Path of the organims file from the ClusteringIntoFamilies part')
+    group1.add_argument('--proteinsFile', type=str,
+                        required=True, help='Path of the proteins file from the ClusteringIntoFamilies part')
+    group1.add_argument('--metadataFile', type=str,
                         required=True, help='Path of the metadata file provided by the user')
     group1.add_argument('--OutputName', type=str, required=True,
                         help='Output name files.')
@@ -196,4 +196,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.Nodes, args.Edges, args.Taxonomy, args.ContigsInfo, args.MetaData, '.')
+    run(args.nodesFile, args.edgesFile, args.organismsFile, args.proteinsFile, args.metadataFile, '.')

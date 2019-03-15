@@ -91,7 +91,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
             else:
                 line_number += 1
                 row = {}
-                for index, column in enumerate(line.split('\t')):
+                for index, column in enumerate(line.strip().split('\t')):
                     if column == '':
                         logger.error('Empty field: line "{}", column "{}"'.format(line_number, headers[index]))
                         errors = True
@@ -101,12 +101,15 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                             errors = True
                         else:
                             accessions.append(column)
+                    elif headers[index] == global_dict['inputIIheaders'][global_dict['inputIIheaders'].index('nucleic_File_Path')]:
+                        errors = checkFilledFile(column, errors)
+
                     row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
                 rows.append(row)
     if errors:
         logger.error('Input invalidated.')
         exit(1)
-    return rows
+    return rows, list(headers.values())
 
 def definesAuthorizedColumns():
     return global_dict['inputIIheaders'] + ['taxon_ID']
@@ -115,7 +118,6 @@ def definesMandatoryColumns():
     mandatory_columns = list(global_dict['inputIIheaders'])
     mandatory_columns.remove('UniProt_AC')
     return mandatory_columns
-
 
 def widowsSizePossibilities(minSize, maxSize):
     return range(minSize, maxSize+2, 2)
@@ -177,16 +179,24 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
         global_dict['boxName']['GetINSDCFiles'] : {
             'inputClusteringStep' : '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'])
         },
+        global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'] : {
+            'proteins_1' : '{}/{}/proteins_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'organisms_1' : '{}/{}/organisms_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'organisms_2' : '{}/{}/organisms_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'targets_1' : '{}/{}/targets_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'targets_2' : '{}/{}/targets_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
+            'organisms_2_json' : '{}/{}/organisms_2.json'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'])
+        },
         global_dict['boxName']['ClusteringIntoFamilies'] : {
-            'faa' : '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'contigs' : '{}/{}/contigs.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'genomicContexts' : '{}/{}/genomicContexts.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'lineage' : '{}/{}/taxonomicLineage.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'targets' : '{}/{}/targets_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
+            'proteins_2' : '{}/{}/proteins_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
+            'proteins_2_json' : '{}/{}/proteins_2.json'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
         },
         global_dict['boxName']['SyntenyFinder'] : {
             'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'edges': '{}/{}/edges_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
+            'edges': '{}/{}/edges_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
+            'nodes_json': '{}/{}/nodes_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
+            'edges_json': '{}/{}/edges_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
         },
         global_dict['boxName']['DataExport'] : {
             'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
@@ -263,13 +273,14 @@ def parametersLogger(args):
 inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
 global_dict = {
-    'version': '0.0.2',
+    'version': '0.0.3',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
     'filesExtension': 'embl',
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
+        'ParseINSDCFiles_GetTaxonomy': 'ParseINSDCFiles_GetTaxonomy',
         'ClusteringIntoFamilies': 'ClusteringIntoFamilies',
         'SyntenyFinder': 'SyntenyFinder',
         'DataExport': 'DataExport'
