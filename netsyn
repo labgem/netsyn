@@ -191,7 +191,7 @@ def createYamlSettingsFile(args):
     '''
     global ORDERBOX
     YAML_File = {}
-    gap = 1 if args.CorrespondingFile else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
+    gap = 0 if args.UniProtACList else 1 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
     with open(common.global_dict['settingsFileName'], 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['UniProtACList'] = args.UniProtACList
