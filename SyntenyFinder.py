@@ -439,7 +439,9 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     list_of_edges = []
     for edge in maxi_graph.es:
         targetA = min(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        targetA_idx = min(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
         targetB = max(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        targetB_idx = max(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
         if targets_syntons[(targetA, targetB)]:
             families = targets_syntons[(targetA, targetB)]['families_intersect']
         else:
@@ -448,8 +450,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
         genes_in_synteny = get_genes_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
 
-        dico = {'source': targetA,
-                'target': targetB,
+        dico = {'source': targetA_idx,
+                'target': targetB_idx,
                 'gene_ids': genes_in_synteny,
                 'weight': maxi_graph.es[edge.index]['weight']
                 }
