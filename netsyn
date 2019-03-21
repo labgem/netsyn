@@ -186,7 +186,7 @@ def createYamlSettingsFile(args):
     '''
     global ORDERBOX
     YAML_File = {}
-    gap = 1 if args.CorrespondingFile else 0 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
+    gap = 0 if args.UniProtACList else 1 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
     with open(common.global_dict['settingsFileName'], 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['UniProtACList'] = args.UniProtACList
@@ -205,18 +205,15 @@ def createYamlSettingsFile(args):
         YAML_File[ORDERBOX[3-gap]]['WindowSize'] = args.WindowSize
         YAML_File[ORDERBOX[3-gap]]['SyntenyGap'] = args.SyntenyGap
         YAML_File[ORDERBOX[3-gap]]['SyntenyFilter'] = args.SyntenyFilter
+        YAML_File[ORDERBOX[3-gap]]['ScoreType'] = args.ScoreType
+        YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
         YAML_File[ORDERBOX[4-gap]] = {}
-        YAML_File[ORDERBOX[4-gap]]['ScoreType'] = args.ScoreType
-        YAML_File[ORDERBOX[4-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File[ORDERBOX[4-gap]]['ClusteringMethod'] = args.ClusteringMethod
+        YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
+        YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[4-gap])
-
-        YAML_File[ORDERBOX[5-gap]] = {}
-        YAML_File[ORDERBOX[5-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
-        YAML_File[ORDERBOX[5-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[5-gap])
 
 def writtingYAML(YAML_to_write, outfile, block):
     '''
@@ -479,7 +476,7 @@ def runBox(nameBox, resultsDirectory):
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
         #### to update start after merge
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
-        proteinsFile = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2_json']
+        proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
         DataExport.run(nodesFile,
             edgesFile,
             organimsFile,
