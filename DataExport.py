@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import common
+import igraph as ig
 #############
 # Functions #
 #############
@@ -83,11 +84,114 @@ def insertMetadata(nodesContent, metadataContent, headersMD):
             node['metadata'] = metadataContent[accession]
     return nodesContent
 
+def nodesAttributesInitialization(graph, headersMD=None):
+    graph.vs['name'] = []
+    graph.vs['id'] = []
+    graph.vs['target_idx'] = []
+    #graph.vs['context_idx'] = []
+    #graph.vs['organism_idx'] = []
+    graph.vs['NetSyn_WalkTrap'] = []
+    graph.vs['NetSyn_Louvain'] = []
+    graph.vs['NetSyn_Infomap'] = []
+    graph.vs['UniProt_AC'] = []
+    graph.vs['protein_AC'] = []
+    graph.vs['organism_name'] = []
+    graph.vs['organism_strain'] = []
+    graph.vs['organism_taxon_id'] = []
+    for rank in common.global_dict['desired_ranks_lneage'].keys():
+        graph.vs['lineage_{}'.format(rank)] = []
+    return graph
+
+def edgesAttributesInitialization(graph):
+    edges_attributes = ['protein_AC', 'products', 'ec_numbers', 'UniProt_AC', 'gene_names', 'locus_tag']
+    graph.es['MMseqs_families'] = []
+    for attribute in edges_attributes:
+        graph.es['{}_source'.format(attribute)] = []
+        graph.es['{}_target'.format(attribute)] = []
+    return graph, edges_attributes
+
+def fill_node_information(node_reference, prot_in_synteny, prot_family, edges_attributes):
+    for pkey, pvalue in prot_in_synteny.items():
+        if pkey in edges_attributes:
+            node_reference[pkey].setdefault(prot_family, []).append(pvalue)
+    return node_reference
+
+def createFullGraph(allData, headersMD=None):
+    graph = ig.Graph()
+    graph = nodesAttributesInitialization(graph, headersMD)
+    graph, edgesAttributes = edgesAttributesInitialization(graph)
+
+    # COM: Generate nodes in a graph
+    for idx, node in enumerate(allData['nodes']):
+        graph.add_vertex(node['protein_AC'])
+        for nkey, nvalue in node.items():
+            # COM: addition of organism information to the node
+            if nkey == 'organism_idx':
+                for okey, ovalue in allData['organisms'][nvalue].items():
+                    if okey not in ['id', 'targets_idx', 'lineage']:
+                        graph.vs[idx]['organism_{}'.format(okey)] = ovalue
+                    elif okey == 'lineage':
+                        for level in allData['organisms'][nvalue]['lineage']:
+                            rank = level['rank']
+                            scientificName = level['scientificName']
+                            graph.vs[idx]['lineage_{}'.format(rank)] = scientificName
+            # COM: writting every cluster out of a list
+            elif nkey == 'clusterings':
+                for ckey, cvalue in node[nkey].items():
+                    graph.vs[idx]['NetSyn_{}'.format(ckey)] = cvalue
+            # COM: recovery of metadata information //// lists of metadata do not need to be initialized :/ very strange ...
+            elif nkey == 'metadata':
+                for mkey, mvalue in node[nkey].items():
+                    graph.vs[idx]['metadata_{}'.format(mkey)] = mvalue
+            # COM: recovery of identifiers and accession numbers
+            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC']:
+                graph.vs[idx][nkey] = nvalue
+
+    # COM: Generate edges in a graph
+    for edge in allData['edges']:
+        graph.add_edge(edge['source'], edge['target'])
+        edge_index = graph.get_eid(edge['source'], edge['target'])
+        graph.es[edge_index]['weight'] = edge['weight']
+
+        # COM: generate a dictionnary to get all information of the proteins involved in the synteny relation between two 'targets' (source, target)
+        attribute_families = {
+            'source': {},
+            'target': {}
+            }
+        for attr in edgesAttributes:
+            attribute_families['source'].setdefault(attr, {})
+            attribute_families['target'].setdefault(attr, {})
+        for prot_idx in edge['proteins_idx']:
+            prot_in_synt = allData['proteins'][prot_idx]
+            prot_family = prot_in_synt['family']
+            for prot_target in prot_in_synt['targets_idx']:
+                if prot_target == allData['nodes'][edge['source']]['target_idx']:
+                    attribute_families['source'] = fill_node_information(attribute_families['source'], prot_in_synt, prot_family, edgesAttributes)
+                    break
+                elif prot_target == allData['nodes'][edge['target']]['target_idx']:
+                    attribute_families['target'] = fill_node_information(attribute_families['target'], prot_in_synt, prot_family, edgesAttributes)
+                    break
+                else:
+                    print('gros probleme')
+
+        # COM: concatenate all the values with ' ~~ ' as separator between values belonging to the same MMseqs family and ' |-| ' as separator between families
+        for node_type, node_information in attribute_families.items(): # node_type = source OR target
+            for attr_name, attr in node_information.items(): # attr_name = one after the other value of edgesAttibutes
+                complete_value = []
+                families = list(attr.keys())
+                families.sort()
+                for afam in families:
+                    glued_content = ' ~~ '.join(attr[afam])
+                    complete_value.append(glued_content)
+                graph.es[edge_index]['{}_{}'.format(attr_name, node_type)] = ' |-| '.join(complete_value)
+        graph.es[edge_index]['MMseqs_families'] = ' |-| '.join(str(fam) for fam in families)
+    return graph
+
 def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultDir):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
-    # graphML = common.global_dict['files']['DataExport']['graphML']
+    graphmlOut = common.global_dict['files']['DataExport']['graphML']
     htmlOut = common.global_dict['files']['DataExport']['html']
     #settingsOut = common.global_dict['files']['DataExport']['settings']
     # Logger
@@ -95,33 +199,14 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
-    metadataContent, headersMD = checkAndGetMetadata(metadataFile) if metadataFile else {}
     nodesContent = common.readJSON(nodesFile)
-    nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
+    if metadataFile:
+        metadataContent, headersMD = checkAndGetMetadata(metadataFile)
+        nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
 
     edgesContent = common.readJSON(edgesFile)
     organismsContent = common.readJSON(organismsFile)
     proteinsContent = common.readJSON(proteinsFile)
-
-    # print('> nodesContent')
-    # for i in nodesContent:
-    #     print(i)
-    # print('------------------')
-
-    # print('> edgesContent')
-    # for i in edgesContent:
-    #     print(i)
-    # print('------------------')
-
-    # print('> organismsContent')
-    # for i in organismsContent:
-    #     print(i)
-    # print('------------------')
-
-    # print('> proteinsContent')
-    # for i in proteinsContent:
-    #     print(i)
-    # print('------------------')
 
     if not os.path.isdir(resultDir):
         os.mkdir(resultDir)
@@ -133,6 +218,15 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
         'organisms': organismsContent
     }
     common.write_json(netsynResult, htmlOut)
+
+    if metadataFile:
+        full_graph = createFullGraph(netsynResult, headersMD)
+    else:
+        full_graph = createFullGraph(netsynResult)
+
+    full_graph.write_graphml(graphmlOut)
+    logger.info('End of DataEport')
+    logger.info('Last advice for life: enjoy your work !!!')
 
 def argumentsParser():
     '''

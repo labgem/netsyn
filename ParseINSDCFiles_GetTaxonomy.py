@@ -208,11 +208,11 @@ def get_pseudo_info(aFeature, sequences, window, params):
 
     feature_info = {
         'id': INC_CDS_REF,
-        'protein_id': pseudo_id,
+        'protein_AC': pseudo_id,
         'begin': begin,
         'end': end,
         'strand': str(aFeature.location.strand),
-        'product': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
+        'products': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
         'targets': [],
         'targets_idx': []
         }
@@ -239,14 +239,14 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
 
     feature_info = {
         'id': INC_CDS_REF,
-        'protein_id': ident,
+        'protein_AC': ident,
         'begin': begin,
         'end': end,
         'strand': str(aFeature.location.strand),
-        'product': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
-        'ec_number': ', '.join(aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else [common.global_dict['defaultValue']]),
+        'products': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
+        'ec_numbers': ', '.join(aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else [common.global_dict['defaultValue']]),
         'UniProt_AC': get_from_dbxref(aFeature, 'UniProt'),
-        'gene_name': ', '.join(aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') else [common.global_dict['defaultValue']]),
+        'gene_names': ', '.join(aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') else [common.global_dict['defaultValue']]),
         'locus_tag': ', '.join(aFeature.qualifiers.get('locus_tag') if aFeature.qualifiers.get('locus_tag') else [common.global_dict['defaultValue']]),
         'targets': [],
         'targets_idx': []
@@ -297,7 +297,7 @@ def found_target_procedure(target, target_idx, prots_info, targets_info, cds_to_
         'context': window.copy(),
         'context_idx': context_idx,
         'UniProt_AC': UniProt_AC,
-        'protein_id': prots_info[target_idx]['protein_id']
+        'protein_AC': prots_info[target_idx]['protein_AC']
         }
     #logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
     #logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
@@ -388,8 +388,8 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 presumed_target = window[HALF_SIZE_GC]
                                 presumed_kicked_out_cds = window[0]
 
-                                if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
-                                    index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
+                                if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
+                                    index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
                                     corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
@@ -408,8 +408,8 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                             elif window_length > HALF_SIZE_GC:
                                 presumed_target = window[-(HALF_SIZE_GC+1)]
 
-                                if prots_info[-(HALF_SIZE_GC+1)]['protein_id'] in TARGET_LIST:
-                                    index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_id'])
+                                if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
+                                    index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
                                     corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
@@ -433,9 +433,9 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
                             # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
                             # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-HALF_SIZE_GC+idx]['id']))
-                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-HALF_SIZE_GC+idx]['protein_id']))
-                            if prots_info[-HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
-                                index_protein_AC = TARGET_LIST.index(prots_info[-HALF_SIZE_GC+idx]['protein_id'])
+                            # logger.debug('protein_AC associated:\t{}'.format(prots_info[-HALF_SIZE_GC+idx]['protein_AC']))
+                            if prots_info[-HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
+                                index_protein_AC = TARGET_LIST.index(prots_info[-HALF_SIZE_GC+idx]['protein_AC'])
                                 corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
@@ -448,9 +448,9 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
                             # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
                             # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-window_length+HALF_SIZE_GC+idx]['id']))
-                            # logger.debug('protein_id associated:\t{}'.format(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id']))
-                            if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'] in TARGET_LIST:
-                                index_protein_AC = TARGET_LIST.index(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_id'])
+                            # logger.debug('protein_AC associated:\t{}'.format(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC']))
+                            if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
+                                index_protein_AC = TARGET_LIST.index(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'])
                                 corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
@@ -476,8 +476,8 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                     elif window_length < HALF_SIZE_GC:
                         for idx, presumed_target in enumerate(window):
-                            if prots_info[-window_length+idx]['protein_id'] in TARGET_LIST:
-                                index_protein_AC = TARGET_LIST.index(prots_info[-window_length+idx]['protein_id'])
+                            if prots_info[-window_length+idx]['protein_AC'] in TARGET_LIST:
+                                index_protein_AC = TARGET_LIST.index(prots_info[-window_length+idx]['protein_AC'])
                                 corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]

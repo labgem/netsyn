@@ -196,7 +196,8 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
             'edges': '{}/{}/edges_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
             'nodes_json': '{}/{}/nodes_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'edges_json': '{}/{}/edges_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
+            'edges_json': '{}/{}/edges_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
+            'proteins': '{}/{}/proteins_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
         },
         global_dict['boxName']['DataExport'] : {
             'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),

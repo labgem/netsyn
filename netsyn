@@ -481,7 +481,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
         #### to update start after merge
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
-        proteinsFile = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2_json']
+        proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
         DataExport.run(nodesFile, edgesFile, organimsFile, proteinsFile, args.MetaDataFile, resultsDirectory)
         #### end
     else:

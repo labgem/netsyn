@@ -26,16 +26,33 @@ def get_userGC(targets_info, windowSize):
     '''
     half_user_window = math.floor(windowSize/2)
     next_prot_checked = 0
+    saved_proteins = []
+    new_targets_info = {}
 
     for target_idx, target_dict in targets_info.items():
         center = target_dict['context_idx'].index(target_idx)
         low_limit = max(0, center-half_user_window)
         high_limit = min(len(target_dict['context_idx']),
                          center+half_user_window+1)
-        target_dict['context_idx'] = target_dict['context_idx'][low_limit:high_limit]
-        target_dict['context'] = target_dict['context'][low_limit:high_limit]
 
-    return targets_info
+        begin_context = len(saved_proteins)
+        proteins_saviour = target_dict['context_idx'][low_limit:high_limit]
+        saved_proteins.extend(proteins_saviour)
+        target_dict['context_idx'] = [begin_context+place for place, _ in enumerate(proteins_saviour)]
+        target_dict['context'] = target_dict['context'][low_limit:high_limit]
+        target_dict['target_pos'] = target_dict['context'].index(target_dict['id'])
+        new_index = target_dict['context_idx'][target_dict['target_pos']]
+
+        new_targets_info.setdefault(new_index, {}).update(target_dict)
+    return new_targets_info, saved_proteins
+
+def update_targets_idx(prots_info, targets_info):
+    for protein_idx, _ in enumerate(prots_info):
+        prots_info[protein_idx]['targets_idx'] = []
+    for target_idx, target_dict in targets_info.items():
+        for idx in target_dict['context_idx']:
+            prots_info[idx]['targets_idx'].append(target_idx)
+    return prots_info
 
 def get_families_and_pos_in_context(target_dict):
     ''' get list index of every family in a context
@@ -205,10 +222,11 @@ def build_maxi_graph(maxiG, targets_syntons, params):
         maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
     return maxiG, params
 
-def get_genes_in_synteny(families, targetAinfo, targetBinfo, prots_info):
+def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
     '''
     *******************
     on peut faire aussi la recherche via les syntons
+    pas besoin de prots_info dans les paramètres de la fonction ...
     *******************
     '''
     genes_idx = []
@@ -255,6 +273,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # Outputs
     nodesOut = common.global_dict['files']['SyntenyFinder']['nodes']
     edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
+    protsOut = common.global_dict['files']['SyntenyFinder']['proteins']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     print('')
@@ -280,16 +299,23 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     logger.debug('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
-        targets_info = get_userGC(targets_info, params['USER_GC'])
+        targets_info, saved_proteins_idx = get_userGC(targets_info, params['USER_GC'])
+        saved_proteins_idx = list(set(saved_proteins_idx))
+        prots_info = [prots_info[idx] for idx in saved_proteins_idx]
+        prots_info = update_targets_idx(prots_info, targets_info)
+    # COM: proteins file has to be written or copied to the new dataDirectory
+    common.write_json(prots_info, protsOut)
 
     for target, target_dict in targets_info.items():
         target_dict['families'] = [prots_info[idx]['family'] for idx in target_dict['context_idx']]
         target_dict = get_families_and_pos_in_context(target_dict)
-        target_dict['target_pos'] = target_dict['context_idx'].index(target)
+        if params['MAX_GC'] == params['USER_GC']:
+            target_dict['target_pos'] = target_dict['context_idx'].index(target)
 
     common.write_json(targets_info, nodesOut)
 
     targets_list = list(targets_info.keys())
+    #targets_list_saved = [infos['context_idx'][infos['target_pos']] for infos in targets_info.values()]
     for idx, targetAidx in enumerate(targets_list[:-1]):
         targetA = targets_info[targetAidx]
         for targetBidx in targets_list[idx+1:]:
@@ -391,7 +417,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
         dico = {'target_idx': target_idx,
                 'id': prots_info[target_idx]['id'],
                 'UniProt_AC': prots_info[target_idx]['UniProt_AC'],
-                'protein_AC': prots_info[target_idx]['protein_id'],
+                'protein_AC': prots_info[target_idx]['protein_AC'],
                 #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
                 #'GC_size': len(prots_info[cds_inc]['userGC']),
                 #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
@@ -399,7 +425,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
                 'context_idx': targets_info[target_idx]['context_idx'],
                 'organism_id': targets_info[target_idx]['organism_id'],
                 'organism_idx': targets_info[target_idx]['organism_idx'],
-                'Clustering': {'WalkTrap':
+                'clusterings': {'WalkTrap':
                                    maxi_graph.vs[target_node.index]['cluster_WT'],
                                'Louvain':
                                    maxi_graph.vs[target_node.index]['cluster_Louvain'],
@@ -439,18 +465,20 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     list_of_edges = []
     for edge in maxi_graph.es:
         targetA = min(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        targetA_idx = min(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
         targetB = max(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
+        targetB_idx = max(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
         if targets_syntons[(targetA, targetB)]:
             families = targets_syntons[(targetA, targetB)]['families_intersect']
         else:
             logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
             families = targets_syntons[(targetB, targetA)]['families_intersect']
 
-        genes_in_synteny = get_genes_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
+        proteins_in_synteny = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
 
-        dico = {'source': targetA,
-                'target': targetB,
-                'gene_ids': genes_in_synteny,
+        dico = {'source': targetA_idx,
+                'target': targetB_idx,
+                'proteins_idx': proteins_in_synteny,
                 'weight': maxi_graph.es[edge.index]['weight']
                 }
         list_of_edges.append(dico)
