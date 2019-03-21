@@ -70,6 +70,9 @@ def checkAndGetMetadata(metadataFileName):
     return metadataContent, headersMD
 
 def insertMetadata(nodesContent, metadataContent, headersMD):
+    '''
+    Insertes the metada into nodes content.
+    '''
     for node in nodesContent:
         if node[common.global_dict['inputIheader']] not in metadataContent.keys() and node[common.global_dict['proteinACHeader']] not in metadataContent.keys():
             node['metadata'] = {}
@@ -187,7 +190,145 @@ def createFullGraph(allData, headersMD=None):
         graph.es[edge_index]['MMseqs_families'] = ' |-| '.join(str(fam) for fam in families)
     return graph
 
-def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultDir):
+def getTaxID(rank, organismIndex, organismsContent):
+    '''
+    Get the taxonomic id for the rank of the organism.
+    '''
+    logger = logging.getLogger('{}.{}'.format(getTaxID.__module__, getTaxID.__name__))
+    for level in organismsContent[organismIndex]['lineage']:
+        if level['rank'] == rank:
+            return level['tax_id']
+    logger.critical('The tax_id corresponding to the rank {} is not found for the {} {} organism (index: {}).'.format(rank,
+                                                                                            organismsContent[organismIndex]['name'],
+                                                                                            organismsContent[organismIndex]['strain'],
+                                                                                            organismIndex))
+
+def getNodesToMerge(nodes, criterionType, criterion, clusteringMethod, organismsContent=None):
+    '''
+    Determines which nodes to merge.
+    '''
+    logger = logging.getLogger('{}.{}'.format(getNodesToMerge.__module__, getNodesToMerge.__name__))
+    nodesPerCriterion = {}
+    for index, node in enumerate(nodes):
+        if criterionType == 'taxonomic':
+            node.setdefault(criterionType, {}).setdefault(criterion, getTaxID(criterion, node['organism_idx'], organismsContent))
+        if not node[criterionType][criterion] == common.global_dict['defaultValue']:
+            node['node_idx'] = index
+            nodesPerCriterion.setdefault(node['Clustering'][clusteringMethod], {}).setdefault(node[criterionType][criterion], []).append(node)
+        if criterionType == 'taxonomic':
+            del node[criterionType]
+    nodesToMerge = []
+    for cluster in nodesPerCriterion:
+        for nodes in nodesPerCriterion[cluster]:
+            if len(nodesPerCriterion[cluster][nodes]) > 1:
+                nodesToMerge.append(nodesPerCriterion[cluster][nodes])
+    return nodesToMerge
+
+def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
+    '''
+    Merges nodes content and updates organisms content.
+    '''
+    # logger = logging.getLogger('{}.{}'.format(nodes_organismsMerging.__module__, nodes_organismsMerging.__name__))
+    newNodes = []
+    organismIdMax = max([organism['id'] for organism in organismsContent])
+    for nodes in nodesToMerge:
+        newNode = {}
+        organismToMerge = []
+        oldNodes = []
+        metadata = {}
+        for node in nodes:
+            oldNodes.append(node['node_idx'])
+            newNode.setdefault('id', []).append(str(node['id']))
+            newNode.setdefault('target_idx', []).append(str(node['target_idx']))
+            newNode.setdefault(common.global_dict['inputIheader'], []).append(node[common.global_dict['inputIheader']])
+            newNode.setdefault(common.global_dict['proteinACHeader'], []).append(node[common.global_dict['proteinACHeader']])
+            clustering = node['Clustering'][clusteringMethod]
+            for key, value in node['metadata'].items():
+                if key not in metadata:
+                    metadata[key] = []
+                elif value not in metadata[key]:
+                    metadata[key].append(value)
+            if organismsContent[node['organism_idx']] not in organismToMerge:
+                organismToMerge.append(organismsContent[node['organism_idx']])
+
+        for key, toMerge in newNode.items():
+            newNode[key] = ', '.join(toMerge)
+        for key, toMerge in metadata.items():
+            metadata[key] = ', '.join(toMerge)
+        newNode['metadata'] = metadata
+        newNode['oldNodes'] = oldNodes
+        newNode['Clustering'] = clustering
+
+        metaLineage = {}
+        organismIdMax += 1
+        newOrganism = {'id': organismIdMax}
+        for organism in organismToMerge:
+            newOrganism.setdefault('strain', []).append(organism['strain'])
+            newOrganism.setdefault('name', []).append(organism['name'])
+            newOrganism.setdefault('taxon_id', []).append(organism['taxon_id'])
+            newOrganism.setdefault('lineage', [])
+            for level in organism['lineage']:
+                if level['level'] not in metaLineage:
+                    metaLineage[level['level']] = {
+                        'rank': level['rank'],
+                        'scientificName': [],
+                        'tax_id': []
+                    }
+                if level['scientificName'] not in metaLineage[level['level']]['scientificName']:
+                    metaLineage[level['level']]['scientificName'].append(level['scientificName'])
+                if str(level['tax_id']) not in metaLineage[level['level']]['tax_id']:
+                    metaLineage[level['level']]['tax_id'].append(str(level['tax_id']))
+        for level, values in metaLineage.items():
+            newOrganism['lineage'].append({
+                'rank': values['rank'],
+                'scientificName': ', '.join(values['scientificName']),
+                'tax_id': ', '.join(values['tax_id']),
+                'level': level
+            })
+        for key in ['strain', 'name', 'taxon_id']:
+            newOrganism[key] = ', '.join(newOrganism[key])
+        organismsContent.append(newOrganism)
+        newNode['organism_id'] = organismIdMax
+        newNode['organism_idx'] = (len(organismsContent)-1)
+        newNodes.append(newNode)
+    return newNodes, organismsContent
+
+def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent):
+    '''
+    Addes the nodes into nodes list and updates edges content.
+    '''
+    nodesIndexes = [i for i in range(len(nodesContent))]
+    nodesToDelIndexes = []
+    for nodeToAdd in nodesToAdd:
+        for nodeToDel in nodeToAdd['oldNodes']:
+            nodesIndexes[nodeToDel] = -1
+            nodesToDelIndexes.append(nodeToDel)
+            for i in nodesIndexes[nodeToDel+1:]:
+                if i == -1 :
+                    continue
+                else:
+                    index = nodesIndexes.index(i)
+                    nodesIndexes[index] = nodesIndexes[index]-1
+    for nodeToDel in sorted(nodesToDelIndexes, reverse=True):
+        del nodesContent[nodeToDel]
+    for nodeToAdd in nodesToAdd:
+        nodesToDel = nodeToAdd['oldNodes']
+        del nodeToAdd['oldNodes']
+        newNodeIndex = len(nodesContent)
+        nodesContent.append(nodeToAdd)
+        for nodeToDel in nodesToDel:
+            nodesIndexes[nodeToDel] = newNodeIndex
+    edgesToDel = []
+    for index,edge in enumerate(edgesContent):
+        edge['source'] = nodesIndexes[edge['source']]
+        edge['target'] = nodesIndexes[edge['target']]
+        if edge['source'] == edge['target']:
+            edgesToDel.append(index)
+    for edgeIndex in sorted(edgesToDel, reverse=True):
+        del edgesContent[edgeIndex]
+    return nodesContent, edgesContent
+
+def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultDir, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
@@ -199,6 +340,9 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
+    if not os.path.isdir(resultDir):
+        os.mkdir(resultDir)
+
     nodesContent = common.readJSON(nodesFile)
     if metadataFile:
         metadataContent, headersMD = checkAndGetMetadata(metadataFile)
@@ -208,8 +352,29 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     organismsContent = common.readJSON(organismsFile)
     proteinsContent = common.readJSON(proteinsFile)
 
-    if not os.path.isdir(resultDir):
-        os.mkdir(resultDir)
+    # for edge in edgesContent:
+    #     logger.debug('{} > {}'.format(edge["source"],edge["target"]))
+    # logger.debug('')
+    # print('\n\n\n')
+    # for n in nodesContent:
+    #     print('{}: '.format(n['target_idx']))
+    #     for l in organismsContent[n['organism_idx']]['lineage']:
+    #         print('    {}'.format(l))
+    # print()
+    # for e in edgesContent:
+    #     s = nodesContent[e['source']]['target_idx']
+    #     t = nodesContent[e['target']]['target_idx']
+    #     print('{}-{}:{}'.format(s,t,e))
+    if redundancyRemovalLabel or redundancyRemovalTaxonomy:
+        if redundancyRemovalLabel:
+            if redundancyRemovalLabel not in headersMD.values():
+                logger.error('The label for the specified metadata column is not in the metdata file.')
+                exit(1)
+            nodesToMerge = getNodesToMerge(nodesContent, 'metadata', redundancyRemovalLabel, clusteringMethod)
+        elif redundancyRemovalTaxonomy:
+            nodesToMerge = getNodesToMerge(nodesContent, 'taxonomic', redundancyRemovalTaxonomy, clusteringMethod, organismsContent)
+        newNodes, organismsContent = nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod)
+        nodesContent, edgesContent = nodes_edgesUpdating(newNodes, nodesContent, edgesContent)
 
     netsynResult = {
         'nodes': nodesContent,
@@ -217,6 +382,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
         'proteins': proteinsContent,
         'organisms': organismsContent
     }
+
     common.write_json(netsynResult, htmlOut)
 
     if metadataFile:
@@ -250,11 +416,14 @@ def argumentsParser():
     group1.add_argument('--OutputName', type=str, required=True,
                         help='Output name files.')
 
-    group2 = parser.add_argument_group('General settings')
-    group2.add_argument('--UniProtACList', type=str,
-                        help='UniProt accession list input(cf: wiki).')
-    group2.add_argument('--CorrespondingFile', type=str,
-                        help='Input file of corresponding between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki).')
+    group2 = parser.add_argument_group('Graph Analysis settings')
+    group2.add_argument('-cm', '--ClusteringMethod', type=str, required=True,
+                        choices=['MCL','Infomap','Louvain','WalkTrap'],
+                        help='Clustering method choose in : MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
+    group2.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
+                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
+    group2.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lneage'].keys(),
+                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
 
     group3 = parser.add_argument_group('logger')
     group3.add_argument( '--log_level',
@@ -277,6 +446,10 @@ if __name__ == '__main__':
     # Parse command line #
     ######################
     args = argumentsParser()
+    if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
+        args.parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options.')
+    if args.RedundancyRemovalLabel and not args.metadataFile:
+        args.parser.error('Please specify the --metadataFile option.')
     ##########
     # Logger #
     ##########
@@ -290,4 +463,12 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.nodesFile, args.edgesFile, args.organismsFile, args.proteinsFile, args.metadataFile, '.')
+    run(args.nodesFile,
+        args.edgesFile,
+        args.organismsFile,
+        args.proteinsFile,
+        args.metadataFile,
+        '.',
+        args.RedundancyRemovalLabel,
+        args.RedundancyRemovalTaxonomy,
+        args.ClusteringMethod)

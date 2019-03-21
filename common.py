@@ -112,9 +112,15 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
     return rows, list(headers.values())
 
 def definesAuthorizedColumns():
+    '''
+    Defines the authorized columns.
+    '''
     return global_dict['inputIIheaders'] + ['taxon_ID']
 
 def definesMandatoryColumns():
+    '''
+    Defines the mandatory columns.
+    '''
     mandatory_columns = list(global_dict['inputIIheaders'])
     mandatory_columns.remove('UniProt_AC')
     return mandatory_columns

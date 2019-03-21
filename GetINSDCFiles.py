@@ -61,8 +61,10 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
         logger.info('Correspondence computed: {}/{}'.format(nbEntriesProcessed,nbTotalEntries))
     return crossReference
 
-def getNucleicFialeName(nucleicAccession):
-    # nucleicAcc = re.match(r'(?P<NucleicFileName>.{6})[0-9]{6}[0-9]*$', nucleicAccession)
+def getNucleicFileName(nucleicAccession):
+    '''
+    Get nucleic file name from nucleic accession.
+    '''
     nucleicAcc = re.match(r'^(?P<NucleicFileName>[A-Z]{4,6}[0-9]{2})[0-9]{6,}$', nucleicAccession)
     if nucleicAcc:
         return nucleicAcc.group("NucleicFileName")
@@ -116,7 +118,7 @@ def run(InputName):
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
                 filesExtension = common.global_dict['filesExtension']
-                nucleicFilePath = '{}/{}.{}'.format(dataDirectoryProcess, getNucleicFialeName(nucleicAccession), filesExtension)
+                nucleicFilePath = '{}/{}.{}'.format(dataDirectoryProcess, getNucleicFileName(nucleicAccession), filesExtension)
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
@@ -154,7 +156,7 @@ def argumentsParser():
     Arguments parsing.
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                 usage = '''GetINSDCFiles.py -i <UniProtAC.list> -o <OutputName>''', ######################################################################
+                                 usage = '''GetINSDCFiles.py -u <UniProtAC.list> -o <OutputName>''', ######################################################################
                                  formatter_class = argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')

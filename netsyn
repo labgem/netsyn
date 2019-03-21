@@ -32,18 +32,14 @@ def checkArguments(parser):
         if args.conserveDownloadedINSDC:
             parser.error('ambigous option: --conserveDownloadedINSDC option require of --UniProtACList option. Please specify the --UniProtACList option.')
 
-    if not args.RedundancyRemoval == 'FALSE':
-        if args.RedundancyRemovalLabel == 'FALSE' and args.RedundancyRemovalTaxonomy == 'FALSE':
-            parser.error('Missing RedundancyRemovalLabel or RedundancyRemovalTaxonomy')
+    if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options.')
 
-    if not args.RedundancyRemovalLabel == 'FALSE' and not args.RedundancyRemovalTaxonomy == 'FALSE':
-        parser.error('RedundancyRemovalLabel or RedundancyRemovalTaxonomy are incompatible')
+    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and args.ClusteringMethod == 'Multiple':
+        parser.error('The redundancy removal can\'t be comput with each clustering method. Please choise a uniq clustering method (--ClusteringMethod).')
 
-    if not args.RedundancyRemovalLabel == 'FALSE' or not args.RedundancyRemovalTaxonomy == 'FALSE':
-        args.RedundancyRemoval = 'TRUE'
-
-    if not args.RedundancyRemovalTaxonomy == 'FALSE':
-        args.RedundancyRemovalTaxonomy = '&'+args.RedundancyRemovalTaxonomy
+    if args.RedundancyRemovalLabel and not args.MetaDataFile:
+        parser.error('Please specify the --MetaDataFile option.')
 
     return args
 
@@ -97,14 +93,13 @@ def argumentsParser():
 
     group6 = parser.add_argument_group('Graph Analysis settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
-                        choices=['Multiple','MCL','EdgeBetweeness','Louvain','WalkTrap'],
-                        default='MCL', help='Clustering method choose in : Multiple (All), MCL (small graph), EdgeBetweeness (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
-    group6.add_argument('-rr', '--RedundancyRemoval', type=str,
-                        default='FALSE', choices=['FALSE','TRUE'], help='Should the pipeline compute a graph contracting same cluster same label.\nDefault value: FALSE.')
+                        choices=['Multiple','MCL','Infomap','Louvain','WalkTrap'],
+                        default='Multiple',
+                        help='Clustering method choose in : Multiple (All), MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group6.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
-                        default='FALSE', help='Label of the column on which the redundancy will be computed (Only with --RedundancyRemoval TRUE)')
-    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'],
-                        default='FALSE', help='Taxonomic rank on which the redundancy will be computed (Only with --RedundancyRemoval TRUE)')
+                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
+    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lneage'].keys(),
+                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
 
     group7 = parser.add_argument_group('logger')
     group7.add_argument( '--log_level',
@@ -210,13 +205,12 @@ def createYamlSettingsFile(args):
         YAML_File[ORDERBOX[3-gap]]['WindowSize'] = args.WindowSize
         YAML_File[ORDERBOX[3-gap]]['SyntenyGap'] = args.SyntenyGap
         YAML_File[ORDERBOX[3-gap]]['SyntenyFilter'] = args.SyntenyFilter
+        YAML_File[ORDERBOX[3-gap]]['ScoreType'] = args.ScoreType
+        YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
         YAML_File[ORDERBOX[4-gap]] = {}
-        YAML_File[ORDERBOX[4-gap]]['ScoreType'] = args.ScoreType
-        YAML_File[ORDERBOX[4-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File[ORDERBOX[4-gap]]['ClusteringMethod'] = args.ClusteringMethod
-        YAML_File[ORDERBOX[4-gap]]['RedundancyRemoval'] = args.RedundancyRemoval
         YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
         YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[4-gap])
@@ -351,8 +345,8 @@ def boxesManager(runFrom, resultsDirectory, analysisNumber):
     boxesToRun = [ORDERBOX[i] for i in range(ORDERBOX.index(runFrom), len(ORDERBOX))]
     logger.debug('Boxes to run: {}'.format(boxesToRun))
     for nameBox in boxesToRun:
-        runBox(nameBox, resultsDirectory, analysisNumber)
-        checkingAfterRun(nameBox, resultsDirectory, analysisNumber)
+        runBox(nameBox, resultsDirectory)
+        checkingAfterRun(nameBox, resultsDirectory)
         updateLastBoxDone(nameBox)
 
 def updateLastBoxDone(nameBox):
@@ -376,7 +370,7 @@ def getAnalysisNumber(outputDirName):
     resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
     return analysisNumber, resultsDirectory
 
-def checkingAfterRun(boxName, resultsDirectory, analysisNumber):
+def checkingAfterRun(boxName, resultsDirectory):
     '''
     Checkpoints before executing box.
     '''
@@ -439,7 +433,7 @@ def mergeInputsII(outputStepI, inputII, inputMergedName):
                 file.write('{}\n'.format('\t'.join(line)))
     return
 
-def runBox(nameBox, resultsDirectory, analysisNumber):
+def runBox(nameBox, resultsDirectory):
     '''
     Running box.
     '''
@@ -482,10 +476,18 @@ def runBox(nameBox, resultsDirectory, analysisNumber):
         #### to update start after merge
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
-        DataExport.run(nodesFile, edgesFile, organimsFile, proteinsFile, args.MetaDataFile, resultsDirectory)
+        DataExport.run(nodesFile,
+            edgesFile,
+            organimsFile,
+            proteinsFile,
+            args.MetaDataFile,
+            resultsDirectory,
+            args.RedundancyRemovalLabel,
+            args.RedundancyRemovalTaxonomy,
+            args.ClusteringMethod)
         #### end
     else:
-        logger.critical('No execution planned for {}'.format(runBox))
+        logger.critical('No execution planned for {}'.format(nameBox))
         exit(1)
 ####################
 # Script execution #
