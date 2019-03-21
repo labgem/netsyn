@@ -359,17 +359,18 @@ def updateLastBoxDone(nameBox):
     with open(common.global_dict['reportFileName'], 'w') as file:
         file.write(nameBox)
 
-def getAnalysisNumber(outputDirName):
+def getAnalysisNumber(outputDirName, nameLastBox):
     '''
     Defining of the number of analisys.
     Defining of results directory name for the current analysis.
     '''
+    global ORDERBOX
     number = 0
     string = r'{}_Results_[0-9]+$'.format(outputDirName)
     existingAnalyzes = [f for f in os.listdir(common.global_dict['workingDirectory']) if re.search(string, f)]
     if existingAnalyzes:
         number = max([int(i.split('_')[-1]) for i in existingAnalyzes])
-    analysisNumber = (number + 1)
+    analysisNumber = (number + 1) if nameLastBox == ORDERBOX[len(ORDERBOX)-1] or nameLastBox is None else number
     resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
     return analysisNumber, resultsDirectory
 
@@ -530,7 +531,7 @@ if __name__ == '__main__':
         logger.info('New NetSyn project: {}'.format(common.global_dict['workingDirectory']))
         os.mkdir(common.global_dict['workingDirectory'])
         os.mkdir(common.global_dict['dataDirectory'])
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName, None)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
         saveInputFiles(args.UniProtACList, args.CorrespondingFile)
         runFromBox = ORDERBOX[0]
@@ -547,7 +548,7 @@ if __name__ == '__main__':
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName, nameBoxDone)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
     createYamlSettingsFile(args)
     if runFromBox:
