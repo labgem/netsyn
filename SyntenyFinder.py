@@ -430,7 +430,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
                                'Infomap':
                                    maxi_graph.vs[target_node.index]['cluster_Infomap']
                                },
-                'families': list(set(targets_info[target_idx]['families']))
+                'families': list(set(targets_info[target_idx]['families'])),
+                'size': 1
                 }
                 # 'Families': {}
                 # }
