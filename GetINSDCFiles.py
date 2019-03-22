@@ -146,7 +146,7 @@ def run(InputName):
             for line in ['\t'.join(values) for values in outputContent]:
                 file.write('{}\n'.format(line))
         logger.info('{} generated.'.format(outputName))
-        logger.info('{} finished!'.format(boxName))
+        logger.info('{} completed!'.format(boxName))
     else:
         logger.error('Input header unrecognized.')
         exit(1)

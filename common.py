@@ -175,6 +175,7 @@ def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
     global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml')
     global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report')
     global_dict['versionFileName'] = '{}/{}'.format(outputDirName, '.version')
+    global_dict['lastAnalysisNumber'] = '{}/{}'.format(outputDirName, '.lastAnalysisNumber')
     if uniprotACList:
         global_dict['uniprotACListSaved'] = '{}/{}'.format(outputDirName, os.path.basename(uniprotACList))
     if correspondingFile:
@@ -208,7 +209,9 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
         global_dict['boxName']['DataExport'] : {
             'graphML' : '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
             'html' : '{}/{}_Results_{}.html'.format(resultsDirectory, outputDirName, analysisNumber),
-            #'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, outputDirName, analysisNumber)
+        },
+        global_dict['boxName']['EndNetSynAnalysis'] : {
+            'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, outputDirName, analysisNumber)
         }
     }
 
@@ -290,7 +293,8 @@ global_dict = {
         'ParseINSDCFiles_GetTaxonomy': 'ParseINSDCFiles_GetTaxonomy',
         'ClusteringIntoFamilies': 'ClusteringIntoFamilies',
         'SyntenyFinder': 'SyntenyFinder',
-        'DataExport': 'DataExport'
+        'DataExport': 'DataExport',
+        'EndNetSynAnalysis' : 'EndNetSynAnalysis'
     },
     'inputIheader': inputIheader,
     'proteinACHeader': proteinACHeader,

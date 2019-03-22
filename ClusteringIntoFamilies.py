@@ -162,7 +162,7 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     prots_info = regroup_families(os.path.join(dataDirectoryProcess, '.'.join([params["prefix"], 'tsv'])), prots_info)
     common.write_pickle(prots_info, proteins_2_Out)
     common.write_json(prots_info, common.global_dict['files'][boxName]['proteins_2_json'])
-    logger.info('End of ClusteringIntoFamilies')
+    logger.info('{} completed!'.format(boxName))
 
 def argumentsParser():
     '''

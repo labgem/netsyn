@@ -229,13 +229,14 @@ def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
     pas besoin de prots_info dans les paramètres de la fonction ...
     *******************
     '''
-    genes_idx = []
+    proteins_idx_source = []
+    proteins_idx_target = []
     for afam in families:
         for position in targetAinfo['families_positions'][afam]:
-            genes_idx.append(targetAinfo['context_idx'][position])
+            proteins_idx_source.append(targetAinfo['context_idx'][position])
         for position in targetBinfo['families_positions'][afam]:
-            genes_idx.append(targetBinfo['context_idx'][position])
-    return genes_idx
+            proteins_idx_target.append(targetBinfo['context_idx'][position])
+    return proteins_idx_source, proteins_idx_target
 
 
 
@@ -357,19 +358,17 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
 
     ### Walktrap clustering
-    logger.info('*** Walktrap clustering ***')
     graph_walktrap = maxi_graph.community_walktrap(weights='weight')
     walktrap_clustering = graph_walktrap.as_clustering()
-    logger.info(walktrap_clustering) # list of VertexClustering objects
+    logger.info('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
 
     for cluster in range(len(walktrap_clustering)):
         for vertex in walktrap_clustering[cluster]:
             maxi_graph.vs[vertex]['cluster_WT'] = cluster
 
     ### Louvain clustering
-    logger.info('*** Louvain clustering ***')
     graph_louvain = maxi_graph.community_multilevel(weights='weight')
-    logger.info(graph_louvain) # list of VertexClustering objects
+    logger.info('NetSyn Louvain: {}'.format(graph_louvain.summary()))
 
     for cluster in range(len(graph_louvain)):
         for vertex in graph_louvain[cluster]:
@@ -396,9 +395,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     ### Infomap Clustering
     # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
     # l'algo n'utilise pas non plus le poids des arêtes
-    logger.info('*** Infomap Clustering***')
     graph_infomap = maxi_graph.community_infomap(edge_weights='weight')
-    logger.info(graph_infomap) # list of VertexClustering objects
+    logger.info('NetSyn Infomap: {}'.format(graph_infomap.summary()))
 
     for cluster in range(len(graph_infomap)):
         for vertex in graph_infomap[cluster]:
@@ -474,11 +472,12 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
             logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
             families = targets_syntons[(targetB, targetA)]['families_intersect']
 
-        proteins_in_synteny = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
+        proteins_idx_source, proteins_idx_target = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
 
         dico = {'source': targetA_idx,
                 'target': targetB_idx,
-                'proteins_idx': proteins_in_synteny,
+                'proteins_idx_source': proteins_idx_source,
+                'proteins_idx_target': proteins_idx_target,
                 'weight': maxi_graph.es[edge.index]['weight']
                 }
         list_of_edges.append(dico)
@@ -487,6 +486,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     common.write_pickle(list_of_edges, edgesOut)
     common.write_json(list_of_nodes, common.global_dict['files'][boxName]['nodes_json'])
     common.write_json(list_of_edges, common.global_dict['files'][boxName]['edges_json'])
+    logger.info('{} completed!'.format(boxName))
 
 
 def argumentsParser():

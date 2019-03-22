@@ -14,7 +14,7 @@ import filecmp
 import glob
 
 import yaml
-import GetINSDCFiles, ParseINSDCFiles_GetTaxonomy, ClusteringIntoFamilies, SyntenyFinder, DataExport
+import GetINSDCFiles, ParseINSDCFiles_GetTaxonomy, ClusteringIntoFamilies, SyntenyFinder, DataExport, EndNetSynAnalysis
 import common
 
 #############
@@ -84,8 +84,6 @@ def argumentsParser():
                         choices=common.widowsSizePossibilities(common.global_dict['minGCSize'],common.global_dict['maxGCSize']))
     group3.add_argument('-sg', '--SyntenyGap', type=int, default=3,
                         help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
-    group3.add_argument('-st', '--ScoreType', type=int,
-                        default=1, choices=[1,2], help='Default score = 1 or Weighted score = 2')
     group3.add_argument('-sf', '--SyntenyFilter', type=str, default='off',
                         choices=['on','off'],  help='Keep synteny near target genes.\nDefault value: off.')
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
@@ -157,7 +155,8 @@ def orderDefinition(uniprotACList, correspondingFile):
             common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'],
             common.global_dict['boxName']['ClusteringIntoFamilies'],
             common.global_dict['boxName']['SyntenyFinder'],
-            common.global_dict['boxName']['DataExport']
+            common.global_dict['boxName']['DataExport'],
+            common.global_dict['boxName']['EndNetSynAnalysis']
         ]
     else:
         order = [
@@ -165,7 +164,9 @@ def orderDefinition(uniprotACList, correspondingFile):
             common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'],
             common.global_dict['boxName']['ClusteringIntoFamilies'],
             common.global_dict['boxName']['SyntenyFinder'],
-            common.global_dict['boxName']['DataExport']
+            common.global_dict['boxName']['DataExport'],
+            common.global_dict['boxName']['EndNetSynAnalysis']
+
         ]
     # logger.debug('Execution order: {}'.format(order))
     return order
@@ -205,7 +206,6 @@ def createYamlSettingsFile(args):
         YAML_File[ORDERBOX[3-gap]]['WindowSize'] = args.WindowSize
         YAML_File[ORDERBOX[3-gap]]['SyntenyGap'] = args.SyntenyGap
         YAML_File[ORDERBOX[3-gap]]['SyntenyFilter'] = args.SyntenyFilter
-        YAML_File[ORDERBOX[3-gap]]['ScoreType'] = args.ScoreType
         YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
@@ -335,8 +335,7 @@ def removeDownloadedINSDC():
     for file in filesToRemoved:
         os.remove(file)
 
-## Swiss functions : to move into library ?!?
-def boxesManager(runFrom, resultsDirectory, analysisNumber):
+def boxesManager(runFrom, resultsDirectory):
     '''
     Allows execution from a box.
     '''
@@ -346,7 +345,7 @@ def boxesManager(runFrom, resultsDirectory, analysisNumber):
     logger.debug('Boxes to run: {}'.format(boxesToRun))
     for nameBox in boxesToRun:
         runBox(nameBox, resultsDirectory)
-        checkingAfterRun(nameBox, resultsDirectory)
+        checkingAfterRun(nameBox)
         updateLastBoxDone(nameBox)
 
 def updateLastBoxDone(nameBox):
@@ -356,22 +355,22 @@ def updateLastBoxDone(nameBox):
     with open(common.global_dict['reportFileName'], 'w') as file:
         file.write(nameBox)
 
-def getAnalysisNumber(outputDirName, nameLastBox):
+def getAnalysisNumber(outputDirName):
     '''
-    Defining of the number of analisys.
-    Defining of results directory name for the current analysis.
+    Defines the number of analisys and defines the
+    results directory name for the current analysis
+    from the last completed analysis number.
     '''
-    global ORDERBOX
     number = 0
-    string = r'{}_Results_[0-9]+$'.format(outputDirName)
-    existingAnalyzes = [f for f in os.listdir(common.global_dict['workingDirectory']) if re.search(string, f)]
-    if existingAnalyzes:
-        number = max([int(i.split('_')[-1]) for i in existingAnalyzes])
-    analysisNumber = (number + 1) if nameLastBox == ORDERBOX[len(ORDERBOX)-1] or nameLastBox is None else number
+    fileName = common.global_dict['lastAnalysisNumber']
+    if os.path.isfile(fileName):
+        with open(fileName, 'r') as file:
+            number = int(file.read())
+    analysisNumber = (number+1)
     resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
-    return analysisNumber, resultsDirectory
+    return (number+1), resultsDirectory
 
-def checkingAfterRun(boxName, resultsDirectory):
+def checkingAfterRun(boxName):
     '''
     Checkpoints before executing box.
     '''
@@ -474,7 +473,6 @@ def runBox(nameBox, resultsDirectory):
         logger = logging.getLogger('runDataExport')
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes_json']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
-        #### to update start after merge
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
         DataExport.run(nodesFile,
@@ -486,10 +484,12 @@ def runBox(nameBox, resultsDirectory):
             args.RedundancyRemovalLabel,
             args.RedundancyRemovalTaxonomy,
             args.ClusteringMethod)
-        #### end
+    elif nameBox == 'EndNetSynAnalysis':
+        EndNetSynAnalysis.run(resultsDirectory, analysisNumber)
     else:
         logger.critical('No execution planned for {}'.format(nameBox))
         exit(1)
+
 ####################
 # Script execution #
 ####################
@@ -528,7 +528,7 @@ if __name__ == '__main__':
         logger.info('New NetSyn project: {}'.format(common.global_dict['workingDirectory']))
         os.mkdir(common.global_dict['workingDirectory'])
         os.mkdir(common.global_dict['dataDirectory'])
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName, None)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
         saveInputFiles(args.UniProtACList, args.CorrespondingFile)
         runFromBox = ORDERBOX[0]
@@ -545,7 +545,7 @@ if __name__ == '__main__':
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
-        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName, nameBoxDone)
+        analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
     createYamlSettingsFile(args)
     if runFromBox:
@@ -556,7 +556,7 @@ if __name__ == '__main__':
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
         writeCurrentVersion(common.global_dict['version'], common.global_dict['versionFileName'])
-        boxesManager(runFromBox, resultsDirectory, analysisNumber) # Fonction de fin d'execution d'une box
+        boxesManager(runFromBox, resultsDirectory)
     else:
         '''Nous avons deja des resultats'''
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))

@@ -800,6 +800,7 @@ def run(INPUT_II):
         orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
         targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
         common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
+    logger.info('{} completed!'.format(boxName))
 
 def argumentsParser():
     '''
@@ -814,10 +815,6 @@ def argumentsParser():
                         required=True, help='File of corresponding.')
     group1.add_argument('-o', '--OutputName', type=str,
                         required=True, help='Output name files.')
-    # group1.add_argument('-id', '--Ident', type=float,
-    #                     default=0.3, help='Sequence identity.\nDefault value: 0.3.')
-    # group1.add_argument('-mc', '--MinCoverage', type=float,
-    #                     default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--log_level',
