@@ -162,7 +162,7 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
         newNode['metadata'] = metadata
         newNode['oldNodes'] = oldNodes
         newNode['clusterings'] = clusterings
-        newNode['size'] = len(nodesToMerge)
+        newNode['Size'] = len(nodesToMerge)
 
         metaLineage = {}
         organismIdMax += 1
@@ -300,7 +300,7 @@ def createFullGraph(allData, headersMD=None):
                 for mkey, mvalue in node[nkey].items():
                     graph.vs[idx]['metadata_{}'.format(mkey)] = mvalue
             # COM: recovery of identifiers and accession numbers
-            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC']:
+            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC','Size']:
                 graph.vs[idx][nkey] = nvalue
 
     # COM: Generate edges in a graph
