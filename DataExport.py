@@ -206,14 +206,14 @@ def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent):
     nodesToDelIndexes = []
     for nodeToAdd in nodesToAdd:
         for nodeToDel in nodeToAdd['oldNodes']:
-            nodesIndexes[nodeToDel] = -1
             nodesToDelIndexes.append(nodeToDel)
-            for i in nodesIndexes[nodeToDel+1:]:
-                if i == -1 :
-                    continue
-                else:
-                    index = nodesIndexes.index(i)
-                    nodesIndexes[index] = nodesIndexes[index]-1
+    decrement = 0
+    for i in nodesIndexes:
+        if i in nodesToDelIndexes:
+            nodesIndexes[i] = -1
+            decrement += 1
+        else:
+            nodesIndexes[i] -= decrement
     for nodeToDel in sorted(nodesToDelIndexes, reverse=True):
         del nodesContent[nodeToDel]
     for nodeToAdd in nodesToAdd:
