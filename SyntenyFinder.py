@@ -18,33 +18,55 @@ import common
 # Functions #
 #############
 
-def get_userGC(targets_info, windowSize):
+def get_userGC(targets_info, windowSize, prots_info):
     ''' reduce the genomic context to the user parameter '--WindowSize'
     input: list of targets_info, '-ws' user parameter
     output: prots_info dictionary updated with 2 new fields 1)prots_info[target]['userGC'] and
     2)prots_info[target]['similarityContext']
     '''
     half_user_window = math.floor(windowSize/2)
-    next_prot_checked = 0
-    saved_proteins = []
     new_targets_info = {}
 
+    proteinsToConserve = []
+    proteinsIndexToDel = []
     for target_idx, target_dict in targets_info.items():
         center = target_dict['context_idx'].index(target_idx)
         low_limit = max(0, center-half_user_window)
         high_limit = min(len(target_dict['context_idx']),
                          center+half_user_window+1)
 
-        begin_context = len(saved_proteins)
-        proteins_saviour = target_dict['context_idx'][low_limit:high_limit]
-        saved_proteins.extend(proteins_saviour)
-        target_dict['context_idx'] = [begin_context+place for place, _ in enumerate(proteins_saviour)]
+        for i in target_dict['context_idx'][:low_limit] + target_dict['context_idx'][high_limit:]:
+            if i not in proteinsToConserve and i not in proteinsIndexToDel:
+                proteinsIndexToDel.append(i)
+        for i in target_dict['context_idx'][low_limit:high_limit]:
+            if i in proteinsIndexToDel:
+                del proteinsIndexToDel[proteinsIndexToDel.index(i)]
+            if i not in proteinsToConserve:
+                proteinsToConserve.append(i)
+    proteinsIndexes = [i for i in range(len(prots_info))]
+
+    decrement = 0
+    for i in proteinsIndexes:
+        if i in proteinsIndexToDel:
+            proteinsIndexes[i] = -1
+            decrement += 1
+        else:
+            proteinsIndexes[i] -= decrement
+
+    for target_idx, target_dict in targets_info.items():
+        center = target_dict['context_idx'].index(target_idx)
+        low_limit = max(0, center-half_user_window)
+        high_limit = min(len(target_dict['context_idx']),
+                         center+half_user_window+1)
+        target_dict['context_idx'] = [proteinsIndexes[i] for i in target_dict['context_idx'][low_limit:high_limit]]
         target_dict['context'] = target_dict['context'][low_limit:high_limit]
         target_dict['target_pos'] = target_dict['context'].index(target_dict['id'])
         new_index = target_dict['context_idx'][target_dict['target_pos']]
-
         new_targets_info.setdefault(new_index, {}).update(target_dict)
-    return new_targets_info, saved_proteins
+
+    for i in sorted(proteinsIndexToDel, reverse=True):
+        del prots_info[i]
+    return new_targets_info, prots_info
 
 def update_targets_idx(prots_info, targets_info):
     for protein_idx, _ in enumerate(prots_info):
@@ -300,9 +322,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     logger.debug('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
-        targets_info, saved_proteins_idx = get_userGC(targets_info, params['USER_GC'])
-        saved_proteins_idx = list(set(saved_proteins_idx))
-        prots_info = [prots_info[idx] for idx in saved_proteins_idx]
+        targets_info, prots_info = get_userGC(targets_info, params['USER_GC'], prots_info)
         prots_info = update_targets_idx(prots_info, targets_info)
     # COM: proteins file has to be written or copied to the new dataDirectory
     common.write_json(prots_info, protsOut)
@@ -312,7 +332,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
         target_dict = get_families_and_pos_in_context(target_dict)
         if params['MAX_GC'] == params['USER_GC']:
             target_dict['target_pos'] = target_dict['context_idx'].index(target)
-
     common.write_json(targets_info, nodesOut)
 
     targets_list = list(targets_info.keys())
