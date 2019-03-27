@@ -18,63 +18,121 @@ import common
 # Functions #
 #############
 
-def get_userGC(targets_info, windowSize, prots_info):
+# def get_userGC(targets_info, windowSize, prots_info):
+#     ''' reduce the genomic context to the user parameter '--WindowSize'
+#     input: list of targets_info, '-ws' user parameter
+#     output: prots_info dictionary updated with 2 new fields 1)prots_info[target]['userGC'] and
+#     2)prots_info[target]['similarityContext']
+#     '''
+#     half_user_window = math.floor(windowSize/2)
+#     new_targets_info = {}
+
+#     proteinsToConserve = []
+#     proteinsIndexToDel = []
+#     for target_idx, target_dict in targets_info.items():
+#         center = target_dict['context_idx'].index(target_idx)
+#         low_limit = max(0, center-half_user_window)
+#         high_limit = min(len(target_dict['context_idx']),
+#                          center+half_user_window+1)
+
+#         for i in target_dict['context_idx'][:low_limit] + target_dict['context_idx'][high_limit:]:
+#             if i not in proteinsToConserve and i not in proteinsIndexToDel:
+#                 proteinsIndexToDel.append(i)
+#         for i in target_dict['context_idx'][low_limit:high_limit]:
+#             if i in proteinsIndexToDel:
+#                 del proteinsIndexToDel[proteinsIndexToDel.index(i)]
+#             if i not in proteinsToConserve:
+#                 proteinsToConserve.append(i)
+#     proteinsIndexes = [i for i in range(len(prots_info))]
+
+#     decrement = 0
+#     for i in proteinsIndexes:
+#         if i in proteinsIndexToDel:
+#             proteinsIndexes[i] = -1
+#             decrement += 1
+#         else:
+#             proteinsIndexes[i] -= decrement
+
+#     for target_idx, target_dict in targets_info.items():#
+#         center = target_dict['context_idx'].index(target_idx)#
+#         low_limit = max(0, center-half_user_window)#
+#         high_limit = min(len(target_dict['context_idx']),
+#                          center+half_user_window+1)#
+#         target_dict['context_idx'] = [proteinsIndexes[i] for i in target_dict['context_idx'][low_limit:high_limit]]# juste i
+#         target_dict['context'] = target_dict['context'][low_limit:high_limit]#
+#         target_dict['target_pos'] = target_dict['context'].index(target_dict['id'])#
+#         new_index = target_dict['context_idx'][target_dict['target_pos']]
+#         new_targets_info.setdefault(new_index, {}).update(target_dict)
+
+#     for i in sorted(proteinsIndexToDel, reverse=True):
+#         del prots_info[i]
+#     return new_targets_info, prots_info
+
+def get_userGC(targets_info, windowSize):
     ''' reduce the genomic context to the user parameter '--WindowSize'
     input: list of targets_info, '-ws' user parameter
-    output: prots_info dictionary updated with 2 new fields 1)prots_info[target]['userGC'] and
-    2)prots_info[target]['similarityContext']
+    output: prots_info dictionary updated on 2 fields 1)prots_info[target]['context_idx'] and
+    2)prots_info[target]['context']
     '''
     half_user_window = math.floor(windowSize/2)
-    new_targets_info = {}
-
-    proteinsToConserve = []
-    proteinsIndexToDel = []
     for target_idx, target_dict in targets_info.items():
         center = target_dict['context_idx'].index(target_idx)
         low_limit = max(0, center-half_user_window)
         high_limit = min(len(target_dict['context_idx']),
                          center+half_user_window+1)
+        targets_info[target_idx]['context_idx'] = [i for i in target_dict['context_idx'][low_limit:high_limit]]
+        targets_info[target_idx]['context'] = target_dict['context'][low_limit:high_limit]
+        targets_info[target_idx]['target_pos'] = target_dict['context'].index(target_dict['id'])
+    return targets_info
 
-        for i in target_dict['context_idx'][:low_limit] + target_dict['context_idx'][high_limit:]:
-            if i not in proteinsToConserve and i not in proteinsIndexToDel:
-                proteinsIndexToDel.append(i)
-        for i in target_dict['context_idx'][low_limit:high_limit]:
-            if i in proteinsIndexToDel:
-                del proteinsIndexToDel[proteinsIndexToDel.index(i)]
-            if i not in proteinsToConserve:
-                proteinsToConserve.append(i)
-    proteinsIndexes = [i for i in range(len(prots_info))]
+def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
+    '''
+    Removes:
+        I. the proteins exclued by le resizing of genomic context
+       II. the proteins of genomic contexts for the targets without the conserved synteny.
 
+    Updates the protein indexes in prots_info, targets_info, maxi_graph, targets_syntons.
+    '''
+    # Defines the proteins to delete
+    proteinsIndex = [i for i in range(len(prots_info))]
+    proteinsIndexInSynteny = []
+    for targetIndex in maxi_graph.vs['name']:
+        for proteinIndex in targets_info[targetIndex]['context_idx']:
+            if proteinIndex not in proteinsIndexInSynteny:
+                proteinsIndexInSynteny.append(proteinIndex)
+    proteinsIndexInSynteny.sort()
+    proteinsIndexToDel = sorted(list(set(proteinsIndex).difference(set(proteinsIndexInSynteny))))
+    # Defines the new indexes. (the poroteins indexes of proteins to delete becomes -1, the others is decremente.)
     decrement = 0
-    for i in proteinsIndexes:
+    for i in proteinsIndex:
         if i in proteinsIndexToDel:
-            proteinsIndexes[i] = -1
+            proteinsIndex[i] = -1
             decrement += 1
         else:
-            proteinsIndexes[i] -= decrement
-
+            proteinsIndex[i] -= decrement
+    # Uptades idexes in targets_info
+    new_targets_info = {}
     for target_idx, target_dict in targets_info.items():
-        center = target_dict['context_idx'].index(target_idx)
-        low_limit = max(0, center-half_user_window)
-        high_limit = min(len(target_dict['context_idx']),
-                         center+half_user_window+1)
-        target_dict['context_idx'] = [proteinsIndexes[i] for i in target_dict['context_idx'][low_limit:high_limit]]
-        target_dict['context'] = target_dict['context'][low_limit:high_limit]
-        target_dict['target_pos'] = target_dict['context'].index(target_dict['id'])
+        target_dict['context_idx'] = [proteinsIndex[i] for i in target_dict['context_idx']]
         new_index = target_dict['context_idx'][target_dict['target_pos']]
         new_targets_info.setdefault(new_index, {}).update(target_dict)
-
+    # Uptades idexes in maxi_graph
+    maxi_graph.vs['name'] = [proteinsIndex[lastIndex] for lastIndex in maxi_graph.vs['name']]
+    # Uptades idexes in new_targets_syntons
+    new_targets_syntons = {}
+    for (indexA, indexB), value in targets_syntons.items():
+        new_targets_syntons[(proteinsIndex[indexA], proteinsIndex[indexB])] = value
+    # Removes proteins that are not preserved.
     for i in sorted(proteinsIndexToDel, reverse=True):
         del prots_info[i]
-    return new_targets_info, prots_info
-
-def update_targets_idx(prots_info, targets_info):
+    # Uptades idexes in prots_info[idx]['targets_idx']
     for protein_idx, _ in enumerate(prots_info):
         prots_info[protein_idx]['targets_idx'] = []
     for target_idx, target_dict in targets_info.items():
         for idx in target_dict['context_idx']:
             prots_info[idx]['targets_idx'].append(target_idx)
-    return prots_info
+
+    return new_targets_info, prots_info, maxi_graph, new_targets_syntons
 
 def get_families_and_pos_in_context(target_dict):
     ''' get list index of every family in a context
@@ -260,8 +318,6 @@ def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
             proteins_idx_target.append(targetBinfo['context_idx'][position])
     return proteins_idx_source, proteins_idx_target
 
-
-
 # def fix_dendrogram(graph, cl):
 #     '''known bug with incomplete dendrograms
 #     https://lists.nongnu.org/archive/html/igraph-help/2014-02/msg00067.html
@@ -322,8 +378,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     logger.info('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
-        targets_info, prots_info = get_userGC(targets_info, params['USER_GC'], prots_info)
-        prots_info = update_targets_idx(prots_info, targets_info)
+        targets_info = get_userGC(targets_info, params['USER_GC'])
+        # prots_info = proteinsRemoval(prots_info, targets_info) #################
     # COM: proteins file has to be written or copied to the new dataDirectory
     common.write_json(prots_info, protsOut)
 
@@ -428,6 +484,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
     # logger.info(graph_eigenvector) # list of VertexClustering objects
 
+    targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
+
     list_of_nodes = []
     for target_node in maxi_graph.vs:
         target_idx = target_node['name']
@@ -452,32 +510,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
                 'families': list(set(targets_info[target_idx]['families'])),
                 'Size': 1
                 }
-                # 'Families': {}
-                # }
-        # for afam in tmp_dict[cds_inc]['families']:
-        #     dico['Families'][afam] = {}
-        #     dico['Families'][afam]['positions'] = tmp_dict[cds_inc]['families'][afam]
-        #     dico['Families'][afam]['id'] = []
-        #     dico['Families'][afam]['Protein_id'] = []
-        #     dico['Families'][afam]['Products'] = []
-        #     dico['Families'][afam]['EC_numbers'] = []
-        #     for pos in dico['Families'][afam]['positions']:
-        #         dico['Families'][afam]['Protein_id'].append(
-        #             prots_info[prots_info[cds_inc]['userGC'][pos]]['protein_id']
-        #             if 'protein_id' in prots_info[prots_info[cds_inc]['userGC'][pos]]
-        #             else common.global_dict['defaultValue'])
-        #         dico['Families'][afam]['id'].append(
-        #             prots_info[prots_info[cds_inc]['userGC'][pos]]['uniprot']
-        #             if 'uniprot' in prots_info[prots_info[cds_inc]['userGC'][pos]]
-        #             else common.global_dict['defaultValue'])
-        #         dico['Families'][afam]['Products'].append(
-        #             prots_info[prots_info[cds_inc]['userGC'][pos]]['product']
-        #             if 'product' in prots_info[prots_info[cds_inc]['userGC'][pos]]
-        #             else common.global_dict['defaultValue'])
-        #         dico['Families'][afam]['EC_numbers'].append(
-        #             prots_info[prots_info[cds_inc]['userGC'][pos]]['ec_number']
-        #             if 'ec_number' in prots_info[prots_info[cds_inc]['userGC'][pos]]
-        #             else common.global_dict['defaultValue'])
         list_of_nodes.append(dico)
 
     list_of_edges = []
