@@ -18,4 +18,4 @@ def run(resultsDirectory, analysisNumber):
     shutil.copyfile(common.global_dict['settingsFileName'], common.global_dict['files']['EndNetSynAnalysis']['settings'])
     with open(common.global_dict['lastAnalysisNumber'], 'w') as file:
         file.write(str(analysisNumber))
-    logger.info('Analysis completed, results available in the {} directory.'.format(resultsDirectory))
+    logger.info('Analysis completed, results available in the {} directory'.format(resultsDirectory))

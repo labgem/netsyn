@@ -26,7 +26,7 @@ def resultsFormat(res, dico):
         if isHeader:
             headers = bLine.decode('utf-8').split(sepColumn)
             if not headers[0] == 'Entry':
-                logger.critical('"id" column should be in first position.')
+                logger.critical('"id" column must be in first position')
                 exit(2)
             isHeader = False
         else:
@@ -58,7 +58,7 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
         crossReference = resultsFormat(res, crossReference)
         nbEntriesProcessed += len(uniprotAccessions[:batchesSize])
         del uniprotAccessions[:batchesSize]
-        logger.info('Correspondence computed: {}/{}'.format(nbEntriesProcessed,nbTotalEntries))
+        logger.info('Correspondences computed: {}/{}'.format(nbEntriesProcessed,nbTotalEntries))
     return crossReference
 
 def getNucleicFileName(nucleicAccession):

@@ -38,14 +38,6 @@ def skip_duplicates(iterable, key=lambda x: x):
             yield x
             fingerprints.add(fingerprint)
 
-def read_rows(rows):
-    ''' print rows information by row
-    '''
-    logger = logging.getLogger('read_rows')
-    for row in rows:
-        logger.debug('{}\n'.format(row))
-    return 0
-
 def create_d_input(d_rows, headers_list):
     ''' formatting information by filename
         input: list of dictionaries
@@ -83,9 +75,8 @@ def create_d_input(d_rows, headers_list):
                     errors = True
             else:
                 d_input[filename][contig_id]['taxon_ID'] = input_taxon
-
     if errors:
-        logger.info('Taxon ID inconsistency. Please review your input file')
+        logger.info('Taxon IDs inconsistency. Please review your input file')
         exit(1)
     return d_input
 
@@ -100,7 +91,6 @@ def check_and_get_input(input):
     mandatory_columns = common.definesMandatoryColumns()
     d_rows, headers_list = common.parseInputII(input, authorized_columns, mandatory_columns)
     d_input = create_d_input(d_rows, headers_list)
-    #print(d_input)
     return d_input
 
 def get_from_dbxref(aFeature, dbref):
@@ -138,7 +128,6 @@ def get_uniq_value(aFeature, ref):
             return common.global_dict['defaultValue']
     if len(result) == 1:
         return result[0]
-    #else:
     logger.warning('The field {} of the protein {} has several values while a uniq value expected: {}'.format(ref, aFeature.qualifiers.get('protein_id'), result))
         # exit(1)
     return(1)
@@ -154,10 +143,8 @@ def get_required_value(func, aFeature, *args):
     '''
     logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
     if not func(aFeature, *args) or func(aFeature, *args) == common.global_dict['defaultValue']:
-        logger.error('A required value is not provided: {}'.format([arg for arg in args]))
-        # exit(1)
-        return 1
-    #else:
+        logger.error('The required value {} is not provided for the protein {}'.format(args[-1], (aFeature.qualifiers.get('protein_id') or get_from_dbxref(aFeature, 'UniProt'))))
+        exit(1)
     return func(aFeature, *args)
 
 def get_taxonID(aFeature):
@@ -176,9 +163,6 @@ def get_orgs_info(aFeature, numFile):
         'id': numFile,
         'name': get_uniq_value(aFeature, 'organism'),
         'strain': get_uniq_value(aFeature, 'strain'),
-        # 'size': [aFeature.location.start.real+1,
-        #          aFeature.location.end.real
-        #          ]
         }
     return org_content
 
@@ -227,15 +211,11 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
     output: updated prots_info dictionary, window list of the contig_content
     modified to contain afeature
     '''
-    # logger = logging.getLogger('{}.{}'.format(get_prot_info.__module__, get_prot_info.__name__))
     params['INC_CDS_REF'] += 1
     INC_CDS_REF = params['INC_CDS_REF']
 
     ident = get_required_value(get_uniq_value, aFeature, proteinField)
     begin, end = aFeature.location.start.real+1, aFeature.location.end.real
-
-    #logger.debug('value returned by qualifiers.get: {}'.format(aFeature.qualifiers.get('gene')))
-    #logger.debug('value returned by qualifiers.get: {}'.format(aFeature.qualifiers.get('locus_tag')))
 
     feature_info = {
         'id': INC_CDS_REF,
@@ -299,8 +279,8 @@ def found_target_procedure(target, target_idx, prots_info, targets_info, cds_to_
         'UniProt_AC': UniProt_AC,
         'protein_AC': prots_info[target_idx]['protein_AC']
         }
-    #logger.debug('target ({}/{})\t- contig_content ({}) -\twindow: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['window']))
-    #logger.debug('target ({}/{})\t- contig_content ({}) -\tcds_to_keep: {}'.format(target, prots_info[target]['protein_id'], contig_content['contig'], contig_content['cds_to_keep']))
+    logger.debug('target ({}/{})\t- window: {}'.format(target, prots_info[target_idx]['protein_AC'], window))
+    logger.debug('target ({}/{})\t- cds_to_keep: {}'.format(target, prots_info[target_idx]['protein_AC'], cds_to_keep))
     return prots_info, targets_info, cds_to_keep
 
 def is_useless_cds(cds, cds_to_keep):
@@ -351,7 +331,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 UniProt_AC_list = d_infile[contig_name]['UniProt_AC_list']
                 cds_to_keep = []
                 window = []
-                logger.debug('Target list for {} contig: {}'.format(contig_name, TARGET_LIST))
+                logger.debug('Target list for contig {}: {}'.format(contig_name, TARGET_LIST))
 
                 # COM: beginning of the parsing
                 first_source = True
@@ -424,16 +404,9 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 if TARGET_LIST:
                     window_length = len(window)
-                    # logger.debug('target list:\t{}'.format(TARGET_LIST))
-                    # logger.debug('window_length:\t{}'.format(window_length))
-                    # logger.debug('window content:\t{}'.format(window))
-                    if window_length >= HALF_SIZE_GC:
 
-                        # logger.debug('for loop 1:\t{}'.format(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]))
+                    if window_length >= HALF_SIZE_GC:
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
-                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
-                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-HALF_SIZE_GC+idx]['id']))
-                            # logger.debug('protein_AC associated:\t{}'.format(prots_info[-HALF_SIZE_GC+idx]['protein_AC']))
                             if prots_info[-HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-HALF_SIZE_GC+idx]['protein_AC'])
                                 corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
@@ -444,11 +417,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
-                        # logger.debug('for loop 2:\t{}'.format(window[HALF_SIZE_GC:]))
                         for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
-                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
-                            # logger.debug('idx:\t{}\tpresumed_target:\t{}'.format(idx, prots_info[-window_length+HALF_SIZE_GC+idx]['id']))
-                            # logger.debug('protein_AC associated:\t{}'.format(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC']))
                             if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'])
                                 corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
@@ -459,20 +428,14 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
-                            # logger.debug('cds à tester:\t{}'.format(prots_info[-len(window)]['id']))
-                            # logger.debug('cds_to_keep:\t{}'.format(cds_to_keep))
-                            # logger.debug('should we delete it:\t{}'.format(is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep)))
                             if cds_to_keep:
                                 if is_useless_cds(prots_info[-len(window)]['id'], cds_to_keep):
                                     del sequences[prots_info[-len(window)]['id']]
                                     del prots_info[-len(window)]
-
                             else:
                                 del sequences[prots_info[-len(window)]['id']]
                                 del prots_info[-len(window)]
-
                             del window[0]
-                            #logger.debug('*************************************************')
 
                     elif window_length < HALF_SIZE_GC:
                         for idx, presumed_target in enumerate(window):
@@ -513,7 +476,7 @@ def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
         prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
     return prots_info, targets_info, orgs_info, sequences, params
 
-def write_multiFasta(sequences, output):
+def write_multiFasta(sequences, output, prots_info):
     ''' writes a multiFasta file from the dictionary obtained by the INSDC file
     parser
     '''
@@ -525,7 +488,7 @@ def write_multiFasta(sequences, output):
                 fastaFile.write(sequences[a_seq])
                 fastaFile.write('\n')
             else:
-                logger.info('The protein {} has no sequence'.format(a_seq))
+                logger.info('The protein {} has no sequence'.format([d['protein_AC'] for d in prots_info if d['id'] == a_seq][0]))
     if common.checkFilledFile(output, error=False):
         exit(1)
     return 0
@@ -572,9 +535,9 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
         for index, desiredTaxon in enumerate(desiredTaxonIDs):
             collectedTaxId = allLineages[index][indexTaxID]
             if collectedTaxId == desiredTaxon:
-                logger.info('Taxonomic lineage recovered for the taxonID {}.'.format(desiredTaxon))
+                logger.info('Taxonomic lineage recovered for the taxonID {}'.format(desiredTaxon))
             elif desiredTaxon in allLineages[index][indexOldTaxID]:
-                logger.info('The species having {} as taxonID, has its taxonID change for {}'.format(desiredTaxon, collectedTaxId))
+                logger.info('TaxonID {} changed for {}'.format(desiredTaxon, collectedTaxId))
                 orgs_info.setdefault(collectedTaxId, {}).setdefault('organisms', [])
                 orgs_info[collectedTaxId]['organisms'].extend(orgs_info[desiredTaxon]['organisms'])
                 del orgs_info[desiredTaxon]
@@ -587,30 +550,30 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
             oldTaxonIDs = allLineages[indexLineage][indexOldTaxID]
             desiredTaxon = desiredTaxonIDs[indexDesiredTaxon]
             if collectedTaxId == desiredTaxon:
-                logger.info('Taxonomic lineage recovered for the taxonID {}.'.format(desiredTaxon))
+                logger.info('Taxonomic lineage recovered for the taxonID {}'.format(desiredTaxon))
                 indexLineage += 1
                 indexDesiredTaxon += 1
             elif desiredTaxon in allLineages[indexLineage][indexOldTaxID]:
-                logger.info('The species having {} as taxonID, has its taxonID change for {}'.format(desiredTaxon, collectedTaxId))
+                logger.info('TaxonID {} changed for {}'.format(desiredTaxon, collectedTaxId))
                 orgs_info.setdefault(collectedTaxId, {}).setdefault('organisms', [])
                 orgs_info[collectedTaxId]['organisms'].extend(orgs_info[desiredTaxon]['organisms'])
                 del orgs_info[desiredTaxon]
                 indexLineage += 1
                 indexDesiredTaxon += 1
             else:
-                logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
+                logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
                 allLineages.append([desiredTaxon, {}, []])
                 indexDesiredTaxon += 1
             if indexDesiredTaxon == len(desiredTaxonIDs):
                 break
             elif indexLineage == len(allLineages):
                 for desiredTaxon in desiredTaxonIDs[indexDesiredTaxon:]:
-                    logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
+                    logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
                     allLineages.append([desiredTaxon, {}, []])
                 break
     else:
         for desiredTaxon in desiredTaxonIDs:
-            logger.warning('NCBI doesn\'t reconise the taxonID: {}.'.format(desiredTaxon))
+            logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
     return allLineages, orgs_info
 
 def get_taxo_from_web(taxonIDs, dataDirectoryProcess, orgs_info):
@@ -659,8 +622,6 @@ def get_taxonomicLineage(taxonIDs, dataDirectoryProcess, orgs_info):
     ''' concatenates the various taxonomic lineage dictionaries in a
     super-dictionary called all_lineages
     '''
-    logger = logging.getLogger('{}.{}'.format(get_taxonomicLineage.__module__, get_taxonomicLineage.__name__))
-    logger.info('Getting all taxonomic lineages represented in the Project')
     all_lineages = {}
     batchesSize = 100
     # taxonIDs = ['1884790', '2', '3', '304371', '3','4', '76869','3','4','3','4','3','4','3','4'] # To test
@@ -780,7 +741,7 @@ def run(INPUT_II):
         logger.info('INSDC files parsing ...')
         prots_info, targets_info, orgs_info, sequences, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
         logger.info('End of INSDC files parsing !')
-        write_multiFasta(sequences, multiFasta)
+        write_multiFasta(sequences, multiFasta, prots_info)
 
         common.write_pickle(orgs_info, orgs_1_Out)
         common.write_json(orgs_info, '{}/{}'.format(dataDirectoryProcess, 'organisms_1.json'))
@@ -807,14 +768,14 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''ClusteringIntoFamilies.py -i <inputFileName> -o <OutputName>''',
+                                     usage='''ParseINSDCFiles_GetTaxonomy.py -i <inputFileName> -o <OutputName>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-i', '--input', type=str,
-                        required=True, help='File of corresponding.')
+                        required=True, help='Correspondence entry file between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki)')
     group1.add_argument('-o', '--OutputName', type=str,
-                        required=True, help='Output name files.')
+                        required=True, help='Output name files')
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--log_level',
@@ -844,7 +805,7 @@ if __name__ == '__main__':
     #########################
     # Dependancies checking #
     #########################
-    common.dependanciesChecking()
+    common.dependenciesChecking()
     #############
     # Constants #
     #############
@@ -853,6 +814,7 @@ if __name__ == '__main__':
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}/{}.faa'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}/{}_organisms_1.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}/{}_organisms_2.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2_json', '{}/{}_organisms_2.json'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}/{}_proteins_1.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}/{}_targets_1.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}/{}_targets_2.pickle'.format(boxName, args.OutputName))

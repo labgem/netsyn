@@ -319,7 +319,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     targets_syntons = {}
     no_synteny = 0
-    logger.debug('Length of the targets list: {}'.format(len(targets_info)))
+    logger.info('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
         targets_info, prots_info = get_userGC(targets_info, params['USER_GC'], prots_info)
@@ -360,9 +360,9 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
     logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
-    logger.info('Number of pairs where synteny doesn\'t respect gap parameter or on target filter: {}'.format(params['INC_NO_SYNTENY']))
-    logger.info('Number of pairs where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
-    logger.info('Number of pairs of targets in synteny: {}'.format(len(maxi_graph.es)))
+    logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
+    logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
+    logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
 
     ### Edge-betweenness clustering
     # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
@@ -514,24 +514,25 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''SyntenyFinder options...''',
+                                     usage='''SyntenyFinder.py -ip <proteinsFileName> -it <targetsFileName> -o <OutputName>\n\
+\t\t-ws <WindowSize> -sg <SyntenyGap> -ssc <SyntenyScoreCutoff>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-ip', '--inputProteins', type=str,
-                        required=True, help='Proteins File.')
+                        required=True, help='Proteins File')
     group1.add_argument('-it', '--inputTargets', type=str,
-                        required=True, help='Targets File.')
+                        required=True, help='Targets File')
     group1.add_argument('-o', '--OutputName', type=str,
-                        required=True, help='Output name files.')
+                        required=True, help='Output name files')
     group1.add_argument('-ws', '--WindowSize', type=int,
                         default=common.global_dict['maxGCSize'],
                         choices=common.widowsSizePossibilities(common.global_dict['minGCSize'],common.global_dict['maxGCSize']),
                         help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: {}.'.format(common.global_dict['maxGCSize']))
     group1.add_argument('-sg', '--SyntenyGap', type=int, default=3,
-                        help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
-    group1.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
-                        default=0, help='Define the minimum Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+                        help='Number of genes allowed between two genes in synteny.\nDefault value: 3')
+    group1.add_argument('-ssc', '--SyntenyScoreCutoff', type=float,
+                        default=0.0, help='Define the minimum Synteny Score Cut off to conserved.\nDefault value: >= 0.0')
 
 
     group2 = parser.add_argument_group('logger')
@@ -566,7 +567,10 @@ if __name__ == '__main__':
     boxName = common.global_dict['boxName']['SyntenyFinder']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}/{}_nodes.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}/{}_edges.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes_json', '{}/{}_nodes.json'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges_json', '{}/{}_edges.json'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('proteins', '{}/{}_proteins.json'.format(boxName, args.OutputName))
     #######
     # Run #
     #######
-    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
+    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff)

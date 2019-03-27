@@ -31,10 +31,10 @@ def checkAndGetMetadata(metadataFileName):
                 nbHeaders = len(values)
                 for index, value in enumerate(values):
                     if value in headersMD.values():
-                        logger.error('{}: Duplicated column.'.format(value))
+                        logger.error('{}: Duplicated column'.format(value))
                         error = True
                     elif value == '':
-                        logger.error('Empty field at line of headers.')
+                        logger.error('Header column without name')
                         error = True
                     else:
                         headersMD[index] = value
@@ -42,19 +42,19 @@ def checkAndGetMetadata(metadataFileName):
                             accessionTypeIndex = index
                 for mandatorycolumn in common.global_dict['metadataMadatoryColumn']:
                     if not mandatorycolumn in headersMD.values():
-                        logger.error('Missing column, {} column is mandatory.'.format(mandatorycolumn))
+                        logger.error('Missing column, {} column is mandatory'.format(mandatorycolumn))
                         error = True
                 if error:
                     break
             else:
                 if not len(values) == nbHeaders:
-                    logger.error('At line {}: the number of columns is not egal than the number of headers.'.format(nbLines))
+                    logger.error('Line {}: a field is empty. Please fulfill the field with a {} if no value'.format(nbLines, common.global_dict['defaultValue']))
                     error = True
                     continue
                 metadata = {}
                 for index, value in enumerate(values):
                     if index == accessionTypeIndex and value not in common.global_dict['metadataAccessionAuthorized']:
-                        logger.error('At line {}: the "accession_type" must be egal to {}.'.format(nbLines,' or '.join(common.global_dict['metadataAccessionAuthorized'])))
+                        logger.error('Line {}: the "accession_type" value must be: {}'.format(nbLines,' or '.join(common.global_dict['metadataAccessionAuthorized'])))
                         error = True
                     else:
                         if headersMD[index] == 'accession_type':
@@ -65,7 +65,7 @@ def checkAndGetMetadata(metadataFileName):
                             metadata[headersMD[index]] = common.global_dict['defaultValue'] if value == '' else value
                 metadataContent[currentAccession] = metadata
     if error:
-        logger.error('Improper metadata file.')
+        logger.error('Improper metadata file')
         exit(1)
     return metadataContent, headersMD
 
@@ -95,16 +95,16 @@ def getTaxID(rank, organismIndex, organismsContent):
     for level in organismsContent[organismIndex]['lineage']:
         if level['rank'] == rank:
             return level['tax_id']
-    logger.critical('The tax_id corresponding to the rank {} is not found for the {} {} organism (index: {}).'.format(rank,
-                                                                                            organismsContent[organismIndex]['name'],
-                                                                                            organismsContent[organismIndex]['strain'],
-                                                                                            organismIndex))
+    logger.critical('Tax_id corresponding to the {} rank not found for the {} {} organism (index: {})'.format(rank,
+                                                                                                               organismsContent[organismIndex]['name'],
+                                                                                                               organismsContent[organismIndex]['strain'],
+                                                                                                               organismIndex))
+    exit(1)
 
 def getNodesToMerge(nodes, criterionType, criterion, clusteringMethod, organismsContent=None):
     '''
     Determines which nodes to merge.
     '''
-    logger = logging.getLogger('{}.{}'.format(getNodesToMerge.__module__, getNodesToMerge.__name__))
     nodesPerCriterion = {}
     for index, node in enumerate(nodes):
         if criterionType == 'taxonomic':
@@ -125,7 +125,6 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
     '''
     Merges nodes content and updates organisms content.
     '''
-    # logger = logging.getLogger('{}.{}'.format(nodes_organismsMerging.__module__, nodes_organismsMerging.__name__))
     newNodes = []
     organismIdMax = max([organism['id'] for organism in organismsContent])
     for nodes in nodesToMerge:
@@ -357,7 +356,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     if redundancyRemovalLabel or redundancyRemovalTaxonomy:
         if redundancyRemovalLabel:
             if redundancyRemovalLabel not in headersMD.values():
-                logger.error('The label for the specified metadata column is not in the metdata file.')
+                logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(headersMD.values())))
                 exit(1)
             nodesToMerge = getNodesToMerge(nodesContent, 'metadata', redundancyRemovalLabel, clusteringMethod)
         elif redundancyRemovalTaxonomy:
@@ -405,25 +404,26 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''DataExport options...''',
+                                     usage='''DataExport.py -nf <nodesFile> -ef <edgesFile> -of <organismsFile> -pf <proteinsFile> -o <OutputName>\n\
+\t\t[-mf <metadataFile>]\n\t\t[-rrl <RedundancyRemovalLabel> | -rrt <RedundancyRemovalTaxonomy> -cm <ClusteringMethod>]''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('--nodesFile', type=str,
+    group1.add_argument('-nf', '--nodesFile', type=str,
                         required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
-    group1.add_argument('--edgesFile', type=str,
+    group1.add_argument('-ef', '--edgesFile', type=str,
                         required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    group1.add_argument('--organismsFile', type=str,
+    group1.add_argument('-of', '--organismsFile', type=str,
                         required=True, help='Path of the organims file from the ClusteringIntoFamilies part')
-    group1.add_argument('--proteinsFile', type=str,
+    group1.add_argument('-pf', '--proteinsFile', type=str,
                         required=True, help='Path of the proteins file from the ClusteringIntoFamilies part')
-    group1.add_argument('--metadataFile', type=str,
-                        required=True, help='Path of the metadata file provided by the user')
-    group1.add_argument('--OutputName', type=str, required=True,
-                        help='Output name files.')
+    group1.add_argument('-o', '--OutputName', type=str, required=True,
+                        help='Output name files')
+    group1.add_argument('-mf', '--metadataFile', type=str,
+                        required=False, help='Path of the metadata file provided by the user')
 
     group2 = parser.add_argument_group('Graph Analysis settings')
-    group2.add_argument('-cm', '--ClusteringMethod', type=str, required=True,
+    group2.add_argument('-cm', '--ClusteringMethod', type=str,
                         choices=['MCL','Infomap','Louvain','WalkTrap'],
                         help='Clustering method choose in : MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group2.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
@@ -444,18 +444,20 @@ def argumentsParser():
                          nargs = '?',
                          help = 'log file (use the stderr by default)',
                          required = False )
-    return parser.parse_args()
+    return parser.parse_args(), parser
 
 if __name__ == '__main__':
     import argparse
     ######################
     # Parse command line #
     ######################
-    args = argumentsParser()
+    args, parser = argumentsParser()
     if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        args.parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options.')
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options')
+    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
+        parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
     if args.RedundancyRemovalLabel and not args.metadataFile:
-        args.parser.error('Please specify the --metadataFile option.')
+        parser.error('Please specify the --metadataFile option')
     ##########
     # Logger #
     ##########

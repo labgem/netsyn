@@ -27,19 +27,26 @@ def checkArguments(parser):
     args = parser.parse_args()
 
     if not args.UniProtACList:
-        if not args.CorrespondingFile:
-                parser.error('missing option: please specify the input option (--UniProtACList and/or --CorrespondingFile).')
+        if not args.CorrespondencesFile:
+                parser.error('missing option: please specify the input option (--UniProtACList and/or --CorrespondencesFile)')
         if args.conserveDownloadedINSDC:
-            parser.error('ambigous option: --conserveDownloadedINSDC option require of --UniProtACList option. Please specify the --UniProtACList option.')
+            parser.error('ambigous option: --conserveDownloadedINSDC option require of --UniProtACList option. Please specify the --UniProtACList option')
 
     if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options.')
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options')
 
     if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and args.ClusteringMethod == 'Multiple':
-        parser.error('The redundancy removal can\'t be comput with each clustering method. Please choise a uniq clustering method (--ClusteringMethod).')
+        parser.error('The redundancy removal can\'t be comput with each clustering method. Please choise a uniq clustering method (--ClusteringMethod)')
 
     if args.RedundancyRemovalLabel and not args.MetaDataFile:
-        parser.error('Please specify the --MetaDataFile option.')
+        parser.error('Please specify the --MetaDataFile option')
+
+    for key, value in {'Ident': args.Ident, 'MinCoverage': args.MinCoverage}.items():
+        if not (0 < value <= 1):
+            parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
+
+    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
+        parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
 
     return args
 
@@ -49,45 +56,43 @@ def argumentsParser():
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
                                      usage='netsyn -u <UniProtAC.list> -o <OutputDirName> [-md <metadataFile>, --conserveDownloadedINSDC]\n\
-       netsyn -u <UniProtAC.list> -c <CorrespondingFileName> -o <OutputDirName> [-md <metadataFile>, --conserveDownloadedINSDC]\n\
-       netsyn -c <CorrespondingFileName> -o <OutputDirName> [-md <metadataFile>]',
+       netsyn -u <UniProtAC.list> -c <CorrespondencesFileName> -o <OutputDirName> [-md <metadataFile>, --conserveDownloadedINSDC]\n\
+       netsyn -c <CorrespondencesFileName> -o <OutputDirName> [-md <metadataFile>]',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('-v', '--version', action='version', version=common.global_dict['version'])
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-u', '--UniProtACList', type=str,
-                        help='UniProt accession list input(cf: wiki).')
-    group1.add_argument('-c', '--CorrespondingFile', type=str,
-                        help='Input file of corresponding between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki).')
+                        help='UniProt accession list input(cf: wiki)')
+    group1.add_argument('-c', '--CorrespondencesFile', type=str,
+                        help='Correspondence entry file between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki)')
     group1.add_argument('-o', '--OutputDirName', type=str, required=True,
-                        help='Output directory name, used for define the project name.')
+                        help='Output directory name, used to define the project name')
     group1.add_argument('-md', '--MetaDataFile', type=str,
-                        help='File containing the metadata.')
+                        help='File containing metadata')
     group1.add_argument('-pd', '--ProjectDescription', type=str,
-                        default='No description', help='The project description.\nDefault value: No description.')
+                        default='No description', help='The project description')
     group1.add_argument('-np', '--newProject', action='store_true',
-                        help='Force the creation of a new projet. Overwrites the project of the same name.')
+                        help='Force the creation of a new projet. Overwrite the project of the same name')
     group1.add_argument('--conserveDownloadedINSDC', action='store_true',
-                        help='Conserve the dowlowded files from GetINSDC. Requieres of --UniProtACList option.')
+                        help='Conserve the downloaded files from GetINSDC. Require of --UniProtACList option')
 
     group4 = parser.add_argument_group('Clustering settings')
-    group4.add_argument('-mc', '--MinCoverage', type=float,
-                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
     group4.add_argument('-id', '--Ident', type=float,
-                        default=0.3, help='Sequence identity.\nDefault value: 0.3.')
+                        default=0.3, help='Sequence identity.\nDefault value: 0.3')
+    group4.add_argument('-mc', '--MinCoverage', type=float,
+                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group3 = parser.add_argument_group('Synteny settings')
     group3.add_argument('-ws', '--WindowSize', type=int,
                         default=common.global_dict['maxGCSize'],
-                        help='Window size of genomic contexts to compare (target gene inclued).\nDefault value: {}.'.format(common.global_dict['maxGCSize']),
+                        help='Window size of genomic contexts to compare (target gene included).\nDefault value: {}.'.format(common.global_dict['maxGCSize']),
                         choices=common.widowsSizePossibilities(common.global_dict['minGCSize'],common.global_dict['maxGCSize']))
     group3.add_argument('-sg', '--SyntenyGap', type=int, default=3,
-                        help='Number of genes allowed betwenn tow genes in synteny.\nDefault value: 3.')
-    group3.add_argument('-sf', '--SyntenyFilter', type=str, default='off',
-                        choices=['on','off'],  help='Keep synteny near target genes.\nDefault value: off.')
+                        help='Number of genes allowed between two genes in synteny.\nDefault value: 3')
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
-                        default=0, help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0.')
+                        default=0, help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0')
 
     group6 = parser.add_argument_group('Graph Analysis settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
@@ -142,14 +147,13 @@ def checkSameVersion(fileName):
     currentVersion = common.global_dict['version']
     latestVersion = getLatestVersionUsed(fileName)
     if not currentVersion == latestVersion:
-        logger.error('The previous version used ({}) are different of the current version ({}). Please, create a new project or use -np option.'.format(latestVersion,currentVersion))
+        logger.error('The project has been launched with an anterior version (version {}). Please, create a new project or use -np option to run the project with the current version {}'.format(latestVersion,currentVersion))
         exit(1)
 
 def orderDefinition(uniprotACList, correspondingFile):
     '''
     Setting the code execution order.
     '''
-    # logger = logging.getLogger(orderDefinition.__name__)
     if correspondingFile and not uniprotACList:
         order = [
             common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'],
@@ -168,7 +172,6 @@ def orderDefinition(uniprotACList, correspondingFile):
             common.global_dict['boxName']['EndNetSynAnalysis']
 
         ]
-    # logger.debug('Execution order: {}'.format(order))
     return order
 
 def saveInputFiles(inputI, inputII):
@@ -191,7 +194,7 @@ def createYamlSettingsFile(args):
     with open(common.global_dict['settingsFileName'], 'w') as outfile:
         YAML_File['General informations'] = {}
         YAML_File['General informations']['UniProtACList'] = args.UniProtACList
-        YAML_File['General informations']['CorrespondingFile'] = args.CorrespondingFile
+        YAML_File['General informations']['CorrespondencesFile'] = args.CorrespondencesFile
         YAML_File['General informations']['OutputDirName'] = args.OutputDirName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
         YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
@@ -205,7 +208,6 @@ def createYamlSettingsFile(args):
         YAML_File[ORDERBOX[3-gap]] = {}
         YAML_File[ORDERBOX[3-gap]]['WindowSize'] = args.WindowSize
         YAML_File[ORDERBOX[3-gap]]['SyntenyGap'] = args.SyntenyGap
-        YAML_File[ORDERBOX[3-gap]]['SyntenyFilter'] = args.SyntenyFilter
         YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
@@ -235,6 +237,7 @@ def getBoxToResum(args):
     detection of settings modification
     make the association with box
     '''
+    logger = logging.getLogger(getBoxToResum.__name__)
     with open(common.global_dict['settingsFileName'], 'r') as file:
         oldSettings = yaml.load(file)
     newsettings = vars(args)
@@ -255,7 +258,7 @@ def getLastBoxDone():
         with open(common.global_dict['reportFileName'], 'r') as file:
             nameBox = file.read()
         if not nameBox in ORDERBOX:
-            logger.critical('File of report wrong.')
+            logger.critical('File of report wrong')
             exit(1)
         return nameBox
     return None
@@ -284,8 +287,6 @@ def resumptionFrom(nameBoxToResum, nameBoxDone):
     '''
     global ORDERBOX
     logger = logging.getLogger(resumptionFrom.__name__)
-    logger.debug(ORDERBOX)
-    logger.debug('{} ,{}'.format(nameBoxToResum, nameBoxDone))
     if nameBoxDone:
         indexBoxDone = ORDERBOX.index(nameBoxDone)
     else:
@@ -376,25 +377,26 @@ def checkingAfterRun(boxName):
     '''
     logger = logging.getLogger(checkingAfterRun.__name__)
     pointsToCheck = common.global_dict['files']
-    if not boxName in pointsToCheck.keys():
-        logger.critical('No checkpoints for {}'.format(boxName))
+    if boxName not in pointsToCheck.keys():
+        logger.critical('No checkpoint for {}'.format(boxName))
         exit(1)
     if pointsToCheck[boxName]:
         error = False
         for fileName in pointsToCheck[boxName].keys():
             error = common.checkFilledFile(pointsToCheck[boxName][fileName], error)
         if error:
-            logger.error('Checkpoints not validated after executing of {}.'.format(boxName))
+            logger.error('Checkpoints not validated after {} execution'.format(boxName))
             exit(1)
     else:
         logger.error('Checkpoints is None for {}'.format(boxName))
         exit(1)
 
-def mergeInputsII(outputStepI, inputII, inputMergedName):
+def mergeInputsII(outputStepI, inputII, inputMergedName, inputI):
     '''
     Merges the inputI and inputII.
     Copies of insdc files of inputII into the process directory of etINSDC step.
     '''
+    logger = logging.getLogger(mergeInputsII.__name__)
     authorized_columns = common.definesAuthorizedColumns()
     mandatory_columns = common.definesMandatoryColumns()
 
@@ -409,15 +411,15 @@ def mergeInputsII(outputStepI, inputII, inputMergedName):
             row['taxon_ID'] = 'NA'
     for row in rowsII:
         if row['protein_AC'] in accessions:
-            logger.error('{}: Entry duplicated!!!!!!!!!!!!!!!!!!blabla de la provenance de la duplication.'.format(row['protein_AC']))
+            logger.error('{}: entry duplicated. A protein provided in {} is already related to this protein accession.\nPlease check redundancies between {} and {} files'.format(row['protein_AC'], inputI, outputStepI, inputII))
             errors = True
         else:
-            accessions.append(row['protein_AC'])
+            accessions.append(row['protein_AC'])   ###### ----- pas nécessaire vu que parseInputII a déjà fait le travail sur les duplicats ----- ######
             if not common.global_dict['inputIheader'] in row.keys():
                 row[common.global_dict['inputIheader']] = 'NA'
             rowsI.append(row)
     if errors:
-        logger.error('Merge of inputs failed.')
+        logger.error('Merge of inputs failed')
         exit(1)
     else:
         with open(inputMergedName, 'w') as file:
@@ -431,7 +433,7 @@ def mergeInputsII(outputStepI, inputII, inputMergedName):
                 for header, value in row.items():
                     line[headers.index(header)] = value
                 file.write('{}\n'.format('\t'.join(line)))
-    return
+    return 0
 
 def runBox(nameBox, resultsDirectory):
     '''
@@ -440,37 +442,34 @@ def runBox(nameBox, resultsDirectory):
     global args
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
-        logger = logging.getLogger('runGetINSDCFiles')
         GetINSDCFiles.run(args.UniProtACList)
     elif nameBox == 'ParseINSDCFiles_GetTaxonomy':
         logger = logging.getLogger('runParseINSDCFiles_GetTaxonomy')
-        if args.UniProtACList and args.CorrespondingFile:
+        if args.UniProtACList and args.CorrespondencesFile:
             mergeInputsII(common.global_dict['files']['GetINSDCFiles']['inputClusteringStep'],
-                                       args.CorrespondingFile,
-                                       common.global_dict['inputsMergedName'])
+                                       args.CorrespondencesFile,
+                                       common.global_dict['inputsMergedName'],
+                                       args.UniProtACList)
             inputBoxII = common.global_dict['inputsMergedName']
-        elif args.CorrespondingFile and not args.UniProtACList:
-            inputBoxII = args.CorrespondingFile
+        elif args.CorrespondencesFile and not args.UniProtACList:
+            inputBoxII = args.CorrespondencesFile
         else:
             inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
         ParseINSDCFiles_GetTaxonomy.run(inputBoxII)
         if not args.conserveDownloadedINSDC:
-            logger.info('Removing downloded files in GetINSDC step.')
+            logger.info('Removing downloded files in GetINSDC step')
             removeDownloadedINSDC()
         else:
-            logger.info('Conserving downloded files in GetINSDC step.')
+            logger.info('Conserving downloded files in GetINSDC step')
     elif nameBox == 'ClusteringIntoFamilies':
-        logger = logging.getLogger('runClusteringIntoFamilies')
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
         ClusteringIntoFamilies.run(fasta, proteins, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
-        logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
         SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
-        logger = logging.getLogger('runDataExport')
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes_json']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
@@ -507,12 +506,12 @@ if __name__ == '__main__':
     #########################
     # Dependancies checking #
     #########################
-    common.dependanciesChecking()
+    common.dependenciesChecking()
     ##############
     # Constantes #
     ##############
-    common.constantsInitialization(args.OutputDirName, args.UniProtACList, args.CorrespondingFile)
-    ORDERBOX = orderDefinition(args.UniProtACList, args.CorrespondingFile)
+    common.constantsInitialization(args.OutputDirName, args.UniProtACList, args.CorrespondencesFile)
+    ORDERBOX = orderDefinition(args.UniProtACList, args.CorrespondencesFile)
     logger.debug('ORDERBOX: {}'.format(ORDERBOX))
     ############
     # Switches #
@@ -522,6 +521,7 @@ if __name__ == '__main__':
     checkSameVersion(common.global_dict['versionFileName'])
     if not os.path.isfile(common.global_dict['settingsFileName']):
         if os.path.isdir(common.global_dict['workingDirectory']):
+            logger.error('{} already existing directory and not dedicated to NetSyn project. Please change your project name or use --newProject option'.format(common.global_dict['workingDirectory']))
             logger.error('Project name already used. Please change your project name or use --newProject.')
             exit(1)
         '''Pas de dernier setting == premiere analyse'''
@@ -530,16 +530,16 @@ if __name__ == '__main__':
         os.mkdir(common.global_dict['dataDirectory'])
         analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
-        saveInputFiles(args.UniProtACList, args.CorrespondingFile)
+        saveInputFiles(args.UniProtACList, args.CorrespondencesFile)
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
-        inputFilesModificationChecking(args.UniProtACList, args.CorrespondingFile)
+        inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
         nameBoxToResum = getBoxToResum(args)
         if nameBoxToResum == 'General informations':
-            logger.error('Already existing project. Please start a new project.')
+            logger.error('Already existing project. Please start a new project')
             exit(1)
         else:
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
@@ -562,4 +562,4 @@ if __name__ == '__main__':
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
-        logger.info('This analysis already existing.')
+        logger.info('This analysis already exists')

@@ -174,15 +174,15 @@ def argumentsParser():
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-f', '--FastaFile', type=str,
-                        required=True, help='Fasta file obtained during the previous process ParseINSDCFiles_GetTaxonomy.')
+                        required=True, help='Fasta file obtained during the previous process ParseINSDCFiles_GetTaxonomy with all proteins sequences')
     group1.add_argument('-p', '--Proteins', type=str,
-                        required=True, help='Json file obtained during the previous process ParseINSDCFiles_GetTaxonomy containing proteins information.')
+                        required=True, help='Json file obtained during the previous process ParseINSDCFiles_GetTaxonomy containing proteins information')
     group1.add_argument('-o', '--OutputName', type=str,
-                        required=True, help='Output name files.')
+                        required=True, help='Output name files')
     group1.add_argument('-id', '--Ident', type=float,
-                        default=0.3, help='Sequence identity.\nDefault value: 0.3.')
+                        default=0.3, help='Sequence identity.\nDefault value: 0.3')
     group1.add_argument('-mc', '--MinCoverage', type=float,
-                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8.')
+                        default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--log_level',
@@ -197,14 +197,17 @@ def argumentsParser():
                          nargs='?',
                          help='log file (use the stderr by default)',
                          required=False)
-    return parser.parse_args()
+    return parser.parse_args(), parser
 
 if __name__ == '__main__':
     import argparse
     ######################
     # Parse command line #
     ######################
-    args = argumentsParser()
+    args, parser = argumentsParser()
+    for key, value in {'Ident':args.Ident, 'MinCoverage':args.MinCoverage}.items():
+        if not (0 < value <= 1):
+            parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
     ##########
     # Logger #
     ##########
@@ -212,13 +215,14 @@ if __name__ == '__main__':
     #########################
     # Dependancies checking #
     #########################
-    common.dependanciesChecking()
+    common.dependenciesChecking()
     #############
     # Constants #
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}/{}_proteins_2.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2_json', '{}/{}_proteins_2.json'.format(boxName, args.OutputName))
     #######
     # Run #
     #######

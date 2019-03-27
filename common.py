@@ -45,7 +45,7 @@ def parseInputI(filename): # Fonction a deplacer dans tools ??
                 accessions.append(value)
             else:
                 error = True
-                logger.error('{}: Entry duplicated.'.format(value))
+                logger.error('{}: Entry duplicated'.format(value))
     if error:
         logger.error('Input invalidated.')
         exit(1)
@@ -57,7 +57,7 @@ def checkInputHeaders(errors, mandatory_columns, headers):
     logger = logging.getLogger('{}.{}'.format(checkInputHeaders.__module__, checkInputHeaders.__name__))
     for mandatory_column in mandatory_columns:
         if not mandatory_column in headers.values():
-            logger.error('{}: Missing column!'.format(mandatory_column))
+            logger.error('{}: Missing column'.format(mandatory_column))
             errors = True
     return errors
 
@@ -80,10 +80,10 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                     header = header.replace('\r\n', '').replace('\n', '') # header.strip() ???
                     p = re.compile(r'(?:{})'.format('|'.join(authorized_columns)))
                     if not p.search(header):
-                        logger.error('{}: Column name not valid.'.format(header))
+                        logger.error('{}: Column name not valid'.format(header))
                         errors = True
                     if header in headers.values():
-                        logger.error('{}: Duplicated column.'.format(header))
+                        logger.error('{}: Duplicated column'.format(header))
                         errors = True
                     headers[index] = header
                 errors = checkInputHeaders(errors, mandatory_columns, headers)
@@ -93,11 +93,11 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                 row = {}
                 for index, column in enumerate(line.strip().split('\t')):
                     if column == '':
-                        logger.error('Empty field: line "{}", column "{}"'.format(line_number, headers[index]))
+                        logger.error('Empty field: line {}, column "{}"'.format(line_number, headers[index]))
                         errors = True
                     elif headers[index] == proteinACHeader:
                         if column in accessions:
-                            logger.error('{}: Entry duplicated.'.format(column))
+                            logger.error('{}: duplicated entry'.format(column))
                             errors = True
                         else:
                             accessions.append(column)
@@ -107,7 +107,7 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
                     row[headers[index]] = column.replace('\r\n', '').replace('\n', '') # header.strip()
                 rows.append(row)
     if errors:
-        logger.error('Input invalidated.')
+        logger.error('Invalid input: {}'.format(fname))
         exit(1)
     return rows, list(headers.values())
 
@@ -128,14 +128,14 @@ def definesMandatoryColumns():
 def widowsSizePossibilities(minSize, maxSize):
     return range(minSize, maxSize+2, 2)
 
-def dependanciesChecking():
-    logger = logging.getLogger('{}.{}'.format(checkFilledFile.__module__, checkFilledFile.__name__))
+def dependenciesChecking():
+    logger = logging.getLogger('{}.{}'.format(dependenciesChecking.__module__, dependenciesChecking.__name__))
     try:
         devnull = open(os.devnull)
         subprocess.Popen('mmseqs', stdout=devnull, stderr=devnull).communicate()
     except OSError as e:
         if e.errno == errno.ENOENT:
-            logger.error('mmseqs not found. Please check its installation.')
+            logger.error('mmseqs not found. Please check its installation')
             exit(1)
 
 def checkFilledFile(fileName, error=False):
@@ -145,10 +145,10 @@ def checkFilledFile(fileName, error=False):
     logger = logging.getLogger('{}.{}'.format(checkFilledFile.__module__, checkFilledFile.__name__))
     if not os.path.isfile(fileName):
         error = True
-        logger.error('{} missing.'.format(fileName))
+        logger.error('{} missing'.format(fileName))
     elif os.path.getsize(fileName) == 0:
         error = True
-        logger.error('{} empty.'.format(fileName))
+        logger.error('{} empty'.format(fileName))
     return error
 
 def httpRequest(poolManager,method, url):
@@ -218,7 +218,6 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
 def write_pickle(dictionary, output):
     '''
     '''
-    #logger = logging.getLogger('{}.{}'.format(write_pickle.__module__, write_pickle.__name__))
     with open(output, 'wb') as pickleFile:
         pickle.dump(dictionary, pickleFile)
     return 0
@@ -226,7 +225,6 @@ def write_pickle(dictionary, output):
 def write_json(dictionary, output):
     '''
     '''
-    #logger = logging.getLogger('{}.{}'.format(write_json.__module__, write_json.__name__))
     with open(output, 'w') as jsonFile:
         json.dump(dictionary, jsonFile, indent=4)
     return 0
