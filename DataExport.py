@@ -140,28 +140,31 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
             newNode.setdefault(common.global_dict['inputIheader'], []).append(node[common.global_dict['inputIheader']])
             newNode.setdefault(common.global_dict['proteinACHeader'], []).append(node[common.global_dict['proteinACHeader']])
             for key, value in node['clusterings'].items():
+                value = str(value)
                 if key not in clusterings:
                     clusterings[key] = []
-                elif value not in clusterings[key]:
-                    clusterings[key].append(str(value))
-            for key, value in node['metadata'].items():
-                if key not in metadata:
-                    metadata[key] = []
-                elif value not in metadata[key]:
-                    metadata[key].append(value)
+                if value not in clusterings[key]:
+                    clusterings[key].append(value)
+            if 'metadata' in node.keys():
+                for key, value in node['metadata'].items():
+                    if key not in metadata:
+                        metadata[key] = []
+                    if value not in metadata[key]:
+                        metadata[key].append(value)
             if organismsContent[node['organism_idx']] not in organismToMerge:
                 organismToMerge.append(organismsContent[node['organism_idx']])
 
         for key, toMerge in newNode.items():
             newNode[key] = ', '.join(toMerge)
-        for key, toMerge in metadata.items():
-            metadata[key] = ', '.join(toMerge)
-        for key, toMerge in clusterings.items():
-            clusterings[key] = ', '.join(toMerge)
-        newNode['metadata'] = metadata
         newNode['oldNodes'] = oldNodes
+        if metadata != {}:
+            for key, toMerge in metadata.items():
+                metadata[key] = ', '.join(sorted(toMerge))
+            newNode['metadata'] = metadata
+        for key, toMerge in clusterings.items():
+            clusterings[key] = ', '.join(sorted(toMerge))
         newNode['clusterings'] = clusterings
-        newNode['Size'] = len(nodesToMerge)
+        newNode['Size'] = len(nodes)
 
         metaLineage = {}
         organismIdMax += 1

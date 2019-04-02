@@ -404,7 +404,6 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 if TARGET_LIST:
                     window_length = len(window)
-                    print(window_length)
 
                     if window_length >= HALF_SIZE_GC:
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
