@@ -246,7 +246,7 @@ def nodesAttributesInitialization(graph, headersMD=None):
     graph.vs['organism_name'] = []
     graph.vs['organism_strain'] = []
     graph.vs['organism_taxon_id'] = []
-    for rank in common.global_dict['desired_ranks_lneage'].keys():
+    for rank in common.global_dict['desired_ranks_lineage'].keys():
         graph.vs['lineage_{}'.format(rank)] = []
     return graph
 
@@ -333,7 +333,7 @@ def createFullGraph(allData, headersMD=None):
         graph.es[edge_index]['MMseqs_families'] = ' |-| '.join(str(fam) for fam in families)
     return graph
 
-def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultDir, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
+def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
@@ -341,6 +341,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     htmlOut = common.global_dict['files']['DataExport']['html']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -354,15 +355,24 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     proteinsContent = common.readJSON(proteinsFile)
 
     if redundancyRemovalLabel or redundancyRemovalTaxonomy:
+        logger.info('Redundancy removal processing...')
+        nodeOldsNumber = len(nodesContent)
         if redundancyRemovalLabel:
             if redundancyRemovalLabel not in headersMD.values():
                 logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(headersMD.values())))
                 exit(1)
+            reportingMessages.append('Redundancy removal settings used: label "{}", clustering method "{}"'.format(
+                redundancyRemovalLabel, clusteringMethod
+            ))
             nodesToMerge = getNodesToMerge(nodesContent, 'metadata', redundancyRemovalLabel, clusteringMethod)
         elif redundancyRemovalTaxonomy:
+            reportingMessages.append('Redundancy removal settings used: taxonomic rank "{}", clustering method "{}"'.format(
+                redundancyRemovalTaxonomy, clusteringMethod
+            ))
             nodesToMerge = getNodesToMerge(nodesContent, 'taxonomic', redundancyRemovalTaxonomy, clusteringMethod, organismsContent)
         newNodes, organismsContent = nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod)
         nodesContent, edgesContent = nodes_edgesUpdating(newNodes, nodesContent, edgesContent)
+        reportingMessages.append('Nodes merged after redundancy removal step: {}/{}'.format(len(nodesContent), nodeOldsNumber))
 
     netsynResult = {
         'nodes': nodesContent,
@@ -388,16 +398,21 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, resultD
     #     print('{}-{}:{}'.format(s,t,e))
     #####
 
+    logger.info('Output graph building...')
     if metadataFile:
         full_graph = createFullGraph(netsynResult, headersMD)
     else:
         full_graph = createFullGraph(netsynResult)
 
-    if not os.path.isdir(resultDir):
-        os.mkdir(resultDir)
+    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    if not os.path.isdir(dataDirectoryProcess):
+        os.mkdir(dataDirectoryProcess)
+
     common.write_json(netsynResult, htmlOut)
     full_graph.write_graphml(graphmlOut)
-    logger.info('{} completed!\n'.format(boxName))
+    logger.info('{} completed!'.format(boxName))
+    reportingMessages.append('Aller faut trouver un truc a mettre...'.format())
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -428,7 +443,7 @@ def argumentsParser():
                         help='Clustering method choose in : MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group2.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
-    group2.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lneage'].keys(),
+    group2.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
                         help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
 
     group3 = parser.add_argument_group('logger')
@@ -465,9 +480,11 @@ if __name__ == '__main__':
     #############
     # Constants #
     #############
+    common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['DataExport']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######
@@ -476,7 +493,6 @@ if __name__ == '__main__':
         args.organismsFile,
         args.proteinsFile,
         args.metadataFile,
-        '.',
         args.RedundancyRemovalLabel,
         args.RedundancyRemovalTaxonomy,
         args.ClusteringMethod)

@@ -122,6 +122,7 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     proteins_2_Out = common.global_dict['files'][boxName]['proteins_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -163,6 +164,21 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     common.write_pickle(prots_info, proteins_2_Out)
     common.write_json(prots_info, common.global_dict['files'][boxName]['proteins_2_json'])
     logger.info('{} completed!'.format(boxName))
+    countEachFamily = {}
+    for protein in prots_info:
+        if protein['family'] not in countEachFamily:
+            countEachFamily[protein['family']] = 1
+        else:
+            countEachFamily[protein['family']] += 1
+    countSingeton = len([1 for _, count in countEachFamily.items() if count == 1])
+    reportingMessages.append('Genomic context size processed: {}'.format(common.global_dict['maxGCSize']))
+    reportingMessages.append('Proteins number processed: {}'.format(len(prots_info)))
+    reportingMessages.append('Proteins families number: {}'.format(
+        len(countEachFamily)-countSingeton
+    ))
+    reportingMessages.append('Proteins singleton number: {}'.format(countSingeton))
+    reportingMessages.append('Proteins cluster number: {}'.format(len(countEachFamily)))
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -223,6 +239,7 @@ if __name__ == '__main__':
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}/{}_proteins_2.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2_json', '{}/{}_proteins_2.json'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######

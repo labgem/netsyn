@@ -80,18 +80,18 @@ def create_d_input(d_rows, headers_list):
         exit(1)
     return d_input
 
-def check_and_get_input(input):
-    '''
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-    -*-*-*- faire le check en même temps que la création du dico -*-*-*-
-    -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-    '''
-    authorized_columns = common.definesAuthorizedColumns()
-    mandatory_columns = common.definesMandatoryColumns()
-    d_rows, headers_list = common.parseInputII(input, authorized_columns, mandatory_columns)
-    d_input = create_d_input(d_rows, headers_list)
-    return d_input
+# def check_and_get_input(input):
+#     '''
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+#     -*-*-*- faire le check en même temps que la création du dico -*-*-*-
+#     -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+#     '''
+#     authorized_columns = common.definesAuthorizedColumns()
+#     mandatory_columns = common.definesMandatoryColumns()
+#     d_rows, headers_list = common.parseInputII(input, authorized_columns, mandatory_columns)
+#     d_input = create_d_input(d_rows, headers_list)
+#     return d_input
 
 def get_from_dbxref(aFeature, dbref):
     ''' retrieve the value from the dbxref list
@@ -404,6 +404,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 ### COM: end of the contig, let the end of the window to treat (target or not, kept or not)
                 if TARGET_LIST:
                     window_length = len(window)
+                    print(window_length)
 
                     if window_length >= HALF_SIZE_GC:
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
@@ -590,7 +591,7 @@ def get_desired_lineage(lineages):
     '''
     allDesiredLineages = {}
     for collectedTaxId, fullLineage, _ in lineages:
-        desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
+        desired_ranks = dict(common.global_dict['desired_ranks_lineage'])
         desired_lineage = []
         for scientificName in fullLineage:
             if fullLineage[scientificName]['rank'] in desired_ranks:
@@ -696,6 +697,7 @@ def run(INPUT_II):
     targets_2_Out = common.global_dict['files'][boxName]['targets_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -730,11 +732,16 @@ def run(INPUT_II):
         pass
 
     written_files = ['{}/{}'.format(dataDirectoryProcess, fileName) for fileName in os.listdir(dataDirectoryProcess)]
+    mandatory_columns = common.definesMandatoryColumns()
+    authorized_columns = common.definesAuthorizedColumns()
+    d_rows, headers_list = common.parseInputII(INPUT_II, authorized_columns, mandatory_columns)
+    readData = True
     if (proteins_1_Out or orgs_1_Out or targets_1_Out or multiFasta) not in written_files:
         prots_info = []
         targets_info = {}
         orgs_info = {}
-        d_input = check_and_get_input(INPUT_II)
+        # d_input = check_and_get_input(INPUT_II)
+        d_input = create_d_input(d_rows, headers_list)
         #tester la fonction map() de python pour appliquer une fonction sur une
         #liste
         #usage : map(myFun, myList)
@@ -753,15 +760,33 @@ def run(INPUT_II):
         orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
         targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
         common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
+        readData = False
 
-    elif (targets_2_Out or orgs_2_Out) not in written_files:
+    elif readData:
         orgs_info = common.read_pickle(orgs_1_Out)
         targets_info = common.read_pickle(targets_1_Out)
+        prots_info = common.readJSON('{}/{}'.format(dataDirectoryProcess, 'proteins_1.json'))
 
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
-        targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
+    orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
+    targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
+    common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
     logger.info('{} completed!'.format(boxName))
+    countTaxonomy = {rank: [] for rank in common.global_dict['desired_ranks_lineage'].keys()}
+    for _, organisms in orgs_info.items() :
+        for level in  organisms['lineage']:
+            if level['scientificName'] not in countTaxonomy[level['rank']]:
+                countTaxonomy[level['rank']].append(level['scientificName'])
+    for rank, values in countTaxonomy.items():
+        reportingMessages.append('Different {} number: {}'.format(
+        rank, len(values)
+    ))
+    reportingMessages.append('Proteins number extracted (targets and neighbors): {}'.format(
+        len(prots_info)
+    ))
+    reportingMessages.append('Targets number conserved at end this step: {}/{}'.format(
+            len(targets_info), len(d_rows))
+    )
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -818,6 +843,7 @@ if __name__ == '__main__':
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}/{}_proteins_1.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}/{}_targets_1.pickle'.format(boxName, args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}/{}_targets_2.pickle'.format(boxName, args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######
