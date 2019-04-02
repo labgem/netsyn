@@ -330,7 +330,7 @@ def removeDownloadedINSDC():
     Remove dolowded INSDC files from GetINSDC step.
     '''
     boxName = common.global_dict['boxName']['GetINSDCFiles']
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     filesExtension = common.global_dict['filesExtension']
     filesToRemoved = glob.glob('{}/*.{}'.format(dataDirectoryProcess, filesExtension))
     for file in filesToRemoved:
@@ -368,7 +368,7 @@ def getAnalysisNumber(outputDirName):
         with open(fileName, 'r') as file:
             number = int(file.read())
     analysisNumber = (number+1)
-    resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
+    resultsDirectory = '{}_Results_{}'.format(os.path.join(common.global_dict['workingDirectory'], outputDirName), analysisNumber)
     return (number+1), resultsDirectory
 
 def checkingAfterRun(boxName):
@@ -466,13 +466,14 @@ def runBox(nameBox, resultsDirectory):
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
         ClusteringIntoFamilies.run(fasta, proteins, args.Ident, args.MinCoverage)
     elif nameBox == 'SyntenyFinder':
+        logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
         SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
-        nodesFile = common.global_dict['files']['SyntenyFinder']['nodes_json']
-        edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
-        organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
+        nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
+        edgesFile = common.global_dict['files']['SyntenyFinder']['edges']
+        organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
         DataExport.run(nodesFile,
             edgesFile,

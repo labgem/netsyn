@@ -224,8 +224,8 @@ def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent):
             nodesIndexes[nodeToDel] = newNodeIndex
     edgesToDel = []
     for index,edge in enumerate(edgesContent):
-        edge['source'] = nodesIndexes[edge['source']]
-        edge['target'] = nodesIndexes[edge['target']]
+        edge['source'] = nodesIndexes[int(edge['source'])]
+        edge['target'] = nodesIndexes[int(edge['target'])]
         if edge['source'] == edge['target']:
             edgesToDel.append(index)
     for edgeIndex in sorted(edgesToDel, reverse=True):
@@ -266,7 +266,7 @@ def fill_node_information(node_reference, prot_in_synteny, prot_family, edges_at
 
 def get_neighbour(proteins_idx, edgesAttributes, attribute_families, allData):
     for prot_idx in proteins_idx:
-        prot_in_synt = allData['proteins'][prot_idx]
+        prot_in_synt = allData['proteins'][int(prot_idx)]
         prot_family = prot_in_synt['family']
         attribute_families = fill_node_information(attribute_families, prot_in_synt, prot_family, edgesAttributes)
     return attribute_families
@@ -304,8 +304,8 @@ def createFullGraph(allData, headersMD=None):
 
     # COM: Generate edges in a graph
     for edge in allData['edges']:
-        graph.add_edge(edge['source'], edge['target'])
-        edge_index = graph.get_eid(edge['source'], edge['target'])
+        graph.add_edge(int(edge['source']), int(edge['target']))
+        edge_index = graph.get_eid(int(edge['source']), int(edge['target']))
         graph.es[edge_index]['weight'] = edge['weight']
 
         # COM: generate a dictionnary to get all information of the proteins involved in the synteny relation between two 'targets' (source, target)

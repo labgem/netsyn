@@ -4,12 +4,11 @@
 # Import #
 ##########
 import os
-import shutil
 import logging
-import urllib3
 import gzip
 import re
 import common
+import urllib3
 
 #############
 # Functions #
@@ -54,11 +53,11 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
     logger.info('Beginning of the correspondence between the UniProt and ENA identifiers...')
     while uniprotAccessions:
         accessions = '+OR+id:'.join(uniprotAccessions[:batchesSize])
-        res = common.httpRequest(PoolManager,'GET','https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
+        res = common.httpRequest(PoolManager, 'GET', 'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
         crossReference = resultsFormat(res, crossReference)
         nbEntriesProcessed += len(uniprotAccessions[:batchesSize])
         del uniprotAccessions[:batchesSize]
-        logger.info('Correspondences computed: {}/{}'.format(nbEntriesProcessed,nbTotalEntries))
+        logger.info('Correspondences computed: {}/{}'.format(nbEntriesProcessed, nbTotalEntries))
     return crossReference
 
 def getNucleicFileName(nucleicAccession):
@@ -86,8 +85,8 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
         elif contentType == 'application/x-gzip':
             file.write(gzip.decompress(res.data).decode('utf-8'))
         else:
-          logger.critical('Unsupported content type ({}).'.format(contentType))
-          exit(1)
+            logger.critical('Unsupported content type ({}).'.format(contentType))
+            exit(1)
     logger.info('{} downloaded.'.format(nucleicFilePath))
 
 def run(InputName):
@@ -96,7 +95,7 @@ def run(InputName):
     '''
     # Constants
     boxName = common.global_dict['boxName']['GetINSDCFiles']
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     outputName = common.global_dict['files'][boxName]['inputClusteringStep']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
@@ -118,7 +117,7 @@ def run(InputName):
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
                 filesExtension = common.global_dict['filesExtension']
-                nucleicFilePath = '{}/{}.{}'.format(dataDirectoryProcess, getNucleicFileName(nucleicAccession), filesExtension)
+                nucleicFilePath = '{}.{}'.format(os.path.join(dataDirectoryProcess, getNucleicFileName(nucleicAccession)), filesExtension)
                 if not os.path.isfile(nucleicFilePath):
                     getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                 else:
@@ -153,31 +152,31 @@ def run(InputName):
 
 def argumentsParser():
     '''
-    Arguments parsing.
+    Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                 usage = '''GetINSDCFiles.py -u <UniProtAC.list> -o <OutputName>''', ######################################################################
-                                 formatter_class = argparse.RawTextHelpFormatter)
+                                     usage='''GetINSDCFiles.py -u <UniProtAC.list> -o <OutputName>''',
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-u', '--UniProtACList', type = str,
-                        required = True, help = 'Protein accession list.')
-    group1.add_argument('-o', '--OutputName', type = str,
-                        required = True, help = 'Name of corresponding file.')
+    group1.add_argument('-u', '--UniProtACList', type=str,
+                        required=True, help='Protein accession list.')
+    group1.add_argument('-o', '--OutputName', type=str,
+                        required=True, help='Name of corresponding file.')
 
     group2 = parser.add_argument_group('logger')
-    group2.add_argument( '--log_level',
-                         type = str,
-                         nargs = '?',
-                         default = 'INFO',
-                         help = 'log level',
-                         choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
-                         required = False )
-    group2.add_argument( '--log_file',
-                         type = str,
-                         nargs = '?',
-                         help = 'log file (use the stderr by default)',
-                         required = False )
+    group2.add_argument('--log_level',
+                        type=str,
+                        nargs='?',
+                        default='INFO',
+                        help='log level',
+                        choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                        required=False)
+    group2.add_argument('--log_file',
+                        type=str,
+                        nargs='?',
+                        help='log file (use the stderr by default)',
+                        required=False)
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -195,7 +194,7 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['GetINSDCFiles']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('inputClusteringStep', args.OutputName)
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('inputClusteringStep', '{}_correspondences.tsv'.format(args.OutputName))
     #######
     # Run #
     #######
