@@ -197,7 +197,6 @@ def createYamlSettingsFile(args):
         YAML_File['General informations']['CorrespondencesFile'] = args.CorrespondencesFile
         YAML_File['General informations']['OutputDirName'] = args.OutputDirName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
-        YAML_File['General informations']['MetaDataFile'] = args.MetaDataFile
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
         YAML_File[ORDERBOX[2-gap]] = {}
@@ -212,6 +211,7 @@ def createYamlSettingsFile(args):
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
 
         YAML_File[ORDERBOX[4-gap]] = {}
+        YAML_File[ORDERBOX[4-gap]]['MetaDataFile'] = args.MetaDataFile
         YAML_File[ORDERBOX[4-gap]]['ClusteringMethod'] = args.ClusteringMethod
         YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
         YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
