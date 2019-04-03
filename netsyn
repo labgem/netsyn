@@ -101,7 +101,7 @@ def argumentsParser():
                         help='Clustering method choose in : Multiple (All), MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group6.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
-    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lneage'].keys(),
+    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
                         help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
 
     group7 = parser.add_argument_group('logger')
@@ -257,7 +257,7 @@ def getLastBoxDone():
     if os.path.isfile(common.global_dict['reportFileName']):
         with open(common.global_dict['reportFileName'], 'r') as file:
             nameBox = file.read()
-        if not nameBox in ORDERBOX:
+        if not nameBox in ORDERBOX+['']:
             logger.critical('File of report wrong')
             exit(1)
         return nameBox
@@ -440,6 +440,7 @@ def runBox(nameBox, resultsDirectory):
     Running box.
     '''
     global args
+    global ORDERBOX
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
         GetINSDCFiles.run(args.UniProtACList)
@@ -480,12 +481,11 @@ def runBox(nameBox, resultsDirectory):
             organimsFile,
             proteinsFile,
             args.MetaDataFile,
-            resultsDirectory,
             args.RedundancyRemovalLabel,
             args.RedundancyRemovalTaxonomy,
             args.ClusteringMethod)
     elif nameBox == 'EndNetSynAnalysis':
-        EndNetSynAnalysis.run(resultsDirectory, analysisNumber)
+        EndNetSynAnalysis.run(resultsDirectory, analysisNumber, ORDERBOX)
     else:
         logger.critical('No execution planned for {}'.format(nameBox))
         exit(1)

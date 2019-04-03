@@ -183,7 +183,8 @@ def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
 def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
     global_dict['files'] = {
         global_dict['boxName']['GetINSDCFiles'] : {
-            'inputClusteringStep' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'], 'inputClusteringIntoFamiliesStep.tsv')
+            'inputClusteringStep' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'], 'inputClusteringIntoFamiliesStep.tsv'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'], 'report.txt')
         },
         global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'] : {
             'proteins_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'proteins_parsingStep.json'),
@@ -191,21 +192,28 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'organisms_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'organisms_taxonomyStep.json'),
             'targets_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_parsingStep.json'),
             'targets_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_taxonomyStep.json'),
-            'faa' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'MMseqs2_run.faa')
+            'faa' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'MMseqs2_run.faa'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'report.txt')
         },
         global_dict['boxName']['ClusteringIntoFamilies'] : {
-            'proteins_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'proteins_familiesStep.json')
+            'proteins_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'proteins_familiesStep.json'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'report.txt')
         },
         global_dict['boxName']['SyntenyFinder'] : {
             'nodes': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'nodes_list.json'),
             'edges': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'edges_list.json'),
-            'proteins': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'proteins_syntenyStep.json')
+            'proteins': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'proteins_syntenyStep.json'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'report.txt')
         },
         global_dict['boxName']['DataExport'] : {
-            'graphML' : '{}_Results_{}.graphML'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
-            'html' : '{}_Results_{}.html'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'graphML' : '{}_Results_{}.graphML'.format(os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport']), analysisNumber),
+            'html' : '{}_Results_{}.html'.format(os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport']), analysisNumber),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'report.txt')
         },
         global_dict['boxName']['EndNetSynAnalysis'] : {
+            'graphML': '{}_Results_{}.graphML'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'html': '{}_Results_{}.html'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'report': '{}_Report_{}.txt'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
             'settings' : '{}_Settings_{}.yaml'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber)
         }
     }
@@ -257,6 +265,27 @@ def parametersLogger(args):
         logging.basicConfig(format = logging_std_format,
                              datefmt = logging_datefmt,
                              level = log_level)
+
+def reportingFormat(logger, boxName, messages):
+    '''
+    Formats the reporting.
+    '''
+    msg = '# {} reporting #'.format(boxName)
+    contentFile = []
+    logger.info('#'*len(msg))
+    contentFile.append('#'*len(msg))
+    logger.info(msg)
+    contentFile.append(msg)
+    logger.info('#'*len(msg))
+    contentFile.append('#'*len(msg))
+    for msg in messages:
+        logger.info(msg)
+        contentFile.append(msg)
+    logger.info('#'*len(msg))
+    contentFile.append('\n')
+    with open(global_dict['files'][boxName]['report'], 'w') as file:
+        file.write('\n'.join(contentFile))
+
 #########################
 # Constantes definition #
 #########################
@@ -286,7 +315,7 @@ global_dict = {
         'nucleic_File_Format',
         'nucleic_File_Path'
     ],
-    'desired_ranks_lneage': {
+    'desired_ranks_lineage': {
         'superkingdom': 1,
         'phylum': 5,
         'class': 8,

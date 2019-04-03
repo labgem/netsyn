@@ -93,6 +93,7 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
     # Defines the proteins to delete
     proteinsIndex = [i for i in range(len(prots_info))]
     proteinsIndexInSynteny = []
+    #print(len(maxi_graph.vs['name']))
     for targetIndex in maxi_graph.vs['name']:
         for proteinIndex in targets_info[targetIndex]['context_idx']:
             if proteinIndex not in proteinsIndexInSynteny:
@@ -115,11 +116,12 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
         target_dict['context_idx'] = [str(proteinsIndex[int(i)]) for i in target_dict['context_idx']]
         new_index = str(target_dict['context_idx'][target_dict['target_pos']])
         new_targets_info.setdefault(new_index, {}).update(target_dict)
+    #print(len(new_targets_info))
 
-    # Uptades idexes in maxi_graph
+    # Uptades indexes in maxi_graph
     maxi_graph.vs['name'] = [str(proteinsIndex[int(lastIndex)]) for lastIndex in maxi_graph.vs['name']]
 
-    # Uptades idexes in new_targets_syntons
+    # Uptades indexes in new_targets_syntons
     new_targets_syntons = {}
     for (indexA, indexB), value in targets_syntons.items():
         new_targets_syntons[(str(proteinsIndex[int(indexA)]), str(proteinsIndex[int(indexB)]))] = value
@@ -128,10 +130,10 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
     for i in sorted(proteinsIndexToDel, reverse=True):
         del prots_info[i]
 
-    # Uptades idexes in prots_info[idx]['targets_idx']
+    # Uptades indexes in prots_info[idx]['targets_idx']
     for protein_idx, _ in enumerate(prots_info):
         prots_info[protein_idx]['targets_idx'] = []
-    for target_idx, target_dict in targets_info.items():
+    for target_idx, target_dict in new_targets_info.items():
         for idx in target_dict['context_idx']:
             prots_info[int(idx)]['targets_idx'].append(target_idx)
 
@@ -296,7 +298,7 @@ def build_maxi_graph(maxiG, targets_syntons, params):
     relation
     '''
     logger = logging.getLogger('{}.{}'.format(build_maxi_graph.__module__, build_maxi_graph.__name__))
-    logger.info('Synteny graph in construction')
+    logger.info('Synteny graph in construction...')
     for (targetA, targetB) in targets_syntons:
         gA = ig.Graph()
         gA.add_vertices(targets_syntons[(targetA, targetB)]['syntons'])
@@ -358,6 +360,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     protsOut = common.global_dict['files']['SyntenyFinder']['proteins']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -378,9 +381,10 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     targets_syntons = {}
     no_synteny = 0
-    logger.info('Length of the targets list: {}'.format(len(targets_info)))
+    # logger.info('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
+        logger.info('Genomic context resinzing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
         targets_info = get_userGC(targets_info, params['USER_GC'])
 
     for target, target_dict in targets_info.items():
@@ -413,10 +417,10 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
-    logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
-    logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
-    logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
-    logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+    # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
+    # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
+    # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
+    # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
 
     ### Edge-betweenness clustering
     # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
@@ -433,7 +437,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     ### Walktrap clustering
     graph_walktrap = maxi_graph.community_walktrap(weights='weight')
     walktrap_clustering = graph_walktrap.as_clustering()
-    logger.info('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
 
     for cluster in range(len(walktrap_clustering)):
         for vertex in walktrap_clustering[cluster]:
@@ -441,7 +444,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     ### Louvain clustering
     graph_louvain = maxi_graph.community_multilevel(weights='weight')
-    logger.info('NetSyn Louvain: {}'.format(graph_louvain.summary()))
 
     for cluster in range(len(graph_louvain)):
         for vertex in graph_louvain[cluster]:
@@ -469,7 +471,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
     # l'algo n'utilise pas non plus le poids des arêtes
     graph_infomap = maxi_graph.community_infomap(edge_weights='weight')
-    logger.info('NetSyn Infomap: {}'.format(graph_infomap.summary()))
 
     for cluster in range(len(graph_infomap)):
         for vertex in graph_infomap[cluster]:
@@ -482,7 +483,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
     # logger.info(graph_eigenvector) # list of VertexClustering objects
 
+    targetsNumber = len(targets_info)
+    #print(len(targets_info), len(maxi_graph.vs['name']))
     targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
+    #print(len(targets_info), len(maxi_graph.vs['name']))
+    #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
+    # print(targets_info.keys())
+    # print(maxi_graph.vs['name'])
 
     list_of_nodes = []
     for target_node in maxi_graph.vs:
@@ -538,8 +545,20 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     if os.listdir(dataDirectoryProcess) == []:
         shutil.rmtree(dataDirectoryProcess)
-    logger.info('{} completed!'.format(boxName))
 
+    logger.info('{} completed!'.format(boxName))
+    # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
+    # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
+    # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
+    # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+    reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
+        len(list_of_nodes),targetsNumber
+    ))
+    reportingMessages.append('Conserved genomic context found: {}'.format(len(list_of_edges)))
+    reportingMessages.append('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
+    reportingMessages.append('NetSyn Louvain: {}'.format(graph_louvain.summary()))
+    reportingMessages.append('NetSyn Infomap: {}'.format(graph_infomap.summary()))
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -597,9 +616,10 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('proteins', '{}_proteins.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######

@@ -78,18 +78,18 @@ def create_d_input(d_rows, headers_list):
         exit(1)
     return d_input
 
-def check_and_get_input(input):
-    '''
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-    -*-*-*- faire le check en même temps que la création du dico -*-*-*-
-    -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
-    -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-    '''
-    authorized_columns = common.definesAuthorizedColumns()
-    mandatory_columns = common.definesMandatoryColumns()
-    d_rows, headers_list = common.parseInputII(input, authorized_columns, mandatory_columns)
-    d_input = create_d_input(d_rows, headers_list)
-    return d_input
+# def check_and_get_input(input):
+#     '''
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+#     -*-*-*- faire le check en même temps que la création du dico -*-*-*-
+#     -*-*-*- revoir la liste des checks à faire -*-*-*-*-*-*-*-*-*-*-*-*-
+#     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+#     '''
+#     authorized_columns = common.definesAuthorizedColumns()
+#     mandatory_columns = common.definesMandatoryColumns()
+#     d_rows, headers_list = common.parseInputII(input, authorized_columns, mandatory_columns)
+#     d_input = create_d_input(d_rows, headers_list)
+#     return d_input
 
 def get_from_dbxref(aFeature, dbref):
     ''' retrieve the value from the dbxref list
@@ -592,7 +592,7 @@ def get_desired_lineage(lineages):
     '''
     allDesiredLineages = {}
     for collectedTaxId, fullLineage, _ in lineages:
-        desired_ranks = dict(common.global_dict['desired_ranks_lneage'])
+        desired_ranks = dict(common.global_dict['desired_ranks_lineage'])
         desired_lineage = []
         for scientificName in fullLineage:
             if fullLineage[scientificName]['rank'] in desired_ranks:
@@ -661,8 +661,8 @@ def taxonomicLineage_runner(orgs_info, dataDirectoryProcess):
     logger.info('End of taxonomic lineages research')
     for taxon in orgs_info:
         orgs_info[taxon].setdefault('lineage', []).extend(desiredLineages[taxon])
-    toprint = orgs_output_formatting(orgs_info)
-    return toprint
+    # toprint = orgs_output_formatting(orgs_info)
+    return orgs_info #toprint
 
 def get_organisms_idx(targets_info, orgs_info):
     ''' get the organism index in the organisms list
@@ -692,6 +692,7 @@ def run(INPUT_II):
     targets_2 = common.global_dict['files'][boxName]['targets_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -706,13 +707,19 @@ def run(INPUT_II):
         'INC_FILE': 0,
         }
     params['prefix'] = multiFasta.split('.')[:-1]
+    prots_info = []
+    targets_info = {}
+    orgs_info = {}
 
     written_files = [os.path.join(dataDirectoryProcess, fileName) for fileName in os.listdir(dataDirectoryProcess)]
+    mandatory_columns = common.definesMandatoryColumns()
+    authorized_columns = common.definesAuthorizedColumns()
+    d_rows, headers_list = common.parseInputII(INPUT_II, authorized_columns, mandatory_columns)
+
+    # files obtained after the parsing step
     if (proteins_1 or orgs_1 or targets_1 or multiFasta) not in written_files:
-        prots_info = []
-        targets_info = {}
-        orgs_info = {}
-        d_input = check_and_get_input(INPUT_II)
+        # d_input = check_and_get_input(INPUT_II)
+        d_input = create_d_input(d_rows, headers_list)
         #tester la fonction map() de python pour appliquer une fonction sur une
         #liste
         #usage : map(myFun, myList)
@@ -725,26 +732,44 @@ def run(INPUT_II):
         common.write_json(prots_info, proteins_1)
         common.write_json(targets_info, targets_1)
 
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess)
-        targets_info = get_organisms_idx(targets_info, orgs_info)
-        
-        common.write_json(orgs_info, orgs_2)
-        common.write_json(targets_info, targets_2)
-        
+    # files obtained after the taxonomy recovery step
     elif (targets_2 or orgs_2) not in written_files:
         orgs_info = common.readJSON(orgs_1)
         targets_info = common.readJSON(targets_1)
+        prots_info = common.readJSON(proteins_1)
 
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess)
-        targets_info = get_organisms_idx(targets_info, orgs_info)
+    print(type(orgs_info))
+    orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess)
+    print(type(orgs_info))
 
-        common.write_json(orgs_info, orgs_2)
-        common.write_json(targets_info, targets_2)
+    countTaxonomy = {rank: [] for rank in common.global_dict['desired_ranks_lineage'].keys()}
+    for _, organisms in orgs_info.items() :
+        for level in  organisms['lineage']:
+            if level['scientificName'] not in countTaxonomy[level['rank']]:
+                countTaxonomy[level['rank']].append(level['scientificName'])
+
+    orgs_info_list = orgs_output_formatting(orgs_info)
+    targets_info = get_organisms_idx(targets_info, orgs_info_list)
+    common.write_json(orgs_info_list, orgs_2)
+    common.write_json(targets_info, targets_2)
 
     if common.global_dict['dataDirectory'] == '.':
         shutil.move(multiFasta, common.global_dict['dataDirectory'])
         shutil.move(proteins_1, common.global_dict['dataDirectory'])
+
     logger.info('{} completed!'.format(boxName))
+
+    for rank, values in countTaxonomy.items():
+        reportingMessages.append('Different {} number: {}'.format(
+        rank, len(values)
+    ))
+    reportingMessages.append('Proteins number extracted (targets and neighbors): {}'.format(
+        len(prots_info)
+    ))
+    reportingMessages.append('Targets number conserved at end this step: {}/{}'.format(
+            len(targets_info), len(d_rows))
+    )
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -800,7 +825,7 @@ if __name__ == '__main__':
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_taxonomyStep.json'.format(args.OutputName))
-
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######

@@ -108,6 +108,7 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     proteins_2 = common.global_dict['files'][boxName]['proteins_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -135,6 +136,21 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
         if re.match(params['prefix'],fileName) and not fileName.endswith('.tsv'):
             os.remove(os.path.join(dataDirectoryProcess, fileName))
     logger.info('{} completed!'.format(boxName))
+    countEachFamily = {}
+    for protein in prots_info:
+        if protein['family'] not in countEachFamily:
+            countEachFamily[protein['family']] = 1
+        else:
+            countEachFamily[protein['family']] += 1
+    countSingeton = len([1 for _, count in countEachFamily.items() if count == 1])
+    reportingMessages.append('Genomic context size processed: {}'.format(common.global_dict['maxGCSize']))
+    reportingMessages.append('Proteins number processed: {}'.format(len(prots_info)))
+    reportingMessages.append('Proteins families number: {}'.format(
+        len(countEachFamily)-countSingeton
+    ))
+    reportingMessages.append('Proteins singleton number: {}'.format(countSingeton))
+    reportingMessages.append('Proteins cluster number: {}'.format(len(countEachFamily)))
+    common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
     '''
@@ -194,6 +210,7 @@ if __name__ == '__main__':
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_familiesStep.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######

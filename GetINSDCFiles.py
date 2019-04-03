@@ -99,6 +99,7 @@ def run(InputName):
     outputName = common.global_dict['files'][boxName]['inputClusteringStep']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
+    reportingMessages = []
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
@@ -110,7 +111,13 @@ def run(InputName):
     if header == common.global_dict['inputIheader']:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         http = urllib3.PoolManager()
-        crossReference = getENAidMatchingToUniProtid(accessions, 500, http)
+        crossReference = getENAidMatchingToUniProtid(list(accessions), 500, http)
+        withoutENAidNb = len(accessions)-len(crossReference)
+        reportingMessages.append('Targets without ENA correspondence number: {}/{}'.format(withoutENAidNb, len(accessions)))
+        if withoutENAidNb:
+            reportingMessages.append('Targets without ENA correspondence: {}'.format(
+                set(accessions).difference(set(crossReference.keys()))
+            ))
         outputContent = []
         logger.info('Beginning of EMBL file downloading...')
         for entry in crossReference:
@@ -140,12 +147,25 @@ def run(InputName):
                         nucleicFilePath
                     ]
             outputContent.append(toAppend)
+        withoutENAfilesNb = len(crossReference)-len(outputContent)
+        reportingMessages.append('Targets without EMBL file number: {}/{}'.format(withoutENAfilesNb, len(accessions)))
+        if withoutENAfilesNb:
+            reportingMessages.append('Targets without EMBL file: {}'.format(
+                set(crossReference.keys()).difference(set([line[0] for line in outputContent]))
+            ))
+        reportingMessages.append('EMBL files number/organisms number downloded: {}'.format(
+            len(set([line[5] for line in outputContent]))
+        ))
         with open(outputName, 'w') as file:
             file.write('{}\n'.format('\t'.join(common.global_dict['inputIIheaders'])))
             for line in ['\t'.join(values) for values in outputContent]:
                 file.write('{}\n'.format(line))
         logger.info('{} generated.'.format(outputName))
         logger.info('{} completed!'.format(boxName))
+        reportingMessages.append('Targets number conserved at end this step: {}/{}'.format(
+            len(accessions)-withoutENAidNb-withoutENAfilesNb, len(accessions))
+            )
+        common.reportingFormat(logger, boxName, reportingMessages)
     else:
         logger.error('Input header unrecognized.')
         exit(1)
@@ -195,6 +215,7 @@ if __name__ == '__main__':
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['GetINSDCFiles']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('inputClusteringStep', '{}_correspondences.tsv'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
     #######
     # Run #
     #######
