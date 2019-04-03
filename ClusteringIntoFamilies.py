@@ -112,15 +112,20 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
-    if not os.path.isdir(dataDirectoryProcess):
-        os.mkdir(dataDirectoryProcess)
-
     params = {
         'min_id': str(IDENT),
         'cov_mode': str(1),
         'min_coverage': str(COVERAGE)
         }
     params['prefix'] = '.'.join(os.path.basename(FASTA_FILE).split('.')[:-1])
+
+    if not os.path.isdir(dataDirectoryProcess):
+        os.mkdir(dataDirectoryProcess)
+    elif 'MMseqsTMP/' in os.listdir(dataDirectoryProcess):
+        shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
+        for fileName in os.listdir(dataDirectoryProcess):
+            if (re.match(params['prefix'],fileName) and not fileName.endswith('.tsv')):
+                os.remove(os.path.join(dataDirectoryProcess, fileName))
 
     mmseqs_createdb(dataDirectoryProcess, FASTA_FILE, params['prefix'])
     mmseqs_clustering(dataDirectoryProcess, params)
@@ -210,7 +215,7 @@ if __name__ == '__main__':
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_familiesStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

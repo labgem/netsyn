@@ -215,7 +215,7 @@ if __name__ == '__main__':
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['GetINSDCFiles']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('inputClusteringStep', '{}_correspondences.tsv'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

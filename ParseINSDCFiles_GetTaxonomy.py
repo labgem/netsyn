@@ -738,10 +738,7 @@ def run(INPUT_II):
         targets_info = common.readJSON(targets_1)
         prots_info = common.readJSON(proteins_1)
 
-    print(type(orgs_info))
     orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess)
-    print(type(orgs_info))
-
     countTaxonomy = {rank: [] for rank in common.global_dict['desired_ranks_lineage'].keys()}
     for _, organisms in orgs_info.items() :
         for level in  organisms['lineage']:
@@ -825,7 +822,7 @@ if __name__ == '__main__':
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_taxonomyStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

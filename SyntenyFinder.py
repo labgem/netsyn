@@ -619,7 +619,7 @@ if __name__ == '__main__':
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

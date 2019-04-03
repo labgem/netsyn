@@ -487,7 +487,7 @@ if __name__ == '__main__':
     boxName = common.global_dict['boxName']['DataExport']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######
