@@ -14,67 +14,51 @@ import logging
 # Functions #
 #############
 
-def mmseqs_createdb(dataDirectoryProcess, multiFasta, prefix):
+def removeUselessFiles(dataDirectoryProcess):
+    for fileName in os.listdir(dataDirectoryProcess):
+        if not (fileName.endswith('.tsv') or fileName.endswith('.log')):
+            os.remove(os.path.join(dataDirectoryProcess, fileName))
+
+def mmseqs_createdb(dataDirectoryProcess, multiFasta):
     ''' create database using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
+    dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
-        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, '{}.{}'.format(os.path.join(dataDirectoryProcess, prefix), 'DB')], stdout=file, stderr=file, check=True)
-        logger.info('createdb - exit code: {}'.format(db_creation.returncode))
-    return 0
+        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
+        logger.info('Createdb completed')
 
 def mmseqs_clustering(dataDirectoryProcess, params):
     ''' cluster sequences using the mmseqs software
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
     mmseqsTMPdirectory = os.path.join(dataDirectoryProcess, 'MMseqsTMP')
-    if os.path.isdir(mmseqsTMPdirectory):
-        shutil.rmtree(mmseqsTMPdirectory)
     os.mkdir(mmseqsTMPdirectory)
-    prefix = params['prefix']
-    dataBase_name = '.'.join([prefix, 'DB'])
-    dataBase_path = os.path.join(dataDirectoryProcess, dataBase_name)
-    suffixCluster = 'cluster'
-    outputCluster_name = '.'.join([prefix, 'cluster'])
-    outputCluster_path = os.path.join(dataDirectoryProcess, outputCluster_name)
+    dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
+    cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
         clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase_path,
-                                         outputCluster_path, mmseqsTMPdirectory,
+                                         cluster_path, mmseqsTMPdirectory,
                                          '--min-seq-id', params['min_id'],
                                          '--cov-mode', params['cov_mode'],
                                          '-c', params['min_coverage'],
-                                         '--cluster-mode', str(2),
-                                         '--kmer-per-seq', str(80),
-                                         '--max-seqs', str(300)
+                                         '--cluster-mode', '2',
+                                         '--kmer-per-seq', '80',
+                                         '--max-seqs', '300'
                                          ], stdout=file, stderr=file, check=True)
-        logger.info('clustering - exit code: {}'.format(clust_creation.returncode))
-    return 0
+        logger.info('Clustering completed')
 
-def mmseqs_createTSV(dataDirectoryProcess, prefix):
+def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     ''' execute the mmseqs command line 'mmseqs createtsv'
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
-    inputDB_name = '.'.join([prefix, 'DB'])
-    inputCluster_name = '.'.join([prefix, 'cluster'])
-    outputTSV_name = '.'.join([prefix, 'tsv'])
-    inputDB_path = os.path.join(dataDirectoryProcess, inputDB_name)
-    inputCluster_path = os.path.join(dataDirectoryProcess, inputCluster_name)
-    outputTSV_path = os.path.join(dataDirectoryProcess, outputTSV_name)
+    dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
+    cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
-        tsv_creation = subprocess.run(['mmseqs', 'createtsv', inputDB_path,
-                                       inputDB_path, inputCluster_path, outputTSV_path
+        tsv_creation = subprocess.run(['mmseqs', 'createtsv', dataBase_path,
+                                       dataBase_path, cluster_path, outputTSV_path
                                        ], stdout=file, stderr=file, check=True)
-        logger.info('createTSV - exit code: {}'.format(tsv_creation.returncode))
-    return 0
-
-def mmseqs_runner(params, dataDirectoryProcess, multiFasta):
-    ''' runs the mmseqs2 software on the multiFasta file 'ALL.faa'
-    '''
-    logger = logging.getLogger('{}.{}'.format(mmseqs_runner.__module__, mmseqs_runner.__name__))
-    logger.info('MMseqs2 running ...')
-
-    logger.info('End of MMseqs2 running !')
-    return 0
+        logger.info('CreateTSV completed')
 
 def regroup_families(tsv_file, prots_info):
     ''' create a dictionary to store families obtained by MMseqs2
@@ -105,6 +89,7 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
     dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     # Outputs
+    families = common.global_dict['files'][boxName]['families']
     proteins_2 = common.global_dict['files'][boxName]['proteins_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
@@ -117,36 +102,33 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
         'cov_mode': str(1),
         'min_coverage': str(COVERAGE)
         }
-    params['prefix'] = '.'.join(os.path.basename(FASTA_FILE).split('.')[:-1])
 
     if not os.path.isdir(dataDirectoryProcess):
         os.mkdir(dataDirectoryProcess)
-    elif 'MMseqsTMP/' in os.listdir(dataDirectoryProcess):
-        shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
-        for fileName in os.listdir(dataDirectoryProcess):
-            if (re.match(params['prefix'],fileName) and not fileName.endswith('.tsv')):
-                os.remove(os.path.join(dataDirectoryProcess, fileName))
+    else:
+        if 'MMseqsTMP' in os.listdir(dataDirectoryProcess):
+            shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
+        removeUselessFiles(dataDirectoryProcess)
 
-    mmseqs_createdb(dataDirectoryProcess, FASTA_FILE, params['prefix'])
+    mmseqs_createdb(dataDirectoryProcess, FASTA_FILE)
     mmseqs_clustering(dataDirectoryProcess, params)
-    mmseqs_createTSV(dataDirectoryProcess, params['prefix'])
-
+    mmseqs_createTSV(dataDirectoryProcess, families)
     shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
+    removeUselessFiles(dataDirectoryProcess)
 
     prots_info = common.readJSON(PROTEINS)
-    prots_info = regroup_families(os.path.join(dataDirectoryProcess, '.'.join([params["prefix"], 'tsv'])), prots_info)
-
+    prots_info = regroup_families(families, prots_info)
     common.write_json(prots_info, proteins_2)
-    for fileName in os.listdir(dataDirectoryProcess):
-        if re.match(params['prefix'],fileName) and not fileName.endswith('.tsv'):
-            os.remove(os.path.join(dataDirectoryProcess, fileName))
+
     logger.info('{} completed!'.format(boxName))
+
     countEachFamily = {}
     for protein in prots_info:
         if protein['family'] not in countEachFamily:
             countEachFamily[protein['family']] = 1
         else:
             countEachFamily[protein['family']] += 1
+
     countSingeton = len([1 for _, count in countEachFamily.items() if count == 1])
     reportingMessages.append('Genomic context size processed: {}'.format(common.global_dict['maxGCSize']))
     reportingMessages.append('Proteins number processed: {}'.format(len(prots_info)))

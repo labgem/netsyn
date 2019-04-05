@@ -192,11 +192,12 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'organisms_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'organisms_taxonomyStep.json'),
             'targets_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_parsingStep.json'),
             'targets_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_taxonomyStep.json'),
-            'faa' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'MMseqs2_run.faa'),
+            'faa' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'multifasta.faa'),
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'report.txt')
         },
         global_dict['boxName']['ClusteringIntoFamilies'] : {
             'proteins_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'proteins_familiesStep.json'),
+            'families' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'families.tsv'),
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'report.txt')
         },
         global_dict['boxName']['SyntenyFinder'] : {

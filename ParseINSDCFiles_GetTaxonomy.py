@@ -706,7 +706,6 @@ def run(INPUT_II):
         'INC_CDS_REF': 0,
         'INC_FILE': 0,
         }
-    params['prefix'] = multiFasta.split('.')[:-1]
     prots_info = []
     targets_info = {}
     orgs_info = {}

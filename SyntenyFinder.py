@@ -201,17 +201,13 @@ def evaluate_proximity(syntons, graph, gapValue, look_at):
             graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
     return 0
 
-def get_connected_components(graph, synton_of_targets, gapValue, mode='A'):
+def get_connected_components(graph, synton_of_targets, gapValue, look_at):
     ''' get the connected component of the A/B graph containing the
     'synton_of_targets'
     input: A or B graph, gapValue and the mode that allows which part of
     nodes(syntons) to look at (graph A/B -> look at index 0/1 of nodes)
     output: iGraph VertexClustering object with the 'synton_of_targets'
     '''
-    if mode == 'A':
-        look_at = 0
-    else:
-        look_at = 1
     sorted_syntons = sorted(graph.vs['name'], key=lambda synton: synton[look_at])
     evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
     ccs = graph.components()
@@ -262,8 +258,8 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
     '''
     synton_of_targets = AB_targets_syntons['synton_of_targets']
     boolean_synton_of_targets = AB_targets_syntons['boolean_targets_synton']
-    ccA = get_connected_components(gA, synton_of_targets, params['GAP'])
-    ccB = get_connected_components(gB, synton_of_targets, params['GAP'], mode='B')
+    ccA = get_connected_components(gA, synton_of_targets, params['GAP'], look_at=0)
+    ccB = get_connected_components(gB, synton_of_targets, params['GAP'], look_at=1)
     itrsect = list(set(ccA) & set(ccB))
     if (len(itrsect) >= 2 and boolean_synton_of_targets) or (not boolean_synton_of_targets and len(itrsect) >= 3):
         if ccA == ccB == itrsect:
