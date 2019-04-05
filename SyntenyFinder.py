@@ -9,6 +9,8 @@ import logging
 import math
 import igraph as ig
 import shutil
+import markov_clustering as mc
+import networkx as nx
 import common
 
 #############
@@ -483,6 +485,18 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
     # logger.info(graph_eigenvector) # list of VertexClustering objects
 
+    nxGraph = nx.Graph()
+    names = maxi_graph.vs['name']
+    nxGraph.add_nodes_from(names)
+    nxGraph.add_edges_from([(names[x[0]], names[x[1]]) for x in maxi_graph.get_edgelist()])
+
+    matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph)
+    result = mc.run_mcl(matrix_adjacency)
+    clusters = mc.get_clusters(result)
+    for cluster in range(len(clusters)):
+        for vertex in clusters[cluster]:
+            maxi_graph.vs[vertex]['cluster_MCL'] = cluster
+
     targetsNumber = len(targets_info)
     #print(len(targets_info), len(maxi_graph.vs['name']))
     targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
@@ -506,11 +520,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
                 'organism_id': targets_info[target_idx]['organism_id'],
                 'organism_idx': targets_info[target_idx]['organism_idx'],
                 'clusterings': {'WalkTrap':
-                                   maxi_graph.vs[target_node.index]['cluster_WT'],
-                               'Louvain':
-                                   maxi_graph.vs[target_node.index]['cluster_Louvain'],
-                               'Infomap':
-                                   maxi_graph.vs[target_node.index]['cluster_Infomap']
+                                    maxi_graph.vs[target_node.index]['cluster_WT'],
+                                'Louvain':
+                                    maxi_graph.vs[target_node.index]['cluster_Louvain'],
+                                'Infomap':
+                                    maxi_graph.vs[target_node.index]['cluster_Infomap'],
+                                'MCL':
+                                    maxi_graph.vs[target_node.index]['cluster_MCL']
                                },
                 'families': list(set(targets_info[target_idx]['families'])),
                 'Size': 1
@@ -558,6 +574,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     reportingMessages.append('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
     reportingMessages.append('NetSyn Louvain: {}'.format(graph_louvain.summary()))
     reportingMessages.append('NetSyn Infomap: {}'.format(graph_infomap.summary()))
+    reportingMessages.append('NetSyn MCL: Clustering with {} elements and {} clusters'.format(len([item for subCluster in clusters for item in subCluster]), len(clusters)))
     common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
