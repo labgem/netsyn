@@ -481,14 +481,25 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
     # logger.info(graph_eigenvector) # list of VertexClustering objects
 
+    ### Markov Cluster Algorithm (MCL Clustering)
     nxGraph = nx.Graph()
     names = maxi_graph.vs['name']
     nxGraph.add_nodes_from(names)
-    nxGraph.add_edges_from([(names[x[0]], names[x[1]]) for x in maxi_graph.get_edgelist()])
+    nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(x[0],x[1])]['weight']) for x in maxi_graph.get_edgelist()])
 
-    matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph)
-    result = mc.run_mcl(matrix_adjacency)
+    matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
+
+    # # A tester sur d'autres jeux de données pour voir l'évolution des paramètres inflation et expansion
+    # for inflation in [i/10 for i in range(15,26)]:
+    #     for expansion in [j for j in range(2,11)]:
+    #         result = mc.run_mcl(matrix_adjacency, inflation=inflation, expansion=expansion)
+    #         clusters = mc.get_clusters(result)
+    #         Q = mc.modularity(matrix=result, clusters=clusters)
+    #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
+
+    result = mc.run_mcl(matrix_adjacency, inflation=2, expansion=2, iterations=1000)
     clusters = mc.get_clusters(result)
+
     for cluster in range(len(clusters)):
         for vertex in clusters[cluster]:
             maxi_graph.vs[vertex]['cluster_MCL'] = cluster
