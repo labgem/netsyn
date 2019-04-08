@@ -199,7 +199,7 @@ def evaluate_proximity(syntons, graph, gapValue, look_at):
         synton2 = syntons[idx+1]
         if synton2[look_at]-synton1[look_at] <= gapValue+1:
             graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
-    return 0
+    return graph
 
 def get_connected_components(graph, synton_of_targets, gapValue, look_at):
     ''' get the connected component of the A/B graph containing the
@@ -209,7 +209,7 @@ def get_connected_components(graph, synton_of_targets, gapValue, look_at):
     output: iGraph VertexClustering object with the 'synton_of_targets'
     '''
     sorted_syntons = sorted(graph.vs['name'], key=lambda synton: synton[look_at])
-    evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
+    graph = evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
     ccs = graph.components()
     for component_connexe in ccs:
         if synton_of_targets in graph.vs[component_connexe]['name']:
@@ -283,7 +283,7 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             gA = ig.Graph()
             gA.add_vertices(gA_memory.vs[itrsect]['name'])
             gB = gA.copy()
-            find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
+            maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
     else:
         params['INC_NO_SYNTENY'] += 1
     return maxiG, params
@@ -631,7 +631,7 @@ if __name__ == '__main__':
     boxName = common.global_dict['boxName']['SyntenyFinder']
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins_syntenyStep.json'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
