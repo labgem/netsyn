@@ -179,9 +179,15 @@ def saveInputFiles(inputI, inputII):
     Saves the input files.
     '''
     if inputI:
-        shutil.copyfile(inputI, common.global_dict['uniprotACListSaved'])
+        if not common.checkFilledFile(inputI):
+            shutil.copyfile(inputI, common.global_dict['uniprotACListSaved'])
+        else:
+            exit(1)
     if inputII:
-        shutil.copyfile(inputII, common.global_dict['correspondingFileSaved'])
+         if not common.checkFilledFile(inputII):
+            shutil.copyfile(inputII, common.global_dict['correspondingFileSaved'])
+         else:
+            exit(1)
 
 
 def createYamlSettingsFile(args):

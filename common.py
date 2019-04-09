@@ -70,6 +70,9 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
     errors = False
     rows = []
     line_number = 0
+    if checkFilledFile(fname):
+        logger.error('Please make sure that {} file is in the appropriate repertory'.format(fname))
+        exit(1)
     with open(fname, 'r') as file:
         accessions = []
         for line in file:

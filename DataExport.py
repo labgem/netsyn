@@ -350,8 +350,12 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     # Process
     nodesContent = common.readJSON(nodesFile)
     if metadataFile:
-        metadataContent, headersMD = checkAndGetMetadata(metadataFile)
-        nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
+        if not common.checkFilledFile(metadataFile):
+            metadataContent, headersMD = checkAndGetMetadata(metadataFile)
+            nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
+        else:
+            logger.error('Please make sure that {} file is in the appropriate repertory'.format(metadataFile))
+            exit(1)
 
     edgesContent = common.readJSON(edgesFile)
     organismsContent = common.readJSON(organismsFile)
