@@ -463,11 +463,12 @@ def runBox(nameBox, resultsDirectory):
         else:
             inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
         ParseINSDCFiles_GetTaxonomy.run(inputBoxII)
-        if not args.conserveDownloadedINSDC:
-            logger.info('Removing downloded files in GetINSDC step')
-            removeDownloadedINSDC()
-        else:
-            logger.info('Conserving downloded files in GetINSDC step')
+        if 'GetINSDCFiles' in ORDERBOX:
+            if not args.conserveDownloadedINSDC:
+                logger.info('Removing downloded files in GetINSDC step')
+                removeDownloadedINSDC()
+            else:
+                logger.info('Conserving downloded files in GetINSDC step')
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
