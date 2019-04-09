@@ -382,7 +382,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # logger.info('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
-        logger.info('Genomic context resinzing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
+        logger.info('Genomic context resizing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
         targets_info = get_userGC(targets_info, params['USER_GC'])
 
     for target, target_dict in targets_info.items():
@@ -574,6 +574,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
     # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
     # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+    reportingMessages.append('Genomic context size: {}'.format(GCUSER))
     reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
         len(list_of_nodes),targetsNumber
     ))
