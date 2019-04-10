@@ -244,15 +244,18 @@ def getBoxToResum(args):
     make the association with box
     '''
     logger = logging.getLogger(getBoxToResum.__name__)
+    boxToResume = None
     with open(common.global_dict['settingsFileName'], 'r') as file:
         oldSettings = yaml.load(file)
     newsettings = vars(args)
     for boxKey in oldSettings:
         for parameterKey in oldSettings[boxKey]:
             if not newsettings[parameterKey] == oldSettings[boxKey][parameterKey]:
-                logger.debug('New settings detected')
-                return boxKey
-    return None
+                if not boxToResume:
+                    logger.info('New settings detected')
+                    boxToResume = boxKey
+                logger.info('New parameter for {}: {} -> {}'.format(parameterKey, oldSettings[boxKey][parameterKey], newsettings[parameterKey]))
+    return boxToResume
 
 def getLastBoxDone():
     '''
@@ -518,6 +521,7 @@ if __name__ == '__main__':
     ##############
     # Constantes #
     ##############
+    args.OutputDirName = args.OutputDirName.strip('/')
     common.constantsInitialization(args.OutputDirName, args.UniProtACList, args.CorrespondencesFile)
     ORDERBOX = orderDefinition(args.UniProtACList, args.CorrespondencesFile)
     logger.debug('ORDERBOX: {}'.format(ORDERBOX))
@@ -538,7 +542,11 @@ if __name__ == '__main__':
         os.mkdir(common.global_dict['dataDirectory'])
         analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
-        saveInputFiles(args.UniProtACList, args.CorrespondencesFile)
+        try:
+            saveInputFiles(args.UniProtACList, args.CorrespondencesFile)
+        except:
+            shutil.rmtree(common.global_dict['workingDirectory'])
+            exit(1)
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
         nameBoxDone = None
