@@ -210,8 +210,8 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'report.txt')
         },
         global_dict['boxName']['DataExport'] : {
-            'graphML' : '{}_Results_{}.graphML'.format(os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport']), analysisNumber),
-            'html' : '{}_Results_{}.html'.format(os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport']), analysisNumber),
+            'graphML': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'Results.graphML'),
+            'html': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'Results.html'),
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'report.txt')
         },
         global_dict['boxName']['EndNetSynAnalysis'] : {
