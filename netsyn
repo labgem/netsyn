@@ -28,15 +28,18 @@ def checkArguments(parser):
 
     if not args.UniProtACList:
         if not args.CorrespondencesFile:
-                parser.error('missing option: please specify the input option (--UniProtACList and/or --CorrespondencesFile)')
+                parser.error('missing option: please specify the input option (-u/--UniProtACList and/or -c/--CorrespondencesFile)')
         if args.conserveDownloadedINSDC:
-            parser.error('ambigous option: --conserveDownloadedINSDC option require of --UniProtACList option. Please specify the --UniProtACList option')
+            parser.error('ambigous option: --conserveDownloadedINSDC option requires -u/--UniProtACList option. Please specify the -u/--UniProtACList option')
 
     if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options')
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choose one of two options')
 
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and args.ClusteringMethod == 'Multiple':
-        parser.error('The redundancy removal can\'t be comput with each clustering method. Please choise a uniq clustering method (--ClusteringMethod)')
+    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
+        parser.error('The redundancy removal functionality can\'t be computed with every clustering method. Please choose a unique clustering method (-cm/--ClusteringMethod)')
+
+    if args.ClusteringMethod and not (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy):
+        parser.error('The selection of a clustering algorithm is available only when redundancy removal is enabled (see section Redundancy Removal settings: netsyn -h/--help)')
 
     if args.RedundancyRemovalLabel and not args.MetaDataFile:
         parser.error('Please specify the --MetaDataFile option')
@@ -44,9 +47,6 @@ def checkArguments(parser):
     for key, value in {'Ident': args.Ident, 'MinCoverage': args.MinCoverage}.items():
         if not (0 < value <= 1):
             parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
-
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
-        parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
 
     return args
 
@@ -94,11 +94,11 @@ def argumentsParser():
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
                         default=0, help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0')
 
-    group6 = parser.add_argument_group('Graph Analysis settings')
+    group6 = parser.add_argument_group('Redundancy Removal settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
-                        choices=['Multiple','MCL','Infomap','Louvain','WalkTrap'],
-                        default='Multiple',
-                        help='Clustering method choose in : Multiple (All), MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
+                        choices=['MCL','Infomap','Louvain','WalkTrap'],
+                        default=None,
+                        help='Clustering method choices: MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group6.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
     group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),

@@ -335,6 +335,14 @@ global_dict = {
     'metadataAccessionAuthorized': [
         inputIheader,
         proteinACHeader
+    ],
+    'graphML_edgesAttributes': [
+        'protein_AC',
+        'products',
+        'ec_numbers',
+        'UniProt_AC',
+        'gene_names',
+        'locus_tag'
     ]
 }
 
