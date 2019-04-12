@@ -81,7 +81,7 @@ def regroup_families(tsv_file, prots_info):
         prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
     return prots_info
 
-def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
+def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE):
     ''' main script to run the second box of NetSyn2
     '''
     # Constants
@@ -98,7 +98,7 @@ def run(FASTA_FILE, PROTEINS, IDENT, COVERAGE):
     logger.info('{} running...'.format(boxName))
     # Process
     params = {
-        'min_id': str(IDENT),
+        'min_id': str(IDENTITY),
         'cov_mode': str(1),
         'min_coverage': str(COVERAGE)
         }
@@ -154,9 +154,9 @@ def argumentsParser():
                         required=True, help='Json file obtained during the previous process ParseINSDCFiles_GetTaxonomy containing proteins information')
     group1.add_argument('-o', '--OutputName', type=str,
                         required=True, help='Output name files')
-    group1.add_argument('-id', '--Ident', type=float,
+    group1.add_argument('-id', '--Identity', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
-    group1.add_argument('-mc', '--MinCoverage', type=float,
+    group1.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group2 = parser.add_argument_group('logger')
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     # Parse command line #
     ######################
     args, parser = argumentsParser()
-    for key, value in {'Ident':args.Ident, 'MinCoverage':args.MinCoverage}.items():
+    for key, value in {'Identity':args.Identity, 'Coverage':args.Coverage}.items():
         if not (0 < value <= 1):
             parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
     ##########
@@ -202,4 +202,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.FastaFile, args.Proteins, args.Ident, args.MinCoverage)
+    run(args.FastaFile, args.Proteins, args.Identity, args.Coverage)

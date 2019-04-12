@@ -44,7 +44,7 @@ def checkArguments(parser):
     if args.RedundancyRemovalLabel and not args.MetaDataFile:
         parser.error('Please specify the --MetaDataFile option')
 
-    for key, value in {'Ident': args.Ident, 'MinCoverage': args.MinCoverage}.items():
+    for key, value in {'Identity': args.Identity, 'Coverage': args.Coverage}.items():
         if not (0 < value <= 1):
             parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
 
@@ -79,9 +79,9 @@ def argumentsParser():
                         help='Conserve the downloaded files from GetINSDC. Require of --UniProtACList option')
 
     group4 = parser.add_argument_group('Clustering settings')
-    group4.add_argument('-id', '--Ident', type=float,
+    group4.add_argument('-id', '--Identity', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
-    group4.add_argument('-mc', '--MinCoverage', type=float,
+    group4.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group3 = parser.add_argument_group('Synteny settings')
@@ -206,8 +206,8 @@ def createYamlSettingsFile(args):
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
         YAML_File[ORDERBOX[2-gap]] = {}
-        YAML_File[ORDERBOX[2-gap]]['MinCoverage'] = args.MinCoverage
-        YAML_File[ORDERBOX[2-gap]]['Ident'] = args.Ident
+        YAML_File[ORDERBOX[2-gap]]['Coverage'] = args.Coverage
+        YAML_File[ORDERBOX[2-gap]]['Identity'] = args.Identity
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2-gap])
 
         YAML_File[ORDERBOX[3-gap]] = {}
@@ -475,7 +475,7 @@ def runBox(nameBox, resultsDirectory):
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
-        ClusteringIntoFamilies.run(fasta, proteins, args.Ident, args.MinCoverage)
+        ClusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
