@@ -326,7 +326,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 CONTIG_LIST.remove(contig_name)
                 params['INC_TARGET_LOADED'] = 0
                 TARGET_LIST = d_infile[contig_name]['protein_AC_list']
-                UniProt_AC_list = d_infile[contig_name]['UniProt_AC_list']
+                UniProt_AC_list = d_infile[contig_name]['UniProt_AC_list'] if 'UniProt_AC_list' in d_infile[contig_name] else None
                 cds_to_keep = []
                 window = []
                 logger.debug('Target list for contig {}: {}'.format(contig_name, TARGET_LIST))
@@ -368,10 +368,13 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
                                     index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
-                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
-                                    del UniProt_AC_list[index_protein_AC]
+                                    if UniProt_AC_list != None:
+                                        corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                        del UniProt_AC_list[index_protein_AC]
+                                    else:
+                                        corresponding_UniProt_AC = 'NA'
                                     presumed_target_index = str(prots_info.index(prots_info[-(HALF_SIZE_GC+1)]))
                                     prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                     orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
@@ -392,10 +395,13 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
                                     index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
-                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
-                                    del UniProt_AC_list[index_protein_AC]
+                                    if UniProt_AC_list != None:
+                                        corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                        del UniProt_AC_list[index_protein_AC]
+                                    else:
+                                        corresponding_UniProt_AC = 'NA'
                                     presumed_target_index = str(prots_info.index(prots_info[-(HALF_SIZE_GC+1)]))
                                     prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                     orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
@@ -411,10 +417,13 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
                             if prots_info[-HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-HALF_SIZE_GC+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
                                 presumed_target_index = str(prots_info.index(prots_info[-HALF_SIZE_GC+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
@@ -422,10 +431,13 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
                             if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
                                 presumed_target_index = str(prots_info.index(prots_info[-window_length+HALF_SIZE_GC+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
@@ -443,10 +455,13 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window):
                             if prots_info[-window_length+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-window_length+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
                                 presumed_target_index = str(prots_info.index(prots_info[-window_length+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
