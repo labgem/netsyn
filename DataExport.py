@@ -344,7 +344,10 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         nodeOldsNumber = len(nodesContent)
         if redundancyRemovalLabel:
             if redundancyRemovalLabel not in headersMD.values():
-                logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(headersMD.values())))
+                logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(set(headersMD.values())-set(common.global_dict['metadataMadatoryColumn']))))
+                exit(1)
+            elif redundancyRemovalLabel in common.global_dict['metadataMadatoryColumn']:
+                logger.error('The label {} is not considered as a metadata label. Please choose another label from: {}'.format(redundancyRemovalLabel, ', '.join(set(headersMD.values())-set(common.global_dict['metadataMadatoryColumn']))))
                 exit(1)
             reportingMessages.append('Redundancy removal settings used: label "{}", clustering method "{}"'.format(
                 redundancyRemovalLabel, clusteringMethod
