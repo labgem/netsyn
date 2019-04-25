@@ -306,7 +306,12 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
             for attr_name, attr in node_information.items(): # attr_name = one after the other value of edgesAttibutes
                 complete_value = []
                 families = list(attr.keys())
-                families.sort()
+                if common.global_dict['defaultValue'] in families:
+                    families.remove(common.global_dict['defaultValue'])
+                    families.sort()
+                    families.append(common.global_dict['defaultValue'])
+                else:
+                    families.sort()
                 for afam in families:
                     glued_content = ' ~~ '.join(attr[afam])
                     complete_value.append(glued_content)
