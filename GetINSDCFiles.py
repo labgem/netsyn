@@ -111,7 +111,7 @@ def run(InputName):
     if header == common.global_dict['inputIheader']:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         http = urllib3.PoolManager()
-        crossReference = getENAidMatchingToUniProtid(list(accessions), 500, http)
+        crossReference = getENAidMatchingToUniProtid(list(accessions), 250, http)
         withoutENAidNb = len(accessions)-len(crossReference)
         reportingMessages.append('Targets without ENA correspondence number: {}/{}'.format(withoutENAidNb, len(accessions)))
         if withoutENAidNb:
@@ -130,7 +130,7 @@ def run(InputName):
                 else:
                     logger.info('{} already existing.'.format(nucleicFilePath))
                 with open(nucleicFilePath, 'r') as file:
-                    m = re.match(r'^ID .*; (?P<length>[0-9]+) BP\.', file.read())
+                    m = re.search(r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
                     if m:
                         assemblyLength = int(m.group('length'))
                     else:
