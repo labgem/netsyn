@@ -28,25 +28,25 @@ def checkArguments(parser):
 
     if not args.UniProtACList:
         if not args.CorrespondencesFile:
-                parser.error('missing option: please specify the input option (--UniProtACList and/or --CorrespondencesFile)')
+                parser.error('missing option: please specify the input option (-u/--UniProtACList and/or -c/--CorrespondencesFile)')
         if args.conserveDownloadedINSDC:
-            parser.error('ambigous option: --conserveDownloadedINSDC option require of --UniProtACList option. Please specify the --UniProtACList option')
+            parser.error('ambigous option: --conserveDownloadedINSDC option requires -u/--UniProtACList option. Please specify the -u/--UniProtACList option')
 
     if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options')
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choose one of two options')
 
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and args.ClusteringMethod == 'Multiple':
-        parser.error('The redundancy removal can\'t be comput with each clustering method. Please choise a uniq clustering method (--ClusteringMethod)')
+    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
+        parser.error('The redundancy removal functionality can\'t be computed with every clustering method. Please choose a unique clustering method (-cm/--ClusteringMethod)')
+
+    if args.ClusteringMethod and not (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy):
+        parser.error('The selection of a clustering algorithm is available only when redundancy removal is enabled (see section Redundancy Removal settings: netsyn -h/--help)')
 
     if args.RedundancyRemovalLabel and not args.MetaDataFile:
         parser.error('Please specify the --MetaDataFile option')
 
-    for key, value in {'Ident': args.Ident, 'MinCoverage': args.MinCoverage}.items():
+    for key, value in {'Identity': args.Identity, 'Coverage': args.Coverage}.items():
         if not (0 < value <= 1):
             parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
-
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
-        parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
 
     return args
 
@@ -79,9 +79,9 @@ def argumentsParser():
                         help='Conserve the downloaded files from GetINSDC. Require of --UniProtACList option')
 
     group4 = parser.add_argument_group('Clustering settings')
-    group4.add_argument('-id', '--Ident', type=float,
+    group4.add_argument('-id', '--Identity', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
-    group4.add_argument('-mc', '--MinCoverage', type=float,
+    group4.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group3 = parser.add_argument_group('Synteny settings')
@@ -94,11 +94,11 @@ def argumentsParser():
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
                         default=0, help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0')
 
-    group6 = parser.add_argument_group('Graph Analysis settings')
+    group6 = parser.add_argument_group('Redundancy Removal settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
-                        choices=['Multiple','MCL','Infomap','Louvain','WalkTrap'],
-                        default='Multiple',
-                        help='Clustering method choose in : Multiple (All), MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
+                        choices=['MCL','Infomap','Louvain','WalkTrap'],
+                        default=None,
+                        help='Clustering method choices: MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group6.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
     group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
@@ -179,9 +179,15 @@ def saveInputFiles(inputI, inputII):
     Saves the input files.
     '''
     if inputI:
-        shutil.copyfile(inputI, common.global_dict['uniprotACListSaved'])
+        if not common.checkFilledFile(inputI):
+            shutil.copyfile(inputI, common.global_dict['uniprotACListSaved'])
+        else:
+            exit(1)
     if inputII:
-        shutil.copyfile(inputII, common.global_dict['correspondingFileSaved'])
+         if not common.checkFilledFile(inputII):
+            shutil.copyfile(inputII, common.global_dict['correspondingFileSaved'])
+         else:
+            exit(1)
 
 
 def createYamlSettingsFile(args):
@@ -200,8 +206,8 @@ def createYamlSettingsFile(args):
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
         YAML_File[ORDERBOX[2-gap]] = {}
-        YAML_File[ORDERBOX[2-gap]]['MinCoverage'] = args.MinCoverage
-        YAML_File[ORDERBOX[2-gap]]['Ident'] = args.Ident
+        YAML_File[ORDERBOX[2-gap]]['Coverage'] = args.Coverage
+        YAML_File[ORDERBOX[2-gap]]['Identity'] = args.Identity
         YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2-gap])
 
         YAML_File[ORDERBOX[3-gap]] = {}
@@ -238,15 +244,18 @@ def getBoxToResum(args):
     make the association with box
     '''
     logger = logging.getLogger(getBoxToResum.__name__)
+    boxToResume = None
     with open(common.global_dict['settingsFileName'], 'r') as file:
         oldSettings = yaml.load(file)
     newsettings = vars(args)
     for boxKey in oldSettings:
         for parameterKey in oldSettings[boxKey]:
             if not newsettings[parameterKey] == oldSettings[boxKey][parameterKey]:
-                logger.debug('New settings detected')
-                return boxKey
-    return None
+                if not boxToResume:
+                    logger.info('New settings detected')
+                    boxToResume = boxKey
+                logger.info('New parameter for {}: {} -> {}'.format(parameterKey, oldSettings[boxKey][parameterKey], newsettings[parameterKey]))
+    return boxToResume
 
 def getLastBoxDone():
     '''
@@ -330,7 +339,7 @@ def removeDownloadedINSDC():
     Remove dolowded INSDC files from GetINSDC step.
     '''
     boxName = common.global_dict['boxName']['GetINSDCFiles']
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     filesExtension = common.global_dict['filesExtension']
     filesToRemoved = glob.glob('{}/*.{}'.format(dataDirectoryProcess, filesExtension))
     for file in filesToRemoved:
@@ -368,7 +377,7 @@ def getAnalysisNumber(outputDirName):
         with open(fileName, 'r') as file:
             number = int(file.read())
     analysisNumber = (number+1)
-    resultsDirectory = '{}/{}_Results_{}'.format(common.global_dict['workingDirectory'], outputDirName, analysisNumber)
+    resultsDirectory = '{}_Results_{}'.format(os.path.join(common.global_dict['workingDirectory'], outputDirName), analysisNumber)
     return (number+1), resultsDirectory
 
 def checkingAfterRun(boxName):
@@ -457,23 +466,25 @@ def runBox(nameBox, resultsDirectory):
         else:
             inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
         ParseINSDCFiles_GetTaxonomy.run(inputBoxII)
-        if not args.conserveDownloadedINSDC:
-            logger.info('Removing downloded files in GetINSDC step')
-            removeDownloadedINSDC()
-        else:
-            logger.info('Conserving downloded files in GetINSDC step')
+        if 'GetINSDCFiles' in ORDERBOX:
+            if not args.conserveDownloadedINSDC:
+                logger.info('Removing downloded files in GetINSDC step')
+                removeDownloadedINSDC()
+            else:
+                logger.info('Conserving downloded files in GetINSDC step')
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
-        ClusteringIntoFamilies.run(fasta, proteins, args.Ident, args.MinCoverage)
+        ClusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage)
     elif nameBox == 'SyntenyFinder':
+        logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
         SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
     elif nameBox == 'DataExport':
-        nodesFile = common.global_dict['files']['SyntenyFinder']['nodes_json']
-        edgesFile = common.global_dict['files']['SyntenyFinder']['edges_json']
-        organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2_json']
+        nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
+        edgesFile = common.global_dict['files']['SyntenyFinder']['edges']
+        organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
         DataExport.run(nodesFile,
             edgesFile,
@@ -510,6 +521,7 @@ if __name__ == '__main__':
     ##############
     # Constantes #
     ##############
+    args.OutputDirName = args.OutputDirName.strip('/')
     common.constantsInitialization(args.OutputDirName, args.UniProtACList, args.CorrespondencesFile)
     ORDERBOX = orderDefinition(args.UniProtACList, args.CorrespondencesFile)
     logger.debug('ORDERBOX: {}'.format(ORDERBOX))
@@ -530,7 +542,11 @@ if __name__ == '__main__':
         os.mkdir(common.global_dict['dataDirectory'])
         analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
-        saveInputFiles(args.UniProtACList, args.CorrespondencesFile)
+        try:
+            saveInputFiles(args.UniProtACList, args.CorrespondencesFile)
+        except:
+            shutil.rmtree(common.global_dict['workingDirectory'])
+            exit(1)
         runFromBox = ORDERBOX[0]
         nameBoxToResum = None
         nameBoxDone = None

@@ -3,7 +3,6 @@
 ##########
 import __main__ as namespace
 import json
-import pickle
 import os
 import logging
 import urllib3
@@ -71,6 +70,9 @@ def parseInputII(fname, authorized_columns, mandatory_columns):
     errors = False
     rows = []
     line_number = 0
+    if checkFilledFile(fname):
+        logger.error('Please make sure that {} file is in the appropriate repertory'.format(fname))
+        exit(1)
     with open(fname, 'r') as file:
         accessions = []
         for line in file:
@@ -170,65 +172,55 @@ def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
     Calling from netsyn or BoxManager modules.
     '''
     global_dict['workingDirectory'] = outputDirName
-    global_dict['dataDirectory'] = '{}/data'.format(outputDirName)
-    global_dict['inputsMergedName'] = '{}/inputsMerged.tsv'.format(outputDirName)
-    global_dict['settingsFileName'] = '{}/{}'.format(outputDirName, '.lastSettings.yml')
-    global_dict['reportFileName'] = '{}/{}'.format(outputDirName, '.report')
-    global_dict['versionFileName'] = '{}/{}'.format(outputDirName, '.version')
-    global_dict['lastAnalysisNumber'] = '{}/{}'.format(outputDirName, '.lastAnalysisNumber')
+    global_dict['dataDirectory'] = os.path.join(outputDirName, 'data')
+    global_dict['inputsMergedName'] = os.path.join(outputDirName, 'inputsMerged.tsv')
+    global_dict['settingsFileName'] = os.path.join(outputDirName, '.lastSettings.yml')
+    global_dict['reportFileName'] = os.path.join(outputDirName, '.report')
+    global_dict['versionFileName'] = os.path.join(outputDirName, '.version')
+    global_dict['lastAnalysisNumber'] = os.path.join(outputDirName, '.lastAnalysisNumber')
     if uniprotACList:
-        global_dict['uniprotACListSaved'] = '{}/{}'.format(outputDirName, os.path.basename(uniprotACList))
+        global_dict['uniprotACListSaved'] = os.path.join(outputDirName, os.path.basename(uniprotACList))
     if correspondingFile:
-        global_dict['correspondingFileSaved'] = '{}/{}'.format(outputDirName, os.path.basename(correspondingFile))
+        global_dict['correspondingFileSaved'] = os.path.join(outputDirName, os.path.basename(correspondingFile))
 
 def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
     global_dict['files'] = {
-        global_dict['boxName']['GetINSDCFiles']: {
-            'inputClusteringStep': '{}/{}/inputClusteringIntoFamiliesStep.tsv'.format(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles']),
-            'report': '{}/{}/report.txt'.format(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'])
+        global_dict['boxName']['GetINSDCFiles'] : {
+            'inputClusteringStep' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'], 'inputClusteringIntoFamiliesStep.tsv'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['GetINSDCFiles'], 'report.txt')
         },
-        global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']: {
-            'proteins_1': '{}/{}/proteins_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'organisms_1': '{}/{}/organisms_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'organisms_2': '{}/{}/organisms_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'targets_1': '{}/{}/targets_1.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'targets_2': '{}/{}/targets_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'faa': '{}/{}/MMseqs2_run.faa'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'organisms_2_json': '{}/{}/organisms_2.json'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']),
-            'report': '{}/{}/report.txt'.format(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'])
+        global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'] : {
+            'proteins_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'proteins_parsingStep.json'),
+            'organisms_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'organisms_parsingStep.json'),
+            'organisms_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'organisms_taxonomyStep.json'),
+            'targets_1' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_parsingStep.json'),
+            'targets_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'targets_taxonomyStep.json'),
+            'faa' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'multifasta.faa'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ParseINSDCFiles_GetTaxonomy'], 'report.txt')
         },
-        global_dict['boxName']['ClusteringIntoFamilies']: {
-            'proteins_2': '{}/{}/proteins_2.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'proteins_2_json': '{}/{}/proteins_2.json'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies']),
-            'report': '{}/{}/report.txt'.format(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'])
+        global_dict['boxName']['ClusteringIntoFamilies'] : {
+            'proteins_2' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'proteins_familiesStep.json'),
+            'families' : os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'families.tsv'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['ClusteringIntoFamilies'], 'report.txt')
         },
-        global_dict['boxName']['SyntenyFinder']: {
-            'nodes': '{}/{}/nodes_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'edges': '{}/{}/edges_list.pickle'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'nodes_json': '{}/{}/nodes_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'edges_json': '{}/{}/edges_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'proteins': '{}/{}/proteins_list.json'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder']),
-            'report': '{}/{}/report.txt'.format(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'])
+        global_dict['boxName']['SyntenyFinder'] : {
+            'nodes': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'nodes_list.json'),
+            'edges': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'edges_list.json'),
+            'proteins': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'proteins_syntenyStep.json'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'report.txt')
         },
-        global_dict['boxName']['DataExport']: {
-            'graphML': '{}/{}/Results.graphML'.format(global_dict['dataDirectory'], global_dict['boxName']['DataExport']),
-            'html': '{}/{}/Results.html'.format(global_dict['dataDirectory'], global_dict['boxName']['DataExport']),
-            'report': '{}/{}/report.txt'.format(global_dict['dataDirectory'], global_dict['boxName']['DataExport'])
+        global_dict['boxName']['DataExport'] : {
+            'graphML': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'Results.graphML'),
+            'html': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'Results.html'),
+            'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'report.txt')
         },
         global_dict['boxName']['EndNetSynAnalysis'] : {
-            'graphML': '{}/{}_Results_{}.graphML'.format(resultsDirectory, outputDirName, analysisNumber),
-            'html': '{}/{}_Results_{}.html'.format(resultsDirectory, outputDirName, analysisNumber),
-            'report': '{}/{}_Report_{}.txt'.format(resultsDirectory, outputDirName, analysisNumber),
-            'settings' : '{}/{}_Settings_{}.yaml'.format(resultsDirectory, outputDirName, analysisNumber)
+            'graphML': '{}_Results_{}.graphML'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'html': '{}_Results_{}.html'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'report': '{}_Report_{}.txt'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber),
+            'settings' : '{}_Settings_{}.yaml'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber)
         }
     }
-
-def write_pickle(dictionary, output):
-    '''
-    '''
-    with open(output, 'wb') as pickleFile:
-        pickle.dump(dictionary, pickleFile)
-    return 0
 
 def write_json(dictionary, output):
     '''
@@ -236,12 +228,6 @@ def write_json(dictionary, output):
     with open(output, 'w') as jsonFile:
         json.dump(dictionary, jsonFile, indent=4)
     return 0
-
-def read_pickle(input):
-    '''
-    '''
-    with open(input, 'rb') as file:
-        return pickle.load(file)
 
 def readJSON(nameFile):
     '''
@@ -349,6 +335,14 @@ global_dict = {
     'metadataAccessionAuthorized': [
         inputIheader,
         proteinACHeader
+    ],
+    'graphML_edgesAttributes': [
+        'protein_AC',
+        'products',
+        'ec_numbers',
+        'UniProt_AC',
+        'gene_names',
+        'locus_tag'
     ]
 }
 

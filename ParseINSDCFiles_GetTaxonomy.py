@@ -3,17 +3,15 @@
 ##########
 # Import #
 ##########
-import common
 import re
-import sys
 import os
 import math
 import shutil
 import xml.etree.ElementTree as ET
-import subprocess
 import urllib3
 import logging
 from Bio import SeqIO
+import common
 #############
 # Functions #
 #############
@@ -191,7 +189,7 @@ def get_pseudo_info(aFeature, sequences, window, params):
     begin, end = aFeature.location.start.real+1, aFeature.location.end.real
 
     feature_info = {
-        'id': INC_CDS_REF,
+        'id': str(INC_CDS_REF),
         'protein_AC': pseudo_id,
         'begin': begin,
         'end': end,
@@ -201,8 +199,8 @@ def get_pseudo_info(aFeature, sequences, window, params):
         'targets_idx': []
         }
 
-    sequences[INC_CDS_REF] = get_uniq_value(aFeature, 'translation')
-    window.append(INC_CDS_REF)
+    sequences[str(INC_CDS_REF)] = get_uniq_value(aFeature, 'translation')
+    window.append(str(INC_CDS_REF))
     return feature_info, sequences, window, params
 
 def get_prot_info(aFeature, sequences, window, proteinField, params):
@@ -218,7 +216,7 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
     begin, end = aFeature.location.start.real+1, aFeature.location.end.real
 
     feature_info = {
-        'id': INC_CDS_REF,
+        'id': str(INC_CDS_REF),
         'protein_AC': ident,
         'begin': begin,
         'end': end,
@@ -232,8 +230,8 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
         'targets_idx': []
         }
 
-    sequences[INC_CDS_REF] = get_required_value(get_uniq_value, aFeature, 'translation')
-    window.append(INC_CDS_REF)
+    sequences[str(INC_CDS_REF)] = get_required_value(get_uniq_value, aFeature, 'translation')
+    window.append(str(INC_CDS_REF))
     return feature_info, sequences, window, params
 
 def set_target_to_gc(ref_target, target_idx, gcList, prots_info):
@@ -263,24 +261,24 @@ def found_target_procedure(target, target_idx, prots_info, targets_info, cds_to_
     prots_info, context_idx = set_target_to_gc(target, target_idx, window, prots_info)
 
     if UniProt_AC != 'NA':
-        if prots_info[target_idx]['UniProt_AC'] == common.global_dict['defaultValue']:
-            prots_info[target_idx]['UniProt_AC'] = UniProt_AC
-        elif UniProt_AC != prots_info[target_idx]['UniProt_AC']:
-            logger.warning('The UniProt accession provided in the input file {} is not consistent with the one contained in the INSDC file {}\nThe priority is given to the one provided by the user'.format(UniProt_AC, prots_info[target_idx]['UniProt_AC']))
-            prots_info[target_idx]['UniProt_AC'] = UniProt_AC
+        if prots_info[int(target_idx)]['UniProt_AC'] == common.global_dict['defaultValue']:
+            prots_info[int(target_idx)]['UniProt_AC'] = UniProt_AC
+        elif UniProt_AC != prots_info[int(target_idx)]['UniProt_AC']:
+            logger.warning('The UniProt accession provided in the input file {} is not consistent with the one contained in the INSDC file {}\nThe priority is given to the one provided by the user'.format(UniProt_AC, prots_info[int(target_idx)]['UniProt_AC']))
+            prots_info[int(target_idx)]['UniProt_AC'] = UniProt_AC
     else:
-        UniProt_AC = prots_info[target_idx]['UniProt_AC']
+        UniProt_AC = prots_info[int(target_idx)]['UniProt_AC']
 
     targets_info[target_idx] = {
         'id': target,
         'organism_id': org_id,
-        'context': window.copy(),
-        'context_idx': context_idx,
+        'context': [str(inc) for inc  in window.copy()],
+        'context_idx': [str(index) for index in context_idx],
         'UniProt_AC': UniProt_AC,
-        'protein_AC': prots_info[target_idx]['protein_AC']
+        'protein_AC': prots_info[int(target_idx)]['protein_AC']
         }
-    logger.debug('target ({}/{})\t- window: {}'.format(target, prots_info[target_idx]['protein_AC'], window))
-    logger.debug('target ({}/{})\t- cds_to_keep: {}'.format(target, prots_info[target_idx]['protein_AC'], cds_to_keep))
+    logger.debug('target ({}/{})\t- window: {}'.format(target, prots_info[int(target_idx)]['protein_AC'], window))
+    logger.debug('target ({}/{})\t- cds_to_keep: {}'.format(target, prots_info[int(target_idx)]['protein_AC'], cds_to_keep))
     return prots_info, targets_info, cds_to_keep
 
 def is_useless_cds(cds, cds_to_keep):
@@ -328,7 +326,7 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                 CONTIG_LIST.remove(contig_name)
                 params['INC_TARGET_LOADED'] = 0
                 TARGET_LIST = d_infile[contig_name]['protein_AC_list']
-                UniProt_AC_list = d_infile[contig_name]['UniProt_AC_list']
+                UniProt_AC_list = d_infile[contig_name]['UniProt_AC_list'] if 'UniProt_AC_list' in d_infile[contig_name] else None
                 cds_to_keep = []
                 window = []
                 logger.debug('Target list for contig {}: {}'.format(contig_name, TARGET_LIST))
@@ -370,11 +368,14 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
                                     index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
-                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
-                                    del UniProt_AC_list[index_protein_AC]
-                                    presumed_target_index = prots_info.index(prots_info[-(HALF_SIZE_GC+1)])
+                                    if UniProt_AC_list != None:
+                                        corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                        del UniProt_AC_list[index_protein_AC]
+                                    else:
+                                        corresponding_UniProt_AC = 'NA'
+                                    presumed_target_index = str(prots_info.index(prots_info[-(HALF_SIZE_GC+1)]))
                                     prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                     orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
                                 if cds_to_keep:
@@ -382,6 +383,10 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                                         del sequences[prots_info[-MAX_GC]['id']]
                                         del prots_info[-MAX_GC]
                                 else:
+                                    # print(sequences)
+                                    # print(len(sequences))
+                                    # print(prots_info[-MAX_GC])
+                                    # print(prots_info[-MAX_GC]['id'])
                                     del sequences[prots_info[-MAX_GC]['id']]
                                     del prots_info[-MAX_GC]
                                 del window[0]
@@ -390,11 +395,14 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
 
                                 if prots_info[-(HALF_SIZE_GC+1)]['protein_AC'] in TARGET_LIST:
                                     index_protein_AC = TARGET_LIST.index(prots_info[-(HALF_SIZE_GC+1)]['protein_AC'])
-                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                     params['INC_TARGET_LOADED'] += 1
                                     del TARGET_LIST[index_protein_AC]
-                                    del UniProt_AC_list[index_protein_AC]
-                                    presumed_target_index = prots_info.index(prots_info[-(HALF_SIZE_GC+1)])
+                                    if UniProt_AC_list != None:
+                                        corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                        del UniProt_AC_list[index_protein_AC]
+                                    else:
+                                        corresponding_UniProt_AC = 'NA'
+                                    presumed_target_index = str(prots_info.index(prots_info[-(HALF_SIZE_GC+1)]))
                                     prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                     orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
@@ -409,22 +417,28 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window[window_length-HALF_SIZE_GC:HALF_SIZE_GC]):
                             if prots_info[-HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-HALF_SIZE_GC+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
-                                presumed_target_index = prots_info.index(prots_info[-HALF_SIZE_GC+idx])
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
+                                presumed_target_index = str(prots_info.index(prots_info[-HALF_SIZE_GC+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
                         for idx, presumed_target in enumerate(window[HALF_SIZE_GC:]):
                             if prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-window_length+HALF_SIZE_GC+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
-                                presumed_target_index = prots_info.index(prots_info[-window_length+HALF_SIZE_GC+idx])
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
+                                presumed_target_index = str(prots_info.index(prots_info[-window_length+HALF_SIZE_GC+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
@@ -441,11 +455,14 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
                         for idx, presumed_target in enumerate(window):
                             if prots_info[-window_length+idx]['protein_AC'] in TARGET_LIST:
                                 index_protein_AC = TARGET_LIST.index(prots_info[-window_length+idx]['protein_AC'])
-                                corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
                                 params['INC_TARGET_LOADED'] += 1
                                 del TARGET_LIST[index_protein_AC]
-                                del UniProt_AC_list[index_protein_AC]
-                                presumed_target_index = prots_info.index(prots_info[-window_length+idx])
+                                if UniProt_AC_list != None:
+                                    corresponding_UniProt_AC = UniProt_AC_list[index_protein_AC]
+                                    del UniProt_AC_list[index_protein_AC]
+                                else:
+                                    corresponding_UniProt_AC = 'NA'
+                                presumed_target_index = str(prots_info.index(prots_info[-window_length+idx]))
                                 prots_info, targets_info, cds_to_keep = found_target_procedure(presumed_target, presumed_target_index, prots_info, targets_info, cds_to_keep, window, params['INC_FILE'], corresponding_UniProt_AC)
                                 orgs_info[taxon_ID]['organisms'][-1].setdefault('targets_idx', []).append(presumed_target_index)
 
@@ -509,9 +526,9 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
             if taxon.find('Rank').text:
                 rank = root.find('Taxon').find('Rank').text
             fullLineage[scientificName] = {
-                                    'rank' : rank,
-                                    'taxId' : collectedTaxId
-                                    }
+                'rank' : rank,
+                'taxId' : collectedTaxId
+                }
             for subTaxon in taxon.find('LineageEx').findall('Taxon'):
                 taxId = subTaxon.find('TaxId').text
                 scientificName = subTaxon.find('ScientificName').text
@@ -519,9 +536,9 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
                 if subTaxon.find('Rank').text:
                     rank = subTaxon.find('Rank').text
                 fullLineage[scientificName] = {
-                                    'rank' : rank,
-                                    'taxId' : taxId
-                                    }
+                    'rank' : rank,
+                    'taxId' : taxId
+                    }
             oldTaxonIDs = []
             if taxon.find('AkaTaxIds'):
                 for ataxon in taxon.find('AkaTaxIds').findall('TaxId'):
@@ -632,7 +649,7 @@ def get_taxonomicLineage(taxonIDs, dataDirectoryProcess, orgs_info):
         del taxonIDs[:batchesSize]
     return all_lineages, orgs_info
 
-def orgs_output_formatting(orgs_info, taxoOut):
+def orgs_output_formatting(orgs_info):
     ''' modify the structure of orgs_info dictionary to edit it in a correct format
     '''
     toprint = []
@@ -647,10 +664,9 @@ def orgs_output_formatting(orgs_info, taxoOut):
                 'lineage': list(taxon_content['lineage'])
                 }
             toprint.append(one_organism)
-    common.write_pickle(toprint, taxoOut)
     return toprint
 
-def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json):
+def taxonomicLineage_runner(orgs_info, dataDirectoryProcess):
     ''' get all taxonomic lineages of taxon ids represented in the analysis
     '''
     logger = logging.getLogger('{}.{}'.format(taxonomicLineage_runner.__module__, taxonomicLineage_runner.__name__))
@@ -660,22 +676,19 @@ def taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_
     logger.info('End of taxonomic lineages research')
     for taxon in orgs_info:
         orgs_info[taxon].setdefault('lineage', []).extend(desiredLineages[taxon])
-    toprint = orgs_output_formatting(orgs_info, orgs_2_Out)
-    common.write_json(toprint, orgs_2_json)
-    return orgs_info
+    # toprint = orgs_output_formatting(orgs_info)
+    return orgs_info #toprint
 
-def get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out):
+def get_organisms_idx(targets_info, orgs_info):
     ''' get the organism index in the organisms list
     input: edited file containing all organisms information
     output: targets_info dictionary updated with a new field 'organism_idx'
     '''
-    orgs = common.read_pickle(orgs_2_Out)
-    for idx, organism in enumerate(orgs):
+    for idx, organism in enumerate(orgs_info):
         for target_idx in organism['targets_idx']:
-            targets_info[target_idx].update({
+            targets_info[str(target_idx)].update({
                     'organism_idx': idx
                     })
-    common.write_pickle(targets_info, targets_2_Out)
     return targets_info
 
 def run(INPUT_II):
@@ -684,16 +697,14 @@ def run(INPUT_II):
     # Constants
     # common.constantsInitialiszation(args.ProjectName, args.InputFile) # depends on how the function is launched (by hand or via netsyn)
     boxName = common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     # Outputs
     multiFasta = common.global_dict['files'][boxName]['faa']
-    proteins_1_Out = common.global_dict['files'][boxName]['proteins_1']
-    #proteins_2_Out = common.global_dict['files'][boxName]['proteins_2']
-    orgs_1_Out = common.global_dict['files'][boxName]['organisms_1']
-    orgs_2_Out = common.global_dict['files'][boxName]['organisms_2']
-    orgs_2_json = common.global_dict['files'][boxName]['organisms_2_json']
-    targets_1_Out = common.global_dict['files'][boxName]['targets_1']
-    targets_2_Out = common.global_dict['files'][boxName]['targets_2']
+    proteins_1 = common.global_dict['files'][boxName]['proteins_1']
+    orgs_1 = common.global_dict['files'][boxName]['organisms_1']
+    orgs_2 = common.global_dict['files'][boxName]['organisms_2']
+    targets_1 = common.global_dict['files'][boxName]['targets_1']
+    targets_2 = common.global_dict['files'][boxName]['targets_2']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     reportingMessages = []
@@ -710,35 +721,17 @@ def run(INPUT_II):
         'INC_CDS_REF': 0,
         'INC_FILE': 0,
         }
-    params['prefix'] = multiFasta.split('.')[:-1]
+    prots_info = []
+    targets_info = {}
+    orgs_info = {}
 
-    # MMseq2 files removing (inclure dans netsyn lors nouvelle analyse ?)
-    try:
-        os.remove('{}.{}'.format(params['prefix'], 'cluster'))
-    except:
-        pass
-    try:
-        os.remove('{}.{}'.format(params['prefix'], 'cluster.index'))
-    except:
-        pass
-    try:
-        os.remove('{}.{}'.format(params['prefix'], 'tsv'))
-    except:
-        pass
-    try:
-        os.remove('{}/{}'.format(dataDirectoryProcess, 'mmseqs_createtsv.log'))
-    except:
-        pass
-
-    written_files = ['{}/{}'.format(dataDirectoryProcess, fileName) for fileName in os.listdir(dataDirectoryProcess)]
+    written_files = [os.path.join(dataDirectoryProcess, fileName) for fileName in os.listdir(dataDirectoryProcess)]
     mandatory_columns = common.definesMandatoryColumns()
     authorized_columns = common.definesAuthorizedColumns()
     d_rows, headers_list = common.parseInputII(INPUT_II, authorized_columns, mandatory_columns)
-    readData = True
-    if (proteins_1_Out or orgs_1_Out or targets_1_Out or multiFasta) not in written_files:
-        prots_info = []
-        targets_info = {}
-        orgs_info = {}
+
+    # files obtained after the parsing step
+    if (proteins_1 or orgs_1 or targets_1 or multiFasta) not in written_files:
         # d_input = check_and_get_input(INPUT_II)
         d_input = create_d_input(d_rows, headers_list)
         #tester la fonction map() de python pour appliquer une fonction sur une
@@ -747,34 +740,36 @@ def run(INPUT_II):
         logger.info('INSDC files parsing ...')
         prots_info, targets_info, orgs_info, sequences, params = parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params)
         logger.info('End of INSDC files parsing !')
+
         write_multiFasta(sequences, multiFasta, prots_info)
+        common.write_json(orgs_info, orgs_1)
+        common.write_json(prots_info, proteins_1)
+        common.write_json(targets_info, targets_1)
 
-        common.write_pickle(orgs_info, orgs_1_Out)
-        common.write_json(orgs_info, '{}/{}'.format(dataDirectoryProcess, 'organisms_1.json'))
-        common.write_pickle(prots_info, proteins_1_Out)
-        common.write_json(prots_info, '{}/{}'.format(dataDirectoryProcess, 'proteins_1.json'))
-        common.write_pickle(targets_info, targets_1_Out)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_1.json'))
+    # files obtained after the taxonomy recovery step
+    elif (targets_2 or orgs_2) not in written_files:
+        orgs_info = common.readJSON(orgs_1)
+        targets_info = common.readJSON(targets_1)
+        prots_info = common.readJSON(proteins_1)
 
-        orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
-        targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
-        common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
-        readData = False
-
-    elif readData:
-        orgs_info = common.read_pickle(orgs_1_Out)
-        targets_info = common.read_pickle(targets_1_Out)
-        prots_info = common.readJSON('{}/{}'.format(dataDirectoryProcess, 'proteins_1.json'))
-
-    orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess, orgs_2_Out, orgs_2_json)
-    targets_info = get_organisms_idx(targets_info, orgs_2_Out, targets_2_Out)
-    common.write_json(targets_info, '{}/{}'.format(dataDirectoryProcess, 'targets_2.json'))
-    logger.info('{} completed!'.format(boxName))
+    orgs_info = taxonomicLineage_runner(orgs_info, dataDirectoryProcess)
     countTaxonomy = {rank: [] for rank in common.global_dict['desired_ranks_lineage'].keys()}
     for _, organisms in orgs_info.items() :
         for level in  organisms['lineage']:
             if level['scientificName'] not in countTaxonomy[level['rank']]:
                 countTaxonomy[level['rank']].append(level['scientificName'])
+
+    orgs_info_list = orgs_output_formatting(orgs_info)
+    targets_info = get_organisms_idx(targets_info, orgs_info_list)
+    common.write_json(orgs_info_list, orgs_2)
+    common.write_json(targets_info, targets_2)
+
+    if common.global_dict['dataDirectory'] == '.':
+        shutil.move(multiFasta, common.global_dict['dataDirectory'])
+        shutil.move(proteins_1, common.global_dict['dataDirectory'])
+
+    logger.info('{} completed!'.format(boxName))
+
     for rank, values in countTaxonomy.items():
         reportingMessages.append('Different {} number: {}'.format(
         rank, len(values)
@@ -835,14 +830,13 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}/{}.faa'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}/{}_organisms_1.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}/{}_organisms_2.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2_json', '{}/{}_organisms_2.json'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}/{}_proteins_1.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}/{}_targets_1.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}/{}_targets_2.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}_organisms_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}_organisms_taxonomyStep.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_taxonomyStep.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

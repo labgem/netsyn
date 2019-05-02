@@ -125,6 +125,7 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
     '''
     Merges nodes content and updates organisms content.
     '''
+    logger = logging.getLogger('{}.{}'.format(nodes_organismsMerging.__module__, nodes_organismsMerging.__name__))
     newNodes = []
     organismIdMax = max([organism['id'] for organism in organismsContent])
     for nodes in nodesToMerge:
@@ -133,18 +134,17 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
         oldNodes = []
         metadata = {}
         clusterings = {}
+        clusterings[clusteringMethod] = None
         for node in nodes:
             oldNodes.append(node['node_idx'])
             newNode.setdefault('id', []).append(str(node['id']))
             newNode.setdefault('target_idx', []).append(str(node['target_idx']))
             newNode.setdefault(common.global_dict['inputIheader'], []).append(node[common.global_dict['inputIheader']])
             newNode.setdefault(common.global_dict['proteinACHeader'], []).append(node[common.global_dict['proteinACHeader']])
-            for key, value in node['clusterings'].items():
-                value = str(value)
-                if key not in clusterings:
-                    clusterings[key] = []
-                if value not in clusterings[key]:
-                    clusterings[key].append(value)
+            if not clusterings[clusteringMethod]:
+                clusterings[clusteringMethod] = node['clusterings'][clusteringMethod]
+            elif clusterings[clusteringMethod] != node['clusterings'][clusteringMethod]:
+                logger.critical('Nodes to merge must belong to the same cluster')
             if 'metadata' in node.keys():
                 for key, value in node['metadata'].items():
                     if key not in metadata:
@@ -153,7 +153,6 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
                         metadata[key].append(value)
             if organismsContent[node['organism_idx']] not in organismToMerge:
                 organismToMerge.append(organismsContent[node['organism_idx']])
-
         for key, toMerge in newNode.items():
             newNode[key] = ', '.join(toMerge)
         newNode['oldNodes'] = oldNodes
@@ -161,8 +160,6 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
             for key, toMerge in metadata.items():
                 metadata[key] = ', '.join(sorted(toMerge))
             newNode['metadata'] = metadata
-        for key, toMerge in clusterings.items():
-            clusterings[key] = ', '.join(sorted(toMerge))
         newNode['clusterings'] = clusterings
         newNode['Size'] = len(nodes)
 
@@ -200,7 +197,7 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
         newNodes.append(newNode)
     return newNodes, organismsContent
 
-def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent):
+def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent, clusteringMethod):
     '''
     Addes the nodes into nodes list and updates edges content.
     '''
@@ -225,41 +222,20 @@ def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent):
         nodesContent.append(nodeToAdd)
         for nodeToDel in nodesToDel:
             nodesIndexes[nodeToDel] = newNodeIndex
+    for node in nodesContent:
+        clusterID = node['clusterings'][clusteringMethod]
+        node['clusterings'] = {}
+        node['clusterings'][clusteringMethod] = clusterID
+
     edgesToDel = []
     for index,edge in enumerate(edgesContent):
-        edge['source'] = nodesIndexes[edge['source']]
-        edge['target'] = nodesIndexes[edge['target']]
+        edge['source'] = nodesIndexes[int(edge['source'])]
+        edge['target'] = nodesIndexes[int(edge['target'])]
         if edge['source'] == edge['target']:
             edgesToDel.append(index)
     for edgeIndex in sorted(edgesToDel, reverse=True):
         del edgesContent[edgeIndex]
     return nodesContent, edgesContent
-
-def nodesAttributesInitialization(graph, headersMD=None):
-    graph.vs['name'] = []
-    graph.vs['id'] = []
-    graph.vs['target_idx'] = []
-    #graph.vs['context_idx'] = []
-    #graph.vs['organism_idx'] = []
-    graph.vs['NetSyn_WalkTrap'] = []
-    graph.vs['NetSyn_Louvain'] = []
-    graph.vs['NetSyn_Infomap'] = []
-    graph.vs['UniProt_AC'] = []
-    graph.vs['protein_AC'] = []
-    graph.vs['organism_name'] = []
-    graph.vs['organism_strain'] = []
-    graph.vs['organism_taxon_id'] = []
-    for rank in common.global_dict['desired_ranks_lineage'].keys():
-        graph.vs['lineage_{}'.format(rank)] = []
-    return graph
-
-def edgesAttributesInitialization(graph):
-    edges_attributes = ['protein_AC', 'products', 'ec_numbers', 'UniProt_AC', 'gene_names', 'locus_tag']
-    graph.es['MMseqs_families'] = []
-    for attribute in edges_attributes:
-        graph.es['{}_source'.format(attribute)] = []
-        graph.es['{}_target'.format(attribute)] = []
-    return graph, edges_attributes
 
 def fill_node_information(node_reference, prot_in_synteny, prot_family, edges_attributes):
     for pkey, pvalue in prot_in_synteny.items():
@@ -269,15 +245,14 @@ def fill_node_information(node_reference, prot_in_synteny, prot_family, edges_at
 
 def get_neighbour(proteins_idx, edgesAttributes, attribute_families, allData):
     for prot_idx in proteins_idx:
-        prot_in_synt = allData['proteins'][prot_idx]
+        prot_in_synt = allData['proteins'][int(prot_idx)]
         prot_family = prot_in_synt['family']
         attribute_families = fill_node_information(attribute_families, prot_in_synt, prot_family, edgesAttributes)
     return attribute_families
 
-def createFullGraph(allData, headersMD=None):
+def createFullGraph(allData, clusteringMethod, headersMD=None):
     graph = ig.Graph()
-    graph = nodesAttributesInitialization(graph, headersMD)
-    graph, edgesAttributes = edgesAttributesInitialization(graph)
+    edgesAttributes = common.global_dict['graphML_edgesAttributes']
 
     # COM: Generate nodes in a graph
     for idx, node in enumerate(allData['nodes']):
@@ -295,8 +270,11 @@ def createFullGraph(allData, headersMD=None):
                             graph.vs[idx]['lineage_{}'.format(rank)] = scientificName
             # COM: writting every cluster out of a list
             elif nkey == 'clusterings':
-                for ckey, cvalue in node[nkey].items():
-                    graph.vs[idx]['NetSyn_{}'.format(ckey)] = cvalue
+                if clusteringMethod:
+                    graph.vs[idx]['NetSyn_{}'.format(clusteringMethod)] = node[nkey][clusteringMethod]
+                else:
+                    for ckey, cvalue in node[nkey].items():
+                        graph.vs[idx]['NetSyn_{}'.format(ckey)] = cvalue
             # COM: recovery of metadata information //// lists of metadata do not need to be initialized :/ very strange ...
             elif nkey == 'metadata':
                 for mkey, mvalue in node[nkey].items():
@@ -307,8 +285,8 @@ def createFullGraph(allData, headersMD=None):
 
     # COM: Generate edges in a graph
     for edge in allData['edges']:
-        graph.add_edge(edge['source'], edge['target'])
-        edge_index = graph.get_eid(edge['source'], edge['target'])
+        graph.add_edge(int(edge['source']), int(edge['target']))
+        edge_index = graph.get_eid(int(edge['source']), int(edge['target']))
         graph.es[edge_index]['weight'] = edge['weight']
 
         # COM: generate a dictionnary to get all information of the proteins involved in the synteny relation between two 'targets' (source, target)
@@ -350,8 +328,12 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     # Process
     nodesContent = common.readJSON(nodesFile)
     if metadataFile:
-        metadataContent, headersMD = checkAndGetMetadata(metadataFile)
-        nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
+        if not common.checkFilledFile(metadataFile):
+            metadataContent, headersMD = checkAndGetMetadata(metadataFile)
+            nodesContent = insertMetadata(nodesContent, metadataContent, headersMD)
+        else:
+            logger.error('Please make sure that {} file is in the appropriate repertory'.format(metadataFile))
+            exit(1)
 
     edgesContent = common.readJSON(edgesFile)
     organismsContent = common.readJSON(organismsFile)
@@ -362,7 +344,10 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         nodeOldsNumber = len(nodesContent)
         if redundancyRemovalLabel:
             if redundancyRemovalLabel not in headersMD.values():
-                logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(headersMD.values())))
+                logger.error('The label {} is not in the metadata column headers: {}'.format(redundancyRemovalLabel, ', '.join(set(headersMD.values())-set(common.global_dict['metadataMadatoryColumn']))))
+                exit(1)
+            elif redundancyRemovalLabel in common.global_dict['metadataMadatoryColumn']:
+                logger.error('The label {} is not considered as a metadata label. Please choose another label from: {}'.format(redundancyRemovalLabel, ', '.join(set(headersMD.values())-set(common.global_dict['metadataMadatoryColumn']))))
                 exit(1)
             reportingMessages.append('Redundancy removal settings used: label "{}", clustering method "{}"'.format(
                 redundancyRemovalLabel, clusteringMethod
@@ -374,7 +359,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
             ))
             nodesToMerge = getNodesToMerge(nodesContent, 'taxonomic', redundancyRemovalTaxonomy, clusteringMethod, organismsContent)
         newNodes, organismsContent = nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod)
-        nodesContent, edgesContent = nodes_edgesUpdating(newNodes, nodesContent, edgesContent)
+        nodesContent, edgesContent = nodes_edgesUpdating(newNodes, nodesContent, edgesContent, clusteringMethod)
         reportingMessages.append('Nodes merged after redundancy removal step: {}/{}'.format(len(nodesContent), nodeOldsNumber))
 
     netsynResult = {
@@ -403,11 +388,11 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
 
     logger.info('Output graph building...')
     if metadataFile:
-        full_graph = createFullGraph(netsynResult, headersMD)
+        full_graph = createFullGraph(netsynResult, clusteringMethod, headersMD)
     else:
-        full_graph = createFullGraph(netsynResult)
+        full_graph = createFullGraph(netsynResult, clusteringMethod)
 
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     if not os.path.isdir(dataDirectoryProcess):
         os.mkdir(dataDirectoryProcess)
 
@@ -440,9 +425,10 @@ def argumentsParser():
     group1.add_argument('-mf', '--metadataFile', type=str,
                         required=False, help='Path of the metadata file provided by the user')
 
-    group2 = parser.add_argument_group('Graph Analysis settings')
+    group2 = parser.add_argument_group('Redundancy Removal settings')
     group2.add_argument('-cm', '--ClusteringMethod', type=str,
                         choices=['MCL','Infomap','Louvain','WalkTrap'],
+                        default=None,
                         help='Clustering method choose in : MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
     group2.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
@@ -471,9 +457,11 @@ if __name__ == '__main__':
     ######################
     args, parser = argumentsParser()
     if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choise one of two options')
+        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choose one of two options')
     if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
         parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
+    if args.ClusteringMethod and not (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy):
+        parser.error('The selection of a clustering algorithm is available only when redundancy removal is enabled (see DataExport.py -h/--help)')
     if args.RedundancyRemovalLabel and not args.metadataFile:
         parser.error('Please specify the --metadataFile option')
     ##########
@@ -487,7 +475,7 @@ if __name__ == '__main__':
     boxName = common.global_dict['boxName']['DataExport']
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
     common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######

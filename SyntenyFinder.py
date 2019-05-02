@@ -6,12 +6,11 @@
 import argparse
 import os
 import logging
-#import pickle
-#import json
-#import sys
 import math
 import igraph as ig
-#import cairocffi
+import shutil
+import markov_clustering as mc
+import networkx as nx
 import common
 
 #############
@@ -96,13 +95,14 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
     # Defines the proteins to delete
     proteinsIndex = [i for i in range(len(prots_info))]
     proteinsIndexInSynteny = []
-    print(len(maxi_graph.vs['name']))
+    #print(len(maxi_graph.vs['name']))
     for targetIndex in maxi_graph.vs['name']:
         for proteinIndex in targets_info[targetIndex]['context_idx']:
             if proteinIndex not in proteinsIndexInSynteny:
-                proteinsIndexInSynteny.append(proteinIndex)
+                proteinsIndexInSynteny.append(int(proteinIndex))
     proteinsIndexInSynteny.sort()
     proteinsIndexToDel = sorted(list(set(proteinsIndex).difference(set(proteinsIndexInSynteny))))
+
     # Defines the new indexes. (the poroteins indexes of proteins to delete becomes -1, the others is decremente.)
     decrement = 0
     for i in proteinsIndex:
@@ -111,29 +111,33 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
             decrement += 1
         else:
             proteinsIndex[i] -= decrement
-    # Uptades idexes in targets_info
-    print(len(targets_info))
+
+    # Uptades indexes in targets_info
     new_targets_info = {}
     for target_idx, target_dict in targets_info.items():
-        target_dict['context_idx'] = [proteinsIndex[i] for i in target_dict['context_idx']]
-        new_index = target_dict['context_idx'][target_dict['target_pos']]
+        target_dict['context_idx'] = [str(proteinsIndex[int(i)]) for i in target_dict['context_idx']]
+        new_index = str(target_dict['context_idx'][target_dict['target_pos']])
         new_targets_info.setdefault(new_index, {}).update(target_dict)
-    print(len(new_targets_info))
-    # Uptades idexes in maxi_graph
-    maxi_graph.vs['name'] = [proteinsIndex[lastIndex] for lastIndex in maxi_graph.vs['name']]
-    # Uptades idexes in new_targets_syntons
+    #print(len(new_targets_info))
+
+    # Uptades indexes in maxi_graph
+    maxi_graph.vs['name'] = [str(proteinsIndex[int(lastIndex)]) for lastIndex in maxi_graph.vs['name']]
+
+    # Uptades indexes in new_targets_syntons
     new_targets_syntons = {}
     for (indexA, indexB), value in targets_syntons.items():
-        new_targets_syntons[(proteinsIndex[indexA], proteinsIndex[indexB])] = value
+        new_targets_syntons[(str(proteinsIndex[int(indexA)]), str(proteinsIndex[int(indexB)]))] = value
+
     # Removes proteins that are not preserved.
     for i in sorted(proteinsIndexToDel, reverse=True):
         del prots_info[i]
-    # Uptades idexes in prots_info[idx]['targets_idx']
+
+    # Uptades indexes in prots_info[idx]['targets_idx']
     for protein_idx, _ in enumerate(prots_info):
         prots_info[protein_idx]['targets_idx'] = []
     for target_idx, target_dict in new_targets_info.items():
         for idx in target_dict['context_idx']:
-            prots_info[idx]['targets_idx'].append(target_idx)
+            prots_info[int(idx)]['targets_idx'].append(target_idx)
 
     return new_targets_info, prots_info, maxi_graph, new_targets_syntons
 
@@ -195,21 +199,17 @@ def evaluate_proximity(syntons, graph, gapValue, look_at):
         synton2 = syntons[idx+1]
         if synton2[look_at]-synton1[look_at] <= gapValue+1:
             graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
-    return 0
+    return graph
 
-def get_connected_components(graph, synton_of_targets, gapValue, mode='A'):
+def get_connected_components(graph, synton_of_targets, gapValue, look_at):
     ''' get the connected component of the A/B graph containing the
     'synton_of_targets'
     input: A or B graph, gapValue and the mode that allows which part of
     nodes(syntons) to look at (graph A/B -> look at index 0/1 of nodes)
     output: iGraph VertexClustering object with the 'synton_of_targets'
     '''
-    if mode == 'A':
-        look_at = 0
-    else:
-        look_at = 1
     sorted_syntons = sorted(graph.vs['name'], key=lambda synton: synton[look_at])
-    evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
+    graph = evaluate_proximity(sorted_syntons, graph, gapValue, look_at)
     ccs = graph.components()
     for component_connexe in ccs:
         if synton_of_targets in graph.vs[component_connexe]['name']:
@@ -258,8 +258,8 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
     '''
     synton_of_targets = AB_targets_syntons['synton_of_targets']
     boolean_synton_of_targets = AB_targets_syntons['boolean_targets_synton']
-    ccA = get_connected_components(gA, synton_of_targets, params['GAP'])
-    ccB = get_connected_components(gB, synton_of_targets, params['GAP'], mode='B')
+    ccA = get_connected_components(gA, synton_of_targets, params['GAP'], look_at=0)
+    ccB = get_connected_components(gB, synton_of_targets, params['GAP'], look_at=1)
     itrsect = list(set(ccA) & set(ccB))
     if (len(itrsect) >= 2 and boolean_synton_of_targets) or (not boolean_synton_of_targets and len(itrsect) >= 3):
         if ccA == ccB == itrsect:
@@ -283,7 +283,7 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             gA = ig.Graph()
             gA.add_vertices(gA_memory.vs[itrsect]['name'])
             gB = gA.copy()
-            find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
+            maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
     else:
         params['INC_NO_SYNTENY'] += 1
     return maxiG, params
@@ -351,7 +351,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     '''
     # Constants
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    dataDirectoryProcess = '{}/{}'.format(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     # Outputs
     nodesOut = common.global_dict['files']['SyntenyFinder']['nodes']
     edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
@@ -374,27 +374,24 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
         'INC_NO_SYNTENY': 0
         }
 
-    prots_info = common.read_pickle(PROTEINS)
-    targets_info = common.read_pickle(TARGETS)
+    prots_info = common.readJSON(PROTEINS)
+    targets_info = common.readJSON(TARGETS)
 
     targets_syntons = {}
     no_synteny = 0
     # logger.info('Length of the targets list: {}'.format(len(targets_info)))
     # COM: addition of last information relative to the user window size to the prots_info dictionary
     if params['MAX_GC'] != params['USER_GC']:
-        logger.info('Genomic context resinzing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
+        logger.info('Genomic context resizing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
         targets_info = get_userGC(targets_info, params['USER_GC'])
-        # prots_info = proteinsRemoval(prots_info, targets_info) #################
-    # COM: proteins file has to be written or copied to the new dataDirectory
 
     for target, target_dict in targets_info.items():
-        target_dict['families'] = [prots_info[idx]['family'] for idx in target_dict['context_idx']]
+        target_dict['families'] = [prots_info[int(idx)]['family'] for idx in target_dict['context_idx']]
         target_dict = get_families_and_pos_in_context(target_dict)
         if params['MAX_GC'] == params['USER_GC']:
             target_dict['target_pos'] = target_dict['context_idx'].index(target)
 
     targets_list = list(targets_info.keys())
-    #targets_list_saved = [infos['context_idx'][infos['target_pos']] for infos in targets_info.values()]
     for idx, targetAidx in enumerate(targets_list[:-1]):
         targetA = targets_info[targetAidx]
         for targetBidx in targets_list[idx+1:]:
@@ -484,11 +481,34 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
     # logger.info(graph_eigenvector) # list of VertexClustering objects
 
+    ### Markov Cluster Algorithm (MCL Clustering)
+    nxGraph = nx.Graph()
+    names = maxi_graph.vs['name']
+    nxGraph.add_nodes_from(names)
+    nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(x[0],x[1])]['weight']) for x in maxi_graph.get_edgelist()])
+
+    matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
+
+    # # A tester sur d'autres jeux de données pour voir l'évolution des paramètres inflation et expansion
+    # for inflation in [i/10 for i in range(15,26)]:
+    #     for expansion in [j for j in range(2,11)]:
+    #         result = mc.run_mcl(matrix_adjacency, inflation=inflation, expansion=expansion)
+    #         clusters = mc.get_clusters(result)
+    #         Q = mc.modularity(matrix=result, clusters=clusters)
+    #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
+
+    result = mc.run_mcl(matrix_adjacency, inflation=2, expansion=2, iterations=1000)
+    clusters = mc.get_clusters(result)
+
+    for cluster in range(len(clusters)):
+        for vertex in clusters[cluster]:
+            maxi_graph.vs[vertex]['cluster_MCL'] = cluster
+
     targetsNumber = len(targets_info)
-    print(len(targets_info), len(maxi_graph.vs['name']))
+    #print(len(targets_info), len(maxi_graph.vs['name']))
     targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
-    print(len(targets_info), len(maxi_graph.vs['name']))
-    print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
+    #print(len(targets_info), len(maxi_graph.vs['name']))
+    #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
     # print(targets_info.keys())
     # print(maxi_graph.vs['name'])
 
@@ -496,9 +516,9 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     for target_node in maxi_graph.vs:
         target_idx = target_node['name']
         dico = {'target_idx': target_idx,
-                'id': prots_info[target_idx]['id'],
-                'UniProt_AC': prots_info[target_idx]['UniProt_AC'],
-                'protein_AC': prots_info[target_idx]['protein_AC'],
+                'id': prots_info[int(target_idx)]['id'],
+                'UniProt_AC': prots_info[int(target_idx)]['UniProt_AC'],
+                'protein_AC': prots_info[int(target_idx)]['protein_AC'],
                 #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
                 #'GC_size': len(prots_info[cds_inc]['userGC']),
                 #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
@@ -507,11 +527,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
                 'organism_id': targets_info[target_idx]['organism_id'],
                 'organism_idx': targets_info[target_idx]['organism_idx'],
                 'clusterings': {'WalkTrap':
-                                   maxi_graph.vs[target_node.index]['cluster_WT'],
-                               'Louvain':
-                                   maxi_graph.vs[target_node.index]['cluster_Louvain'],
-                               'Infomap':
-                                   maxi_graph.vs[target_node.index]['cluster_Infomap']
+                                    maxi_graph.vs[target_node.index]['cluster_WT'],
+                                'Louvain':
+                                    maxi_graph.vs[target_node.index]['cluster_Louvain'],
+                                'Infomap':
+                                    maxi_graph.vs[target_node.index]['cluster_Infomap'],
+                                'MCL':
+                                    maxi_graph.vs[target_node.index]['cluster_MCL']
                                },
                 'families': list(set(targets_info[target_idx]['families'])),
                 'Size': 1
@@ -520,10 +542,10 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
 
     list_of_edges = []
     for edge in maxi_graph.es:
-        targetA = min(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
-        targetA_idx = min(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
-        targetB = max(maxi_graph.vs[edge.tuple[0]]['name'], maxi_graph.vs[edge.tuple[1]]['name'])
-        targetB_idx = max(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index
+        targetA = str(min(int(maxi_graph.vs[edge.tuple[0]]['name']), int(maxi_graph.vs[edge.tuple[1]]['name'])))
+        targetA_idx = str(min(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index)
+        targetB = str(max(int(maxi_graph.vs[edge.tuple[0]]['name']), int(maxi_graph.vs[edge.tuple[1]]['name'])))
+        targetB_idx = str(max(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index)
         if targets_syntons[(targetA, targetB)]:
             families = targets_syntons[(targetA, targetB)]['families_intersect']
         else:
@@ -541,16 +563,18 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
         list_of_edges.append(dico)
 
     common.write_json(prots_info, protsOut)
-    common.write_json(targets_info, nodesOut)#????
-    common.write_pickle(list_of_nodes, nodesOut)
-    common.write_pickle(list_of_edges, edgesOut)
-    common.write_json(list_of_nodes, common.global_dict['files'][boxName]['nodes_json'])
-    common.write_json(list_of_edges, common.global_dict['files'][boxName]['edges_json'])
+    common.write_json(list_of_nodes, nodesOut)
+    common.write_json(list_of_edges, edgesOut)
+
+    if os.listdir(dataDirectoryProcess) == []:
+        shutil.rmtree(dataDirectoryProcess)
+
     logger.info('{} completed!'.format(boxName))
     # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
     # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
     # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
     # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+    reportingMessages.append('Genomic context size: {}'.format(GCUSER))
     reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
         len(list_of_nodes),targetsNumber
     ))
@@ -558,6 +582,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     reportingMessages.append('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
     reportingMessages.append('NetSyn Louvain: {}'.format(graph_louvain.summary()))
     reportingMessages.append('NetSyn Infomap: {}'.format(graph_infomap.summary()))
+    reportingMessages.append('NetSyn MCL: Clustering with {} elements and {} clusters'.format(len([item for subCluster in clusters for item in subCluster]), len(clusters)))
     common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
@@ -616,12 +641,10 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes', '{}/{}_nodes.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges', '{}/{}_edges.pickle'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('nodes_json', '{}/{}_nodes.json'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('edges_json', '{}/{}_edges.json'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('proteins', '{}/{}_proteins.json'.format(boxName, args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_report.txt'.format(boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins_syntenyStep.json'.format(args.OutputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
     #######
     # Run #
     #######
