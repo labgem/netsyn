@@ -26,6 +26,7 @@ def resultsFormat(res, dico):
         if isHeader:
             headers = bLine.decode('utf-8').split(sepColumn)
             if not headers[0] == 'Entry':
+                logger.critical(headers)
                 logger.critical('"id" column must be in first position')
                 exit(2)
             isHeader = False
@@ -112,7 +113,7 @@ def run(InputName):
     if header == common.global_dict['inputIheader']:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         http = urllib3.PoolManager()
-        crossReference = getENAidMatchingToUniProtid(list(accessions), 500, http)
+        crossReference = getENAidMatchingToUniProtid(list(accessions), 250, http)
         withoutENAidNb = len(accessions)-len(crossReference)
         reportingMessages.append('Targets without ENA correspondence number: {}/{}'.format(withoutENAidNb, len(accessions)))
         if withoutENAidNb:
