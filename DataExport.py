@@ -303,6 +303,12 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
 
         # COM: concatenate all the values with ' ~~ ' as separator between values belonging to the same MMseqs family and ' |-| ' as separator between families
         for node_type, node_information in attribute_families.items(): # node_type = source OR target
+            # COM: iGraph reorders the source and edge nodes, so the assigment of attributes has to be also inverted
+            if int(edge['source']) > int(edge['target']):
+                if node_type == 'source':
+                    node_type = 'target'
+                else:
+                    node_type = 'source'
             for attr_name, attr in node_information.items(): # attr_name = one after the other value of edgesAttibutes
                 complete_value = []
                 families = list(attr.keys())
