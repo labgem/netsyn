@@ -325,6 +325,64 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
         graph.es[edge_index]['MMseqs_families'] = ' |-| '.join(str(fam) for fam in families)
     return graph
 
+def get_families_of_targets(nodesContent, proteinsContent):
+    families_of_targetsIdx = {}
+    for node_idx, node in enumerate(nodesContent):
+        family = proteinsContent[int(node['target_idx'])]['family']
+        families_of_targetsIdx.setdefault(family, []).append(node_idx)
+    return families_of_targetsIdx
+
+def get_clusterID_family_content(dico, proteins_indexes, proteinsContent):
+    families = []
+    for prot_idx in proteins_indexes:
+        family = proteinsContent[int(prot_idx)]['family']
+        families.append(family)
+        #if proteinsContent[int(prot_idx)]['protein_AC'] not in dico.setdefault(family, {}).setdefault('protein_AC', []):
+        dico.setdefault(family, {}).setdefault('protein_AC', []).append(proteinsContent[int(prot_idx)]['protein_AC'])
+        dico[family].setdefault('locus_tags', []).append(proteinsContent[int(prot_idx)]['locus_tag'])
+        dico[family].setdefault('ec_numbers', []).append(proteinsContent[int(prot_idx)]['ec_numbers'])
+        dico[family].setdefault('gene_names', []).append(proteinsContent[int(prot_idx)]['gene_names'])
+        dico[family].setdefault('products', []).append(proteinsContent[int(prot_idx)]['products'])
+    dico.setdefault('families', families)
+    return dico, families
+
+def get_strain_and_species(dico, node_idx, taxo_level, organismsContent, nodesContent):
+    for org_key, org_value in organismsContent[nodesContent[node_idx]['organism_idx']].items():
+        if org_key == 'strain':
+            dico.setdefault('strains', []).append(org_value)
+        if org_key == 'lineage':
+            for taxonomic_level in org_value:
+                if taxonomic_level['rank'] == taxo_level:
+                    dico.setdefault('species', []).append(taxonomic_level['scientificName'])
+    return dico
+
+def get_metadata_values(dico, node_idx, nodesContent):
+    for key_md, value_md in nodesContent[node_idx]['metadata'].items():
+        dico.setdefault('metadata', {}).setdefault(key_md, []).append(value_md)
+    return dico
+
+def add_metadataHeaders(headers_to_print, metadataFile, headersMD):
+    if metadataFile:
+        metadataHeaders = sorted([header for header in headersMD.values() if header not in common.global_dict['metadataMadatoryColumn']])
+        headers_to_print.extend(metadataHeaders)
+    return headers_to_print, metadataHeaders
+
+def get_general_info(familyContent):
+    syntSize = familyContent['synteny_size']
+    nbr_prots = len(set(familyContent['protein_AC']))
+    products = ' / '.join(sorted(set(familyContent['products']), key=lambda x: familyContent['products'].index(x)))
+    gene_names = ' / '.join(sorted(set(familyContent['gene_names']), key=lambda x: familyContent['gene_names'].index(x)))
+    ec_nbrs = ' / '.join(sorted(set(familyContent['ec_numbers']), key=lambda x: familyContent['ec_numbers'].index(x)))
+    locus_tags = ' / '.join(sorted(set(familyContent['locus_tags']), key=lambda x: familyContent['locus_tags'].index(x)))
+    protein_AC = ' / '.join(sorted(set(familyContent['protein_AC']), key=lambda x: familyContent['protein_AC'].index(x)))
+    return syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC
+
+def add_metadata_info(line, metadataFile, metadataHeaders, familyContent):
+    if metadataFile:
+        for md_head in metadataHeaders:
+            line.append(' / '.join(set(familyContent['metadata'][md_head])))
+    return line
+
 def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
@@ -338,6 +396,9 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     logger.info('{} running...'.format(boxName))
     # Process
     nodesContent = common.readJSON(nodesFile)
+    edgesContent = common.readJSON(edgesFile)
+    organismsContent = common.readJSON(organismsFile)
+    proteinsContent = common.readJSON(proteinsFile)
     if metadataFile:
         if not common.checkFilledFile(metadataFile):
             metadataContent, headersMD = checkAndGetMetadata(metadataFile)
@@ -345,10 +406,6 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         else:
             logger.error('Please make sure that {} file is in the appropriate repertory'.format(metadataFile))
             exit(1)
-
-    edgesContent = common.readJSON(edgesFile)
-    organismsContent = common.readJSON(organismsFile)
-    proteinsContent = common.readJSON(proteinsFile)
 
     if redundancyRemovalLabel or redundancyRemovalTaxonomy:
         logger.info('Redundancy removal processing...')
@@ -380,23 +437,6 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         'organisms': organismsContent
     }
 
-    #####
-    # for edge in edgesContent:
-    #     logger.debug('{} > {}'.format(edge["source"],edge["target"]))
-    # logger.debug('')
-    # print('\n\n\n')
-    # for n in nodesContent:
-    #     print('{}: '.format(n))
-    #     # print('{}: '.format(n['target_idx']))
-    #     # for l in organismsContent[n['organism_idx']]['lineage']:
-    #         # print('    {}'.format(l))
-    # print()
-    # for e in edgesContent:
-    #     s = nodesContent[e['source']]['target_idx']
-    #     t = nodesContent[e['target']]['target_idx']
-    #     print('{}-{}:{}'.format(s,t,e))
-    #####
-
     logger.info('Output graph building...')
     if metadataFile:
         full_graph = createFullGraph(netsynResult, clusteringMethod, headersMD)
@@ -409,8 +449,98 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
 
     common.write_json(netsynResult, htmlOut)
     full_graph.write_graphml(graphmlOut)
+
+    families_of_targetsIdx = get_families_of_targets(nodesContent, proteinsContent)
+
+    intra_cluster = {}
+    inter_cluster = {}
+    for idx_edge, edge in enumerate(edgesContent):
+        source_clusterings = nodesContent[int(edge['source'])]['clusterings']
+        target_clusterings = nodesContent[int(edge['target'])]['clusterings']
+        for cm, clusterID in source_clusterings.items():
+            tmp_dict = {}
+            tmp_dict, source_families = get_clusterID_family_content(tmp_dict, edge['proteins_idx_source'], proteinsContent)
+            tmp_dict, target_families = get_clusterID_family_content(tmp_dict, edge['proteins_idx_target'], proteinsContent)
+            if metadataFile:
+                tmp_dict = get_metadata_values(tmp_dict, int(edge['source']), nodesContent)
+                tmp_dict = get_metadata_values(tmp_dict, int(edge['target']), nodesContent)
+            if clusterID == target_clusterings[cm]:
+                if set(source_families)-set(target_families) == set():
+                    for family in set(source_families):
+                        intra_cluster.setdefault(cm, {}).setdefault(clusterID, {}).setdefault(family, {}).setdefault('nodes_indexes', []).extend([int(edge['source']), int(edge['target'])])
+                        {intra_cluster[cm][clusterID][family].setdefault(key, []).extend(value) for key, value in tmp_dict[family].items()}
+                        intra_cluster[cm][clusterID][family] = get_strain_and_species(intra_cluster[cm][clusterID][family], int(edge['source']), 'species', organismsContent, nodesContent)
+                        intra_cluster[cm][clusterID][family] = get_strain_and_species(intra_cluster[cm][clusterID][family], int(edge['target']), 'species', organismsContent, nodesContent)
+                        intra_cluster[cm][clusterID][family]['synteny_size'] = intra_cluster[cm][clusterID][family].setdefault('synteny_size', 0) + 1
+                        # intra_cluster[cm][clusterID][family].setdefault('list_nodes', []).extend([nodesContent[int(edge['source'])]['protein_AC'], nodesContent[int(edge['target'])]['protein_AC']])
+                        if metadataFile:
+                            {intra_cluster[cm][clusterID][family].setdefault('metadata', {}).setdefault(key, []).extend(value) for key, value in tmp_dict['metadata'].items()}
+                else:
+                    logger.critical('Families ID obtained by proteins for both targets in synteny must be the same. This reveals a development error. Please contact us.')
+            else:
+                for family in tmp_dict['families']:
+                    inter_cluster.setdefault(cm, {}).setdefault(family, {}).setdefault('clusters', []).extend([clusterID, target_clusterings[cm]])
+                    inter_cluster[cm][family].setdefault('nodes_indexes', []).extend([int(edge['source']), int(edge['target'])])
+                    #{inter_cluster[cm][family].setdefault(key, []).extend(value) if type(value) == list else inter_cluster[cm][family].setdefault(key, []).extend([value]) for key, value in tmp_dict[family].items()}
+                    {inter_cluster[cm][family].setdefault(key, []).extend(value) for key, value in tmp_dict[family].items()}
+                    inter_cluster[cm][family]['synteny_size'] = inter_cluster[cm][family].setdefault('synteny_size', 0) + 1
+                    if metadataFile:
+                        {inter_cluster[cm][family].setdefault('metadata', {}).setdefault(key, []).extend(value) for key, value in tmp_dict['metadata'].items()}
+
+    for cm, cmContent in intra_cluster.items():
+        headers_to_print = ['ClusterID', 'FamilyID', 'Target_in_FamilyID', 'Nbr_Synteny', 'Nbr_Species', 'Nbr_Strains', 'Nbr_Proteins_in_Synteny', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
+        headers_to_print, metadataHeaders = add_metadataHeaders(headers_to_print, metadataFile, headersMD)
+        lines_to_print = []
+        for clusterID, clusterContent in cmContent.items():
+            for familyID, familyContent in clusterContent.items():
+                containTarget = 'Y' if familyID in families_of_targetsIdx and set(familyContent['nodes_indexes']) & set(families_of_targetsIdx[familyID]) else 'N'
+                strains = len(set(familyContent['strains']))
+                species = len(set(familyContent['species']))
+                (syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC) = get_general_info(familyContent)
+                line = [clusterID, familyID, containTarget, syntSize, species, strains, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC]
+                line = add_metadata_info(line, metadataFile, metadataHeaders, familyContent)
+                lines_to_print.append(line)
+        sub_order = ['Y', 'N']
+        sorted_lines = sorted(lines_to_print, key=lambda line: (line[0], sub_order.index(line[2]), -line[3], -line[4], -line[5], -line[6], line[1]))
+        with open('{}_NetSyn_DIETETIC_family-intra-cluster.tsv'.format(os.path.join(dataDirectoryProcess, cm)), 'w') as file:
+            file.write('{}'.format('\t'.join(headers_to_print)))
+            file.write('\n')
+            for line in sorted_lines:
+                file.write('{}'.format('\t'.join([str(value) for value in line])))
+                file.write('\n')
+        intra_cluster[cm].setdefault('target_containers', str(len(set([line[1] for line in lines_to_print if line[2] == 'Y']))))
+        intra_cluster[cm].setdefault('nbr_families', str(len(set([line[1] for line in lines_to_print]))))
+    reportingMessages.append('Number of families containing a target:')
+    reportingMessages.append('{}'.format('\n'.join([''.join(['\t', cm, ':\t', intra_cluster[cm]['target_containers']]) for cm in intra_cluster.keys()])))
+    reportingMessages.append('Number of families encountered intrafamilies:')
+    reportingMessages.append('{}'.format('\n'.join([''.join(['\t', cm, ':\t', intra_cluster[cm]['nbr_families']]) for cm in intra_cluster.keys()])))
+
+    for cm, cmContent in inter_cluster.items():
+        headers_to_print = ['FamilyID', 'Target_in_FamilyID', 'Nbr_Clusters', 'Clusters', 'Nbr_Synteny', 'Nbr_Proteins_in_Synteny', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
+        headers_to_print, metadataHeaders = add_metadataHeaders(headers_to_print, metadataFile, headersMD)
+        lines_to_print = []
+        for familyID, familyContent in cmContent.items():
+            containTarget = 'Y' if familyID in families_of_targetsIdx and set(familyContent['nodes_indexes']) & set(families_of_targetsIdx[familyID]) else 'N'
+            clusters = ', '.join([str(clusterID) for clusterID in sorted(set(familyContent['clusters']))])
+            nbr_clusters = len(list(set(familyContent['clusters'])))
+            (syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC) = get_general_info(familyContent)
+            line = [familyID, nbr_clusters, clusters, containTarget, syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC]
+            line = add_metadata_info(line, metadataFile, metadataHeaders, familyContent)
+            lines_to_print.append(line)
+        sub_order = ['Y', 'N']
+        sorted_lines = sorted(lines_to_print, key=lambda line: (-line[1], sub_order.index(line[3]), -line[4], -line[5]))
+        with open('{}_NetSyn_DIETETIC_family-inter-cluster.tsv'.format(os.path.join(dataDirectoryProcess, cm)), 'w') as file:
+            file.write('{}'.format('\t'.join(headers_to_print)))
+            file.write('\n')
+            for line in sorted_lines:
+                file.write('{}'.format('\t'.join([str(value) for value in line])))
+                file.write('\n')
+        inter_cluster[cm].setdefault('nbr_families', str(len(inter_cluster[cm])))
+    reportingMessages.append('Number of families encountered interfamilies:')
+    reportingMessages.append('{}'.format('\n'.join([''.join(['\t', cm, ':\t', inter_cluster[cm]['nbr_families']]) for cm in inter_cluster.keys()])))
+
     logger.info('{} completed!'.format(boxName))
-    reportingMessages.append('Aller faut trouver un truc a mettre...'.format())
+    #reportingMessages.append('Aller faut trouver un truc a mettre...'.format())
     common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
