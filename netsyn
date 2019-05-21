@@ -78,11 +78,13 @@ def argumentsParser():
     group1.add_argument('--conserveDownloadedINSDC', action='store_true',
                         help='Conserve the downloaded files from GetINSDC. Require of --UniProtACList option')
 
-    group4 = parser.add_argument_group('Clustering settings')
+    group4 = parser.add_argument_group('Clustering settings to determine protein families')
     group4.add_argument('-id', '--Identity', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
     group4.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
+    group4.add_argument('-asm', '--AdvancedSettingsMMseqs2', type=str,
+                        help='YAML file with the advanced clustering settings to determine protein families. Settings of MMseqs2 software')
 
     group3 = parser.add_argument_group('Synteny settings')
     group3.add_argument('-ws', '--WindowSize', type=int,
@@ -93,6 +95,8 @@ def argumentsParser():
                         help='Number of genes allowed between two genes in synteny.\nDefault value: 3')
     group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
                         default=0, help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= 0')
+    group3.add_argument('-asc', '--AdvancedSettingsClustering', type=str,
+                        help='YAML file with the advanced clustering settings to determine synteny NetSyn. Settings of clusterings methods')
 
     group6 = parser.add_argument_group('Redundancy Removal settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
@@ -190,6 +194,15 @@ def saveInputFiles(inputI, inputII):
             exit(1)
 
 
+def addsAvancedSettings(yaml,step, settingsFileName, defaultValue):
+    '''
+    Adds the advanced settings from the file of settings or deffault settings into YAML.
+    '''
+    advancedSettings = common.readYamlAdvancedSettingsFile(settingsFileName, defaultValue)
+    for settings in advancedSettings.values():
+        for name, value in settings.items():
+            yaml[step][name] = value
+
 def createYamlSettingsFile(args):
     '''
     YAML settings file creation. Used for resumption of analysis.
@@ -205,23 +218,33 @@ def createYamlSettingsFile(args):
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
-        YAML_File[ORDERBOX[2-gap]] = {}
-        YAML_File[ORDERBOX[2-gap]]['Coverage'] = args.Coverage
-        YAML_File[ORDERBOX[2-gap]]['Identity'] = args.Identity
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[2-gap])
+        # Clustering nto Families
+        step = ORDERBOX[2-gap]
+        YAML_File[step] = {}
+        YAML_File[step]['Coverage'] = args.Coverage
+        YAML_File[step]['Identity'] = args.Identity
+        addsAvancedSettings(YAML_File, step, args.AdvancedSettingsMMseqs2, common.getMMseqsDefaultSettings())
+        YAML_File = writtingYAML(YAML_File, outfile, step)
 
-        YAML_File[ORDERBOX[3-gap]] = {}
-        YAML_File[ORDERBOX[3-gap]]['WindowSize'] = args.WindowSize
-        YAML_File[ORDERBOX[3-gap]]['SyntenyGap'] = args.SyntenyGap
-        YAML_File[ORDERBOX[3-gap]]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[3-gap])
+        # Synteny Finder
+        step = ORDERBOX[3-gap]
+        YAML_File[step] = {}
+        YAML_File[step]['WindowSize'] = args.WindowSize
+        YAML_File[step]['SyntenyGap'] = args.SyntenyGap
+        YAML_File[step]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
+        addsAvancedSettings(YAML_File, step, args.AdvancedSettingsClustering, common.getClusteringMethodsDefaultSettings())
+        YAML_File = writtingYAML(YAML_File, outfile, step)
 
-        YAML_File[ORDERBOX[4-gap]] = {}
-        YAML_File[ORDERBOX[4-gap]]['MetaDataFile'] = args.MetaDataFile
-        YAML_File[ORDERBOX[4-gap]]['ClusteringMethod'] = args.ClusteringMethod
-        YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
-        YAML_File[ORDERBOX[4-gap]]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
-        YAML_File = writtingYAML(YAML_File, outfile, ORDERBOX[4-gap])
+        # Data export
+        step = ORDERBOX[4-gap]
+        YAML_File[step] = {}
+        YAML_File[step]['MetaDataFile'] = args.MetaDataFile
+        YAML_File[step]['ClusteringMethod'] = args.ClusteringMethod
+        YAML_File[step]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
+        YAML_File[step]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
+        YAML_File = writtingYAML(YAML_File, outfile, step)
+
+
 
 def writtingYAML(YAML_to_write, outfile, block):
     '''
@@ -246,8 +269,16 @@ def getBoxToResum(args):
     logger = logging.getLogger(getBoxToResum.__name__)
     boxToResume = None
     with open(common.global_dict['settingsFileName'], 'r') as file:
-        oldSettings = yaml.load(file)
+        oldSettings = yaml.load(file, Loader=yaml.FullLoader)
     newsettings = vars(args)
+    advancedSettingsMMseqs = common.readYamlAdvancedSettingsFile(args.AdvancedSettingsMMseqs2, common.getMMseqsDefaultSettings())
+    for settings in advancedSettingsMMseqs.values():
+        for name, value in settings.items():
+            newsettings[name] = value
+    advancedSettingsClustering = common.readYamlAdvancedSettingsFile(args.AdvancedSettingsClustering, common.getClusteringMethodsDefaultSettings())
+    for settings in advancedSettingsClustering.values():
+        for name, value in settings.items():
+            newsettings[name] = value
     for boxKey in oldSettings:
         for parameterKey in oldSettings[boxKey]:
             if not newsettings[parameterKey] == oldSettings[boxKey][parameterKey]:
@@ -475,12 +506,12 @@ def runBox(nameBox, resultsDirectory):
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
-        ClusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage)
+        ClusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage, args.AdvancedSettingsMMseqs2)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
-        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff)
+        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff, args.AdvancedSettingsClustering)
     elif nameBox == 'DataExport':
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges']

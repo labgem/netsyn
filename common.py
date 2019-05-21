@@ -9,6 +9,7 @@ import urllib3
 import subprocess
 import errno
 import re
+import yaml
 
 #############
 # Functions #
@@ -20,6 +21,69 @@ def unPetitBonjourPourredonnerLeMoral(msg=None):
     print("=D I'M HAPPY!!!")
     if msg:
         print(msg)
+
+def getMMseqsDefaultSettings():
+    '''
+    Defines MMseqs2 default Seetings.
+    '''
+    return {
+        'MMseqs advanced settings': {
+            'MMseqs_cov-mode': 1,
+            'MMseqs_cluster-mode': 1,
+            'MMseqs_kmer-per-seq': 80,
+            'MMseqs_max-seqs': 300,
+            'MMseqs_single-step-clustering': 'false'
+        }
+    }
+
+def getClusteringMethodsDefaultSettings():
+    '''
+    Defines clustering methods default Seetings.
+    '''
+    return {
+        global_dict['MCL']: {
+            'MCL_inflation': 2,
+            'MCL_expansion': 2,
+            'MCL_iterations': 1000
+        },
+        global_dict['WalkTrap']: {
+            'walktrap_step': 4
+        },
+        global_dict['Infomap']: {
+            'infomap_trials': 10
+        }
+    }
+
+def readYamlAdvancedSettingsFile(yamlFileName, defaultSettings):
+    '''
+    Read the advanced settings file and compare to default settings.
+    '''
+    logger = logging.getLogger('{}.{}'.format(readYamlAdvancedSettingsFile.__module__, readYamlAdvancedSettingsFile.__name__))
+    error = False
+    if yamlFileName:
+        with open(yamlFileName, 'r') as file:
+            content = yaml.load(file, Loader=yaml.BaseLoader)
+        for name, settings in content.items():
+            for setting, value in settings.items():
+                if name not in defaultSettings.keys():
+                    logger.error('{} is a settings name not allowed.'.format(name))
+                    logger.error('Name allowed: {}'.format(','.join(defaultSettings.keys())))
+                    error = True
+                elif setting not in defaultSettings[name].keys():
+                    logger.error('{} is not allowed as mmseqs setting.'.format(setting))
+                    logger.error('Settings allowed: {}'.format(','.join(defaultSettings[name].keys())))
+                    error = True
+                else:
+                    try:
+                        defaultSettings[name][setting] = int(value)
+                    except:
+                        defaultSettings[name][setting] = value
+
+    if error:
+        logger.error('The {} file is improper.')
+        exit(1)
+    return defaultSettings
+
 
 def parseInputI(filename): # Fonction a deplacer dans tools ??
     '''
@@ -226,7 +290,7 @@ def write_json(dictionary, output):
     '''
     '''
     with open(output, 'w') as jsonFile:
-        json.dump(dictionary, jsonFile, indent=4)
+        json.dump(dictionary, jsonFile)#, indent=4)
     return 0
 
 def readJSON(nameFile):
@@ -343,7 +407,10 @@ global_dict = {
         'UniProt_AC',
         'gene_names',
         'locus_tag'
-    ]
+    ],
+    'MCL': 'MCL advanced settings',
+    'WalkTrap': 'WalkTrap advanced settings',
+    'Infomap': 'Infomap advanced settings'
 }
 
 ##############################

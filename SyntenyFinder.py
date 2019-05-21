@@ -346,7 +346,7 @@ def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
-def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
+def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
     '''
     '''
     # Constants
@@ -373,6 +373,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
         'INC_CUTOFF': 0,
         'INC_NO_SYNTENY': 0
         }
+
+    advanced_settings = common.readYamlAdvancedSettingsFile(ADVANCEDSETTINGSFILENAME, common.getClusteringMethodsDefaultSettings())
 
     prots_info = common.readJSON(PROTEINS)
     targets_info = common.readJSON(TARGETS)
@@ -433,7 +435,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
 
     ### Walktrap clustering
-    graph_walktrap = maxi_graph.community_walktrap(weights='weight')
+    graph_walktrap = maxi_graph.community_walktrap(weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
     walktrap_clustering = graph_walktrap.as_clustering()
 
     for cluster in range(len(walktrap_clustering)):
@@ -468,7 +470,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     ### Infomap Clustering
     # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
     # l'algo n'utilise pas non plus le poids des arêtes
-    graph_infomap = maxi_graph.community_infomap(edge_weights='weight')
+    graph_infomap = maxi_graph.community_infomap(edge_weights='weight', trials=advanced_settings[common.global_dict['Infomap']]['infomap_trials'])
 
     for cluster in range(len(graph_infomap)):
         for vertex in graph_infomap[cluster]:
@@ -497,7 +499,12 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF):
     #         Q = mc.modularity(matrix=result, clusters=clusters)
     #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
 
-    result = mc.run_mcl(matrix_adjacency, inflation=2, expansion=2, iterations=1000)
+    result = mc.run_mcl(
+        matrix_adjacency,
+        inflation=advanced_settings[common.global_dict['MCL']]['MCL_inflation'],
+        expansion=advanced_settings[common.global_dict['MCL']]['MCL_expansion'],
+        iterations=advanced_settings[common.global_dict['MCL']]['MCL_iterations']
+    )
     clusters = mc.get_clusters(result)
 
     for cluster in range(len(clusters)):
@@ -610,6 +617,10 @@ def argumentsParser():
     group1.add_argument('-ssc', '--SyntenyScoreCutoff', type=float,
                         default=0.0, help='Define the minimum Synteny Score Cut off to conserved.\nDefault value: >= 0.0')
 
+    group3 = parser.add_argument_group('Advanced settings')
+    group3.add_argument('-asc', '--AdvancedSettingsClustering', type=str,
+                        help='YAML file with the advanced clustering settings to determine synteny NetSyn. Settings of clusterings methods')
+
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument( '--log_level',
@@ -648,4 +659,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff)
+    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff, args.AdvancedSettingsClustering)

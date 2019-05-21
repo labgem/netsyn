@@ -25,7 +25,7 @@ def mmseqs_createdb(dataDirectoryProcess, multiFasta):
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
-        db_creation = subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
+        subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
         logger.info('Createdb completed')
 
 def mmseqs_clustering(dataDirectoryProcess, params):
@@ -36,16 +36,19 @@ def mmseqs_clustering(dataDirectoryProcess, params):
     os.mkdir(mmseqsTMPdirectory)
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
+    clustering_settings = ['mmseqs', 'cluster', dataBase_path,
+                            cluster_path, mmseqsTMPdirectory,
+                            '--min-seq-id', params['min_id'],
+                            '-c', params['min_coverage'],
+                         ]
+    advanced_settings = common.readYamlAdvancedSettingsFile(params['advancedSettings'], common.getMMseqsDefaultSettings())
+    settings_separator = '_'
+    for settings in advanced_settings.values():
+        for name, value in settings.items():
+            clustering_settings.append('--{}'.format(settings_separator.join(name.split(settings_separator)[1:])))
+            clustering_settings.append(str(value))
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
-        clust_creation = subprocess.run(['mmseqs', 'cluster', dataBase_path,
-                                         cluster_path, mmseqsTMPdirectory,
-                                         '--min-seq-id', params['min_id'],
-                                         '--cov-mode', params['cov_mode'],
-                                         '-c', params['min_coverage'],
-                                         '--cluster-mode', '2',
-                                         '--kmer-per-seq', '80',
-                                         '--max-seqs', '300'
-                                         ], stdout=file, stderr=file, check=True)
+        subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
         logger.info('Clustering completed')
 
 def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
@@ -55,7 +58,7 @@ def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
     with open(os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
-        tsv_creation = subprocess.run(['mmseqs', 'createtsv', dataBase_path,
+        subprocess.run(['mmseqs', 'createtsv', dataBase_path,
                                        dataBase_path, cluster_path, outputTSV_path
                                        ], stdout=file, stderr=file, check=True)
         logger.info('CreateTSV completed')
@@ -81,7 +84,7 @@ def regroup_families(tsv_file, prots_info):
         prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
     return prots_info
 
-def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE):
+def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
     ''' main script to run the second box of NetSyn2
     '''
     # Constants
@@ -99,8 +102,8 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE):
     # Process
     params = {
         'min_id': str(IDENTITY),
-        'cov_mode': str(1),
-        'min_coverage': str(COVERAGE)
+        'min_coverage': str(COVERAGE),
+        'advancedSettings': ADVANCEDSETTINGSFILENAME
         }
 
     if not os.path.isdir(dataDirectoryProcess):
@@ -159,6 +162,10 @@ def argumentsParser():
     group1.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
+    group3 = parser.add_argument_group('Advanced settings')
+    group3.add_argument('-asm', '--AdvancedSettingsMMseqs2', type=str,
+                        help='YAML file with the advanced clustering settings to determine protein families. Settings of MMseqs2 software')
+
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--log_level',
                          type=str,
@@ -202,4 +209,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.FastaFile, args.Proteins, args.Identity, args.Coverage)
+    run(args.FastaFile, args.Proteins, args.Identity, args.Coverage, args.AdvancedSettingsMMseqs2)
