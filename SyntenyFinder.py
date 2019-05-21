@@ -549,10 +549,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
     list_of_edges = []
     for edge in maxi_graph.es:
-        targetA = str(min(int(maxi_graph.vs[edge.tuple[0]]['name']), int(maxi_graph.vs[edge.tuple[1]]['name'])))
-        targetA_idx = str(min(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index)
-        targetB = str(max(int(maxi_graph.vs[edge.tuple[0]]['name']), int(maxi_graph.vs[edge.tuple[1]]['name'])))
-        targetB_idx = str(max(maxi_graph.vs[edge.tuple[0]], maxi_graph.vs[edge.tuple[1]]).index)
+        tuple_0_idx = maxi_graph.vs[edge.tuple[0]].index
+        tuple_1_idx = maxi_graph.vs[edge.tuple[1]].index
+        targetA = str(min(int(maxi_graph.vs[tuple_0_idx]['name']), int(maxi_graph.vs[tuple_1_idx]['name'])))
+        targetB = str(max(int(maxi_graph.vs[tuple_0_idx]['name']), int(maxi_graph.vs[tuple_1_idx]['name'])))
+        targetA_idx = str(maxi_graph.vs.find(targetA).index)
+        targetB_idx = str(maxi_graph.vs.find(targetB).index)
+
         if targets_syntons[(targetA, targetB)]:
             families = targets_syntons[(targetA, targetB)]['families_intersect']
         else:

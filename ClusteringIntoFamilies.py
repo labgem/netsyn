@@ -66,22 +66,20 @@ def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
 def regroup_families(tsv_file, prots_info):
     ''' create a dictionary to store families obtained by MMseqs2
     '''
-    INC_FAMILY = 1
+    INC_FAMILY = 0
     centroid = None
     tmp_dict = {}
     lines = common.read_file(tsv_file)
     for aline in lines:
         aline = aline.strip().split('\t')
-        if not centroid:
-            centroid = aline[0]
-        elif centroid != aline[0]:
+        if centroid != aline[0]:
             centroid = aline[0]
             INC_FAMILY += 1
-        cds = int(aline[1])
-        tmp_dict[str(cds)] = INC_FAMILY
+        cds = aline[1]
+        tmp_dict[cds] = INC_FAMILY
 
     for idx, _ in enumerate(prots_info):
-        prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if tmp_dict[prots_info[idx]['id']] else None
+        prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if prots_info[idx]['id'] in tmp_dict else common.global_dict['defaultValue']
     return prots_info
 
 def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):

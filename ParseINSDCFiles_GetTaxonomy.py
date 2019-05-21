@@ -195,6 +195,9 @@ def get_pseudo_info(aFeature, sequences, window, params):
         'end': end,
         'strand': str(aFeature.location.strand),
         'products': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
+        'ec_numbers': ', '.join(aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else [common.global_dict['defaultValue']]),
+        'gene_names': ', '.join(aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') else [common.global_dict['defaultValue']]),
+        'locus_tag': ', '.join(aFeature.qualifiers.get('locus_tag') if aFeature.qualifiers.get('locus_tag') else [common.global_dict['defaultValue']]),
         'targets': [],
         'targets_idx': []
         }

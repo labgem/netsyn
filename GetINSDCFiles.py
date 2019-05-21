@@ -131,7 +131,7 @@ def run(InputName):
                 else:
                     logger.info('{} already existing.'.format(nucleicFilePath))
                 with open(nucleicFilePath, 'r') as file:
-                    m = re.match(r'^ID .*; (?P<length>[0-9]+) BP\.', file.read())
+                    m = re.search(r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
                     if m:
                         assemblyLength = int(m.group('length'))
                     else:
