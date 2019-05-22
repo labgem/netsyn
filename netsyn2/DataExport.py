@@ -454,7 +454,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
 
     intra_cluster = {}
     inter_cluster = {}
-    for idx_edge, edge in enumerate(edgesContent):
+    for edge in edgesContent:
         source_clusterings = nodesContent[int(edge['source'])]['clusterings']
         target_clusterings = nodesContent[int(edge['target'])]['clusterings']
         for cm, clusterID in source_clusterings.items():
@@ -548,22 +548,22 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''DataExport.py -nf <nodesFile> -ef <edgesFile> -of <organismsFile> -pf <proteinsFile> -o <OutputName>\n\
-\t\t[-mf <metadataFile>]\n\t\t[-rrl <RedundancyRemovalLabel> | -rrt <RedundancyRemovalTaxonomy> -cm <ClusteringMethod>]''',
+                                     usage='''DataExport.py -in <inputNodes> -ie <inputEdges> -io <inputOrganisms> -ip <inputProteins> -o <outputName>\n\
+\t\t[-md <metadataFile>]\n\t\t[-rrl <RedundancyRemovalLabel> | -rrt <RedundancyRemovalTaxonomy> -cm <ClusteringMethod>]''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-nf', '--nodesFile', type=str,
+    group1.add_argument('-in', '--inputNodes', type=str,
                         required=True, help='Path of the nodes file obtained from the SyntenyFinder part')
-    group1.add_argument('-ef', '--edgesFile', type=str,
+    group1.add_argument('-ie', '--inputEdges', type=str,
                         required=True, help='Path of the edges file obtained from the SyntenyFinder part')
-    group1.add_argument('-of', '--organismsFile', type=str,
+    group1.add_argument('-io', '--inputOrganisms', type=str,
                         required=True, help='Path of the organims file from the ClusteringIntoFamilies part')
-    group1.add_argument('-pf', '--proteinsFile', type=str,
+    group1.add_argument('-ip', '--inputProteins', type=str,
                         required=True, help='Path of the proteins file from the ClusteringIntoFamilies part')
-    group1.add_argument('-o', '--OutputName', type=str, required=True,
+    group1.add_argument('-o', '--outputName', type=str, required=True,
                         help='Output name files')
-    group1.add_argument('-mf', '--metadataFile', type=str,
+    group1.add_argument('-md', '--metadataFile', type=str,
                         required=False, help='Path of the metadata file provided by the user')
 
     group2 = parser.add_argument_group('Redundancy Removal settings')
@@ -614,16 +614,16 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['DataExport']
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('graphML', '{}_Results.graphML'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('html', '{}_Results.html'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.outputName, boxName))
     #######
     # Run #
     #######
-    run(args.nodesFile,
-        args.edgesFile,
-        args.organismsFile,
-        args.proteinsFile,
+    run(args.inputNodes,
+        args.inputEdges,
+        args.inputOrganisms,
+        args.inputProteins,
         args.metadataFile,
         args.RedundancyRemovalLabel,
         args.RedundancyRemovalTaxonomy,

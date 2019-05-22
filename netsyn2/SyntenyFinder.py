@@ -600,7 +600,7 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''SyntenyFinder.py -ip <proteinsFileName> -it <targetsFileName> -o <OutputName>\n\
+                                     usage='''SyntenyFinder.py -ip <proteinsFileName> -it <targetsFileName> -o <outputName>\n\
 \t\t-ws <WindowSize> -sg <SyntenyGap> -ssc <SyntenyScoreCutoff>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
@@ -609,7 +609,7 @@ def argumentsParser():
                         required=True, help='Proteins File')
     group1.add_argument('-it', '--inputTargets', type=str,
                         required=True, help='Targets File')
-    group1.add_argument('-o', '--OutputName', type=str,
+    group1.add_argument('-o', '--outputName', type=str,
                         required=True, help='Output name files')
     group1.add_argument('-ws', '--WindowSize', type=int,
                         default=common.global_dict['maxGCSize'],
@@ -618,10 +618,10 @@ def argumentsParser():
     group1.add_argument('-sg', '--SyntenyGap', type=int, default=3,
                         help='Number of genes allowed between two genes in synteny.\nDefault value: 3')
     group1.add_argument('-ssc', '--SyntenyScoreCutoff', type=float,
-                        default=0.0, help='Define the minimum Synteny Score Cut off to conserved.\nDefault value: >= 0.0')
+                        default=common.global_dict['sscDefault'], help='Define the minimum Synteny Score Cut off to conserved.\nDefault value: >= {}'.format(common.global_dict['sscDefault']))
 
     group3 = parser.add_argument_group('Advanced settings')
-    group3.add_argument('-asc', '--AdvancedSettingsClustering', type=str,
+    group3.add_argument('-asc', '--ClusteringAdvancedSettings', type=str,
                         help='YAML file with the advanced clustering settings to determine synteny NetSyn. Settings of clusterings methods')
 
 
@@ -655,11 +655,11 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['SyntenyFinder']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins_syntenyStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('nodes', '{}_nodes.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('edges', '{}_edges.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins', '{}_proteins_syntenyStep.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.outputName, boxName))
     #######
     # Run #
     #######
-    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff, args.AdvancedSettingsClustering)
+    run(args.inputProteins, args.inputTargets ,args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff, args.ClusteringAdvancedSettings)

@@ -790,13 +790,13 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''ParseINSDCFiles_GetTaxonomy.py -i <inputFileName> -o <OutputName>''',
+                                     usage='''ParseINSDCFiles_GetTaxonomy.py -c <CorrespondencesFile> -o <outputName>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
-    group1.add_argument('-i', '--input', type=str,
+    group1.add_argument('-c', '--CorrespondencesFile', type=str,
                         required=True, help='Correspondence entry file between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki)')
-    group1.add_argument('-o', '--OutputName', type=str,
+    group1.add_argument('-o', '--outputName', type=str,
                         required=True, help='Output name files')
 
     group2 = parser.add_argument_group('logger')
@@ -833,14 +833,14 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ParseINSDCFiles_GetTaxonomy']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}_organisms_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}_organisms_taxonomyStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.OutputName)))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_taxonomyStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('faa', '{}.faa'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_1', '{}_organisms_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('organisms_2', '{}_organisms_taxonomyStep.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_1', '{}_proteins_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_1', '{}_targets_parsingStep.json'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('targets_2', '{}_targets_taxonomyStep.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('report', '{}_{}_report.txt'.format(args.outputName, boxName))
     #######
     # Run #
     #######
-    run(args.input)
+    run(args.CorrespondencesFile)
