@@ -24,9 +24,14 @@ def mmseqs_createdb(dataDirectoryProcess, multiFasta):
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
-    with open(os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log'), 'w') as file:
-        subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
-        logger.info('Createdb completed')
+    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log')
+    with open(log_file, 'w') as file:
+        try:
+            subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
+            logger.info('Createdb completed')
+        except:
+            logger.error('mmseqs createdb failed. Plaese, check {}.'.format(log_file))
+            exit(1)
 
 def mmseqs_clustering(dataDirectoryProcess, params):
     ''' cluster sequences using the mmseqs software
@@ -47,9 +52,14 @@ def mmseqs_clustering(dataDirectoryProcess, params):
         for name, value in settings.items():
             clustering_settings.append('--{}'.format(settings_separator.join(name.split(settings_separator)[1:])))
             clustering_settings.append(str(value))
-    with open(os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log'), 'w') as file:
-        subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
-        logger.info('Clustering completed')
+    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log')
+    with open(log_file, 'w') as file:
+        try:
+            subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
+            logger.info('Clustering completed')
+        except:
+            logger.error('mmseqs cluster failed. Plaese, check {}.'.format(log_file))
+            exit(1)
 
 def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     ''' execute the mmseqs command line 'mmseqs createtsv'
@@ -57,11 +67,16 @@ def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
-    with open(os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log'), 'w') as file:
-        subprocess.run(['mmseqs', 'createtsv', dataBase_path,
-                                       dataBase_path, cluster_path, outputTSV_path
-                                       ], stdout=file, stderr=file, check=True)
-        logger.info('CreateTSV completed')
+    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log')
+    with open(log_file, 'w') as file:
+        try:
+            subprocess.run(['mmseqs', 'createtsv', dataBase_path,
+                                        dataBase_path, cluster_path, outputTSV_path
+                                        ], stdout=file, stderr=file, check=True)
+            logger.info('CreateTSV completed')
+        except:
+            logger.error('mmseqs createtsv failed. Plaese, check {}.'.format(log_file))
+            exit(1)
 
 def regroup_families(tsv_file, prots_info):
     ''' create a dictionary to store families obtained by MMseqs2
@@ -145,15 +160,15 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''ClusteringIntoFamilies.py -f <fastaFileName> -p <proteinsFile> -o <OutputName> -id <ident> -mc <MinimalCoverage>''',
+                                     usage='''ClusteringIntoFamilies.py -f <fastaFileName> -ip <proteinsFile> -o <outputName> -id <ident> -mc <MinimalCoverage>''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
     group1.add_argument('-f', '--FastaFile', type=str,
                         required=True, help='Fasta file obtained during the previous process ParseINSDCFiles_GetTaxonomy with all proteins sequences')
-    group1.add_argument('-p', '--Proteins', type=str,
+    group1.add_argument('-ip', '--inputProteins', type=str,
                         required=True, help='Json file obtained during the previous process ParseINSDCFiles_GetTaxonomy containing proteins information')
-    group1.add_argument('-o', '--OutputName', type=str,
+    group1.add_argument('-o', '--outputName', type=str,
                         required=True, help='Output name files')
     group1.add_argument('-id', '--Identity', type=float,
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
@@ -161,7 +176,7 @@ def argumentsParser():
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
 
     group3 = parser.add_argument_group('Advanced settings')
-    group3.add_argument('-asm', '--AdvancedSettingsMMseqs2', type=str,
+    group3.add_argument('-asm', '--MMseqsAdvancedSettings', type=str,
                         help='YAML file with the advanced clustering settings to determine protein families. Settings of MMseqs2 software')
 
     group2 = parser.add_argument_group('logger')
@@ -201,10 +216,10 @@ if __name__ == '__main__':
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_familiesStep.json'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('families', '{}_families.tsv'.format(args.OutputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.OutputName, boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_familiesStep.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('families', '{}_families.tsv'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.outputName, boxName))
     #######
     # Run #
     #######
-    run(args.FastaFile, args.Proteins, args.Identity, args.Coverage, args.AdvancedSettingsMMseqs2)
+    run(args.FastaFile, args.inputProteins, args.Identity, args.Coverage, args.MMseqsAdvancedSettings)

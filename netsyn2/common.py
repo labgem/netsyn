@@ -32,7 +32,8 @@ def getMMseqsDefaultSettings():
             'MMseqs_cluster-mode': 1,
             'MMseqs_kmer-per-seq': 80,
             'MMseqs_max-seqs': 300,
-            'MMseqs_single-step-clustering': 'false'
+            'MMseqs_single-step-clustering': 'false',
+            'MMseqs_threads': 4
         }
     }
 
@@ -67,11 +68,11 @@ def readYamlAdvancedSettingsFile(yamlFileName, defaultSettings):
             for setting, value in settings.items():
                 if name not in defaultSettings.keys():
                     logger.error('{} is a settings name not allowed.'.format(name))
-                    logger.error('Name allowed: {}'.format(','.join(defaultSettings.keys())))
+                    logger.error('Name allowed: {}'.format(', '.join(defaultSettings.keys())))
                     error = True
                 elif setting not in defaultSettings[name].keys():
                     logger.error('{} is not allowed as mmseqs setting.'.format(setting))
-                    logger.error('Settings allowed: {}'.format(','.join(defaultSettings[name].keys())))
+                    logger.error('Settings allowed: {}'.format(', '.join(defaultSettings[name].keys())))
                     error = True
                 else:
                     try:
@@ -80,7 +81,7 @@ def readYamlAdvancedSettingsFile(yamlFileName, defaultSettings):
                         defaultSettings[name][setting] = value
 
     if error:
-        logger.error('The {} file is improper.')
+        logger.error('The {} file is improper.'.format(yamlFileName))
         exit(1)
     return defaultSettings
 
@@ -362,10 +363,11 @@ def reportingFormat(logger, boxName, messages):
 inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
 global_dict = {
-    'version': '0.0.4',
+    'version': '0.0.5',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
+    'sscDefault': 3.0,
     'filesExtension': 'embl',
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
