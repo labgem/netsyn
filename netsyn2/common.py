@@ -285,6 +285,8 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'settings' : '{}_Settings_{}.yaml'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber)
         }
     }
+    global_dict['synthesisDataExport'] = os.path.join(global_dict['dataDirectory'], global_dict['boxName']['DataExport'], 'ClusteringsSynthesis')
+    global_dict['synthesisEndNetSynAnalysis'] = '{}_ClusteringsSynthesis_{}'.format(os.path.join(resultsDirectory, outputDirName), analysisNumber)
 
 def write_json(dictionary, output):
     '''
@@ -407,6 +409,12 @@ global_dict = {
         'UniProt_AC',
         'gene_names',
         'locus_tag'
+    ],
+    'Clustering_Methods': [
+        'Infomap',
+        'Louvain',
+        'MCL',
+        'WalkTrap'
     ],
     'MCL': 'MCL advanced settings',
     'WalkTrap': 'WalkTrap advanced settings',

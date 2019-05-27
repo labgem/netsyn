@@ -32,6 +32,7 @@ def run(resultsDirectory, analysisNumber, boxes):
 
     shutil.copyfile(common.global_dict['files']['DataExport']['graphML'], common.global_dict['files']['EndNetSynAnalysis']['graphML'])
     shutil.copyfile(common.global_dict['files']['DataExport']['html'], common.global_dict['files']['EndNetSynAnalysis']['html'])
+    shutil.copytree(common.global_dict['synthesisDataExport'], common.global_dict['synthesisEndNetSynAnalysis'])
     shutil.copyfile(common.global_dict['settingsFileName'], common.global_dict['files']['EndNetSynAnalysis']['settings'])
 
     with open(common.global_dict['lastAnalysisNumber'], 'w') as file:
