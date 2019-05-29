@@ -138,7 +138,7 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
         for node in nodes:
             oldNodes.append(node['node_idx'])
             newNode.setdefault('id', []).append(str(node['id']))
-            newNode.setdefault('target_idx', []).append(str(node['target_idx']))
+            newNode.setdefault('protein_idx', []).append(str(node['protein_idx']))
             newNode.setdefault(common.global_dict['inputIheader'], []).append(node[common.global_dict['inputIheader']])
             newNode.setdefault(common.global_dict['proteinACHeader'], []).append(node[common.global_dict['proteinACHeader']])
             if not clusterings[clusteringMethod]:
@@ -280,7 +280,7 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
                 for mkey, mvalue in node[nkey].items():
                     graph.vs[idx]['metadata_{}'.format(mkey)] = mvalue
             # COM: recovery of identifiers and accession numbers
-            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC','Size']:
+            elif nkey in ['id', 'protein_idx', 'UniProt_AC', 'protein_AC','Size']:
                 graph.vs[idx][nkey] = nvalue
 
     # COM: Generate edges in a graph
@@ -328,7 +328,7 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
 def get_families_of_targets(nodesContent, proteinsContent):
     families_of_targetsIdx = {}
     for node_idx, node in enumerate(nodesContent):
-        family = proteinsContent[int(node['target_idx'])]['family']
+        family = proteinsContent[int(node['protein_idx'])]['family']
         families_of_targetsIdx.setdefault(family, []).append(node_idx)
     return families_of_targetsIdx
 
@@ -395,10 +395,10 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     print('')
     logger.info('{} running...'.format(boxName))
     # Process
-    nodesContent = common.readJSON(nodesFile)
-    edgesContent = common.readJSON(edgesFile)
-    organismsContent = common.readJSON(organismsFile)
-    proteinsContent = common.readJSON(proteinsFile)
+    nodesContent = common.readJSON(nodesFile, common.getNodesListStepschema())
+    edgesContent = common.readJSON(edgesFile, common.getEdgesListStepschema())
+    organismsContent = common.readJSON(organismsFile, common.getOrganismsTaxonomyStepschema())
+    proteinsContent = common.readJSON(proteinsFile, common.getProteinsSyntenyStepSchema())
     if metadataFile:
         if not common.checkFilledFile(metadataFile):
             metadataContent, headersMD = checkAndGetMetadata(metadataFile)

@@ -3,6 +3,9 @@
 ##########
 import __main__ as namespace
 import json
+import jsonschema
+# from jsonschema import validate
+# from jsonschema.exception import ValidationError
 import os
 import logging
 import urllib3
@@ -294,11 +297,219 @@ def write_json(dictionary, output):
         json.dump(dictionary, jsonFile)#, indent=4)
     return 0
 
-def readJSON(nameFile):
+def getEdgesListStepschema():
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "number"},
+                "target": {"type": "number"},
+                "proteins_idx_source": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "proteins_idx_target": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "weight": {"type": "number"},
+            }, "required": [
+                    "source",
+                    "target",
+                    "proteins_idx_source",
+                    "proteins_idx_target",
+                    "weight"
+             ],
+
+        },
+    }
+
+def getNodesListStepschema():
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "protein_idx": {"type": "number"},
+                "id": {"type": "string"},
+                "UniProt_AC": {"type": "string"},
+                "protein_AC": {"type": "string"},
+                "context": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "context_idx": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "organism_id": {"type": "number"},
+                "organism_idx": {"type": "number"},
+                "clusterings": {
+                    "type": "object",
+                },
+                "families": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                },
+                "Size": {"type": "number"},
+            },
+            "required": [
+                "protein_idx",
+                "id",
+                "UniProt_AC",
+                "protein_AC",
+                "context",
+                "context_idx",
+                "organism_id",
+                "organism_idx",
+                "clusterings",
+                "families",
+                "Size",
+            ],
+
+        },
+    }
+
+def getTargetsTaxonomyStepschema():
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "protein_idx": {"type": "string"},
+                "organism_id": {"type": "number"},
+                "context": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "context_idx": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "UniProt_AC": {"type": "string"},
+                "protein_AC": {"type": "string"},
+                "organism_idx": {"type": "number"},
+            }, "required" : [
+                    "id",
+                    "protein_idx",
+                    "organism_id",
+                    "context",
+                    "context_idx",
+                    "UniProt_AC",
+                    "protein_AC",
+                    "organism_idx"
+            ],
+        },
+    }
+
+def getOrganismsTaxonomyStepschema():
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type" : "number"},
+                "name": {"type" : "string"},
+                "strain": {"type" : "string"},
+                "taxon_id": {"type" : "string"},
+                "lineage": {
+                    "type" : "array",
+                    "items": {
+                        "type" : "object",
+                        "properties": {
+                            "rank": {"type" : "string"},
+                            "scienticName": {"type" : "string"},
+                            "tax_id": {"type" : "string"},
+                            "level": {"type" : "number"},
+                        },
+                        "required": [
+                            "rank",
+                            "scientificName",
+                            "tax_id",
+                            "level"
+                        ]
+                    },
+                },
+            },
+            "required": [
+                "id",
+                "name",
+                "strain",
+                "taxon_id",
+                "lineage"
+            ]
+        }
+    }
+
+def getProteinsParsingStepSchema():
+    return {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type" : "string"},
+                "protein_AC": {"type" : "string"},
+                "begin": {"type" : "number"},
+                "end": {"type" : "number"},
+                "strand": {"type" : "string"},
+                "products": {"type" : "string"},
+                "ec_numbers": {"type" : "string"},
+                "UniProt_AC": {"type" : "string"},
+                "gene_names": {"type" : "string"},
+                "locus_tag": {"type" : "string"},
+                "targets": {"type" : "array", "items": {"type": "string"}},
+                "targets_idx": {"type" : "array", "items": {"type": "string"}}
+            }, "required" : [
+                    "id",
+                    "protein_AC",
+                    "begin",
+                    "end",
+                    "strand",
+                    "products",
+                    "ec_numbers",
+                    "UniProt_AC",
+                    "gene_names",
+                    "locus_tag",
+                    "targets",
+                    "targets_idx"
+                ]
+        },
+    }
+
+def getProteinsFamiliesStepSchema():
+    schema = getProteinsParsingStepSchema()
+    schema["items"]["properties"]["family"] = {"type" : "number"}
+    schema["items"]["required"].append("family")
+    return schema
+
+def getProteinsSyntenyStepSchema():
+    return getProteinsFamiliesStepSchema()
+
+def readJSON(nameFile, schema):
     '''
     '''
+    logger = logging.getLogger('{}.{}'.format(readJSON.__module__, readJSON.__name__))
     with open(nameFile, 'r') as file:
-        return json.load(file)
+        data = json.load(file)
+    # if type(schema) == type([]):
+    #     schema = schema[0]
+    #     if not type(data) == type([]):
+    #         logger.error('Data from {} file must be into a list.'.format(nameFile))
+    #         exit(0)
+    #     for d in data:
+    #         validate(d, schema)
+    # else:
+    #     validate(data, schema)
+    if schema:
+        try:
+            jsonschema.validate(data, schema)
+        except 	jsonschema.exceptions.UnknownType    as e:
+            logger.error(e)
+            exit(1)
+
+    return data
 
 def read_file(input):
     '''

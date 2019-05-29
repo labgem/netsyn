@@ -74,8 +74,8 @@ def get_userGC(targets_info, windowSize):
     2)prots_info[target]['context']
     '''
     half_user_window = math.floor(windowSize/2)
-    for target_idx, target_dict in targets_info.items():
-        center = target_dict['context_idx'].index(target_idx)
+    for target_idx, target_dict in enumerate(targets_info):
+        center = target_dict['context_idx'].index(target_dict['protein_idx'])
         low_limit = max(0, center-half_user_window)
         high_limit = min(len(target_dict['context_idx']),
                          center+half_user_window+1)
@@ -84,7 +84,7 @@ def get_userGC(targets_info, windowSize):
         targets_info[target_idx]['target_pos'] = target_dict['context'].index(target_dict['id'])
     return targets_info
 
-def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
+def proteinsRemoval(prots_info, targets_info, maxi_graph):#, targets_syntons):
     '''
     Removes:
         I. the proteins exclued by le resizing of genomic context
@@ -113,20 +113,21 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
             proteinsIndex[i] -= decrement
 
     # Uptades indexes in targets_info
-    new_targets_info = {}
-    for target_idx, target_dict in targets_info.items():
+    new_targets_info = []
+    for target_idx, target_dict in enumerate(targets_info):
         target_dict['context_idx'] = [str(proteinsIndex[int(i)]) for i in target_dict['context_idx']]
-        new_index = str(target_dict['context_idx'][target_dict['target_pos']])
-        new_targets_info.setdefault(new_index, {}).update(target_dict)
+        new_protein_index = str(target_dict['context_idx'][target_dict['target_pos']])
+        target_dict['protein_idx'] = new_protein_index
+        new_targets_info.append(target_dict)
     #print(len(new_targets_info))
 
     # Uptades indexes in maxi_graph
-    maxi_graph.vs['name'] = [str(proteinsIndex[int(lastIndex)]) for lastIndex in maxi_graph.vs['name']]
+    # maxi_graph.vs['name'] = [str(proteinsIndex[int(lastIndex)]) for lastIndex in maxi_graph.vs['name']]
 
     # Uptades indexes in new_targets_syntons
-    new_targets_syntons = {}
-    for (indexA, indexB), value in targets_syntons.items():
-        new_targets_syntons[(str(proteinsIndex[int(indexA)]), str(proteinsIndex[int(indexB)]))] = value
+    # new_targets_syntons = {}
+    # for (indexA, indexB), value in targets_syntons.items():
+    #     new_targets_syntons[(str(proteinsIndex[int(indexA)]), str(proteinsIndex[int(indexB)]))] = value
 
     # Removes proteins that are not preserved.
     for i in sorted(proteinsIndexToDel, reverse=True):
@@ -135,11 +136,11 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons):
     # Uptades indexes in prots_info[idx]['targets_idx']
     for protein_idx, _ in enumerate(prots_info):
         prots_info[protein_idx]['targets_idx'] = []
-    for target_idx, target_dict in new_targets_info.items():
+    for target_idx, target_dict in enumerate(new_targets_info):
         for idx in target_dict['context_idx']:
-            prots_info[int(idx)]['targets_idx'].append(target_idx)
+            prots_info[int(idx)]['targets_idx'].append(target_dict['protein_idx'])
 
-    return new_targets_info, prots_info, maxi_graph, new_targets_syntons
+    return new_targets_info, prots_info#, maxi_graph#, new_targets_syntons
 
 def get_families_and_pos_in_context(target_dict):
     ''' get list index of every family in a context
@@ -273,8 +274,11 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
                 if not maxiG.vertex_attributes() or targetB not in maxiG.vs['name']:
                     maxiG.add_vertex(targetB)
                     maxiG.vs[maxiG.vs['name'].index(targetB)]['targetPosition'] = synton_of_targets[1]
+                # print(maxiG.vs['name'])
+                # print("\t"*2,targetA, targetB)
                 vertex_idx_targetA = maxiG.vs['name'].index(targetA)
                 vertex_idx_targetB = maxiG.vs['name'].index(targetB)
+                # print("\t"*2,vertex_idx_targetA, vertex_idx_targetB)
                 maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
                 edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
                 maxiG.es[edge_idx_AB]['weight'] = score
@@ -303,6 +307,7 @@ def build_maxi_graph(maxiG, targets_syntons, params):
         # COM: gA and gB have the same nodes, only edges diff
         gB = gA.copy()
         maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
+        # print(targetA, targetB)
     return maxiG, params
 
 def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
@@ -376,8 +381,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
     advanced_settings = common.readYamlAdvancedSettingsFile(ADVANCEDSETTINGSFILENAME, common.getClusteringMethodsDefaultSettings())
 
-    prots_info = common.readJSON(PROTEINS)
-    targets_info = common.readJSON(TARGETS)
+    prots_info = common.readJSON(PROTEINS, common.getProteinsFamiliesStepSchema())
+    targets_info = common.readJSON(TARGETS, common.getTargetsTaxonomyStepschema())
 
     targets_syntons = {}
     no_synteny = 0
@@ -387,17 +392,20 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         logger.info('Genomic context resizing ({} -> {})...'.format(params['MAX_GC'], params['USER_GC']))
         targets_info = get_userGC(targets_info, params['USER_GC'])
 
-    for target, target_dict in targets_info.items():
+    for target_dict in targets_info:
         target_dict['families'] = [prots_info[int(idx)]['family'] for idx in target_dict['context_idx']]
         target_dict = get_families_and_pos_in_context(target_dict)
         if params['MAX_GC'] == params['USER_GC']:
-            target_dict['target_pos'] = target_dict['context_idx'].index(target)
+            target_dict['target_pos'] = target_dict['context_idx'].index(target_dict['protein_idx'])
 
-    targets_list = list(targets_info.keys())
-    for idx, targetAidx in enumerate(targets_list[:-1]):
-        targetA = targets_info[targetAidx]
-        for targetBidx in targets_list[idx+1:]:
-            targetB = targets_info[targetBidx]
+    # targets_list = list(targets_info.keys())
+    # for idx, targetAidx in enumerate(targets_list[:-1]):
+        # targetA = targets_info[targetAidx]
+        # for targetBidx in targets_list[idx+1:]:
+        #     targetB = targets_info[targetBidx]
+    for targetAidx, targetA in enumerate(targets_info[:-1]):
+        for i, targetB in enumerate(targets_info[targetAidx+1:]):
+            targetBidx = (targetAidx + i + 1)
             if targetA['organism_idx'] != targetB['organism_idx']:
                 families_intersect = intersect_families(targetA['families'],
                                                         targetB['families'])
@@ -414,7 +422,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     no_synteny += 1
             else:
                 no_synteny += 1
-
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
     # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
@@ -513,7 +520,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
     targetsNumber = len(targets_info)
     #print(len(targets_info), len(maxi_graph.vs['name']))
-    targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
+    # targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
+    targets_info, prots_info = proteinsRemoval(prots_info, targets_info, maxi_graph)
     #print(len(targets_info), len(maxi_graph.vs['name']))
     #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
     # print(targets_info.keys())
@@ -521,11 +529,12 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
     list_of_nodes = []
     for target_node in maxi_graph.vs:
-        target_idx = target_node['name']
-        dico = {'target_idx': target_idx,
-                'id': prots_info[int(target_idx)]['id'],
-                'UniProt_AC': prots_info[int(target_idx)]['UniProt_AC'],
-                'protein_AC': prots_info[int(target_idx)]['protein_AC'],
+        target_idx = int(target_node['name'])
+        protein_idx = int(targets_info[target_idx]['protein_idx'])
+        dico = {'protein_idx': protein_idx,
+                'id': prots_info[protein_idx]['id'],
+                'UniProt_AC': prots_info[protein_idx]['UniProt_AC'],
+                'protein_AC': prots_info[protein_idx]['protein_AC'],
                 #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
                 #'GC_size': len(prots_info[cds_inc]['userGC']),
                 #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
@@ -549,12 +558,11 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
     list_of_edges = []
     for edge in maxi_graph.es:
-        tuple_0_idx = maxi_graph.vs[edge.tuple[0]].index
-        tuple_1_idx = maxi_graph.vs[edge.tuple[1]].index
-        targetA = str(min(int(maxi_graph.vs[tuple_0_idx]['name']), int(maxi_graph.vs[tuple_1_idx]['name'])))
-        targetB = str(max(int(maxi_graph.vs[tuple_0_idx]['name']), int(maxi_graph.vs[tuple_1_idx]['name'])))
-        targetA_idx = str(maxi_graph.vs.find(targetA).index)
-        targetB_idx = str(maxi_graph.vs.find(targetB).index)
+        node_0_idx = maxi_graph.vs[edge.tuple[0]].index
+        node_1_idx = maxi_graph.vs[edge.tuple[1]].index
+        targetA = min(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
+        targetB = max(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
+        nodeA_idx, nodeB_idx = (node_0_idx, node_1_idx) if maxi_graph.vs[node_0_idx]['name'] == targetA else (node_1_idx, node_0_idx)
 
         if targets_syntons[(targetA, targetB)]:
             families = targets_syntons[(targetA, targetB)]['families_intersect']
@@ -564,8 +572,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
         proteins_idx_source, proteins_idx_target = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
 
-        dico = {'source': targetA_idx,
-                'target': targetB_idx,
+        dico = {'source': nodeA_idx,
+                'target': nodeB_idx,
                 'proteins_idx_source': proteins_idx_source,
                 'proteins_idx_target': proteins_idx_target,
                 'weight': maxi_graph.es[edge.index]['weight']
