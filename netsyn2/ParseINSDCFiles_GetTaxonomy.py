@@ -694,7 +694,7 @@ def get_organisms_idx(targets_info, orgs_info):
                     })
     return targets_info
 
-def run(INPUT_II):
+def run(INPUT_II, pseudogenes):
     ''' main script to run the second box of NetSyn2
     '''
     # Constants
@@ -718,7 +718,7 @@ def run(INPUT_II):
         os.mkdir(dataDirectoryProcess)
 
     params = {
-        'PSEUDOGENE': False, # Tells if pseudogenes are included in the analysis
+        'PSEUDOGENE': pseudogenes,
         'MAX_GC': common.global_dict['maxGCSize'],
         'INC_PSEUDO_REF': 0, # counter of pseusogenes
         'INC_CDS_REF': 0,
@@ -790,7 +790,7 @@ def argumentsParser():
     Arguments parsing
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
-                                     usage='''ParseINSDCFiles_GetTaxonomy.py -c <CorrespondencesFile> -o <outputName>''',
+                                     usage='''ParseINSDCFiles_GetTaxonomy.py -c <CorrespondencesFile> -o <outputName> [--IncludedPseudogenes]''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
@@ -798,6 +798,8 @@ def argumentsParser():
                         required=True, help='Correspondence entry file between: protein_AC/nucleic_AC/nucleic_File_Path (cf: wiki)')
     group1.add_argument('-o', '--outputName', type=str,
                         required=True, help='Output name files')
+    group1.add_argument('--IncludedPseudogenes', action='store_true',
+                        help='CDS annotated as pseudogenes are considered as part of the genomic context')
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--log_level',
@@ -843,4 +845,4 @@ if __name__ == '__main__':
     #######
     # Run #
     #######
-    run(args.CorrespondencesFile)
+    run(args.CorrespondencesFile, args.IncludedPseudogenes)
