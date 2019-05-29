@@ -77,6 +77,8 @@ def argumentsParser():
                         help='Force the creation of a new projet. Overwrite the project of the same name')
     group1.add_argument('--conserveDownloadedINSDC', action='store_true',
                         help='Conserve the downloaded files from GetINSDC. Require of --UniProtACList option')
+    group1.add_argument('--IncludedPseudogenes', action='store_true',
+                        help='CDS annotated as pseudogenes are considered as part of the genomic context')
 
     group4 = parser.add_argument_group('Clustering settings to determine protein families')
     group4.add_argument('-id', '--Identity', type=float,
@@ -216,9 +218,10 @@ def createYamlSettingsFile(args):
         YAML_File['General informations']['CorrespondencesFile'] = args.CorrespondencesFile
         YAML_File['General informations']['OutputDirName'] = args.OutputDirName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
+        YAML_File['General informations']['IncludedPseudogenes'] = args.IncludedPseudogenes
         YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
 
-        # Clustering nto Families
+        # Clustering into Families
         step = ORDERBOX[2-gap]
         YAML_File[step] = {}
         YAML_File[step]['Coverage'] = args.Coverage
@@ -243,8 +246,6 @@ def createYamlSettingsFile(args):
         YAML_File[step]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
         YAML_File[step]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
         YAML_File = writtingYAML(YAML_File, outfile, step)
-
-
 
 def writtingYAML(YAML_to_write, outfile, block):
     '''
@@ -308,7 +309,11 @@ def inputFileModificationChecking(newInputFile, oldInputFile):
     Check that the input file has not been modified.
     '''
     logger = logging.getLogger(inputFileModificationChecking.__name__)
-    if not filecmp.cmp(newInputFile,oldInputFile):
+    error = common.checkFilledFile(newInputFile)
+    if error:
+        logger.error('The input file {} does not exist.'.format(newInputFile))
+        exit(1)
+    elif not filecmp.cmp(newInputFile,oldInputFile):
         logger.error('The input file {} has been modified. Please start a new project.'.format(newInputFile))
         exit(1)
 
@@ -496,7 +501,7 @@ def runBox(nameBox, resultsDirectory):
             inputBoxII = args.CorrespondencesFile
         else:
             inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
-        ParseINSDCFiles_GetTaxonomy.run(inputBoxII)
+        ParseINSDCFiles_GetTaxonomy.run(inputBoxII, args.IncludedPseudogenes)
         if 'GetINSDCFiles' in ORDERBOX:
             if not args.conserveDownloadedINSDC:
                 logger.info('Removing downloded files in GetINSDC step')
@@ -583,8 +588,8 @@ if __name__ == '__main__':
         nameBoxDone = None
     else:
         '''Fichier de setting == analyse deja lance'''
-        inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
         nameBoxToResum = getBoxToResum(args)
+        inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
         if nameBoxToResum == 'General informations':
             logger.error('Already existing project. Please start a new project')
             exit(1)
