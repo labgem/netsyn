@@ -30,7 +30,7 @@ def mmseqs_createdb(dataDirectoryProcess, multiFasta):
             subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
             logger.info('Createdb completed')
         except:
-            logger.error('mmseqs createdb failed. Plaese, check {}.'.format(log_file))
+            logger.error('mmseqs createdb failed. Please, check {}'.format(log_file))
             exit(1)
 
 def mmseqs_clustering(dataDirectoryProcess, params):
@@ -58,7 +58,7 @@ def mmseqs_clustering(dataDirectoryProcess, params):
             subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
             logger.info('Clustering completed')
         except:
-            logger.error('mmseqs cluster failed. Plaese, check {}.'.format(log_file))
+            logger.error('mmseqs cluster failed. Please, check {}'.format(log_file))
             exit(1)
 
 def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
@@ -75,7 +75,7 @@ def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
                                         ], stdout=file, stderr=file, check=True)
             logger.info('CreateTSV completed')
         except:
-            logger.error('mmseqs createtsv failed. Plaese, check {}.'.format(log_file))
+            logger.error('mmseqs createtsv failed. Please, check {}'.format(log_file))
             exit(1)
 
 def regroup_families(tsv_file, prots_info):
@@ -132,7 +132,7 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
     shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
     removeUselessFiles(dataDirectoryProcess)
 
-    prots_info = common.readJSON(PROTEINS)
+    prots_info = common.readJSON(PROTEINS, common.getProteinsParsingStepSchema())
     prots_info = regroup_families(families, prots_info)
     common.write_json(prots_info, proteins_2)
 
