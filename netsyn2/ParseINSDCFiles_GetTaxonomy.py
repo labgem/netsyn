@@ -527,7 +527,7 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
             scientificName = taxon.find('ScientificName').text
             rank = False
             if taxon.find('Rank').text:
-                rank = root.find('Taxon').find('Rank').text
+                rank = taxon.find('Rank').text
             fullLineage[scientificName] = {
                 'rank' : rank,
                 'taxId' : collectedTaxId
