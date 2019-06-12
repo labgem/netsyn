@@ -6,8 +6,8 @@
 import argparse
 import logging
 import os
-import common
 import igraph as ig
+import common
 #############
 # Functions #
 #############
@@ -227,7 +227,7 @@ def nodes_edgesUpdating(nodesToAdd, nodesContent, edgesContent, clusteringMethod
         node['clusterings'][clusteringMethod] = clusterID
 
     edgesToDel = []
-    for index,edge in enumerate(edgesContent):
+    for index, edge in enumerate(edgesContent):
         edge['source'] = nodesIndexes[int(edge['source'])]
         edge['target'] = nodesIndexes[int(edge['target'])]
         if edge['source'] == edge['target']:
@@ -279,7 +279,7 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
                 for mkey, mvalue in node[nkey].items():
                     graph.vs[idx]['metadata_{}'.format(mkey)] = mvalue
             # COM: recovery of identifiers and accession numbers
-            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC','Size']:
+            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC', 'Size']:
                 graph.vs[idx][nkey] = nvalue
 
     # COM: Generate edges in a graph
@@ -332,34 +332,57 @@ def get_families_of_targets(nodesContent, proteinsContent):
             families_of_targetsIdx.setdefault(family, []).append(node_idx)
     return families_of_targetsIdx
 
-def get_clusterID_family_content(dico, proteins_indexes, proteinsContent):
+def get_clusterID_family_content(node_dict, proteins_indexes, proteinsContent):
     families = []
     for prot_idx in proteins_indexes:
         family = proteinsContent[int(prot_idx)]['family']
         families.append(family)
-        #if proteinsContent[int(prot_idx)]['protein_AC'] not in dico.setdefault(family, {}).setdefault('protein_AC', []):
-        dico.setdefault(family, {}).setdefault('protein_AC', []).append(proteinsContent[int(prot_idx)]['protein_AC'])
-        dico[family].setdefault('locus_tags', []).append(proteinsContent[int(prot_idx)]['locus_tag'])
-        dico[family].setdefault('ec_numbers', []).append(proteinsContent[int(prot_idx)]['ec_numbers'])
-        dico[family].setdefault('gene_names', []).append(proteinsContent[int(prot_idx)]['gene_names'])
-        dico[family].setdefault('products', []).append(proteinsContent[int(prot_idx)]['products'])
-    dico.setdefault('families', families)
-    return dico, families
+        node_dict.setdefault(family, {}).setdefault('protein_AC', []).append(proteinsContent[int(prot_idx)]['protein_AC'])
+        node_dict[family].setdefault('locus_tags', []).append(proteinsContent[int(prot_idx)]['locus_tag'])
+        node_dict[family].setdefault('ec_numbers', []).append(proteinsContent[int(prot_idx)]['ec_numbers'])
+        node_dict[family].setdefault('gene_names', []).append(proteinsContent[int(prot_idx)]['gene_names'])
+        node_dict[family].setdefault('products', []).append(proteinsContent[int(prot_idx)]['products'])
+    node_dict.setdefault('families', families)
+    return node_dict, families
 
-def get_strain_and_species(dico, node_idx, taxo_level, organismsContent, nodesContent):
-    for org_key, org_value in organismsContent[nodesContent[node_idx]['organism_idx']].items():
-        if org_key == 'strain':
-            dico.setdefault('strains', []).append(org_value)
-        elif org_key == 'lineage':
-            for taxonomic_level in org_value:
-                if taxonomic_level['rank'] == taxo_level:
-                    dico.setdefault('species', []).append(taxonomic_level['scientificName'])
-    return dico
+def get_strain_and_species(node_idx, taxo_level, organismsContent, nodesContent):
+    node_organism = {}
+    # COM: strain treatment
+    strain_value = organismsContent[nodesContent[node_idx]['organism_idx']]['strain']
+    if strain_value == 'NA':
+        strain_value = ''
+    # COM: species treatment
+    for taxonomic_level in organismsContent[nodesContent[node_idx]['organism_idx']]['lineage']:
+        if taxonomic_level['rank'] == taxo_level:
+            species_value = taxonomic_level['scientificName']
+    if species_value == 'NA':
+        if organismsContent[nodesContent[node_idx]['organism_idx']]['name'] != 'NA':
+            species_value = organismsContent[nodesContent[node_idx]['organism_idx']]['name']
+        elif strain_value != '':
+            species_value = 'unknown'
+        else:
+            species_value = 'NA'
+    # COM: organism treatment
+    organism_value = organismsContent[nodesContent[node_idx]['organism_idx']]['name']
+    if strain_value not in organism_value:
+        organism_value = ' '.join([organism_value, strain_value])
+    # COM: data insertion in node_organism
+    node_organism.setdefault('strains', []).append(strain_value)
+    node_organism.setdefault('species', []).append(species_value)
+    node_organism.setdefault('organisms', []).append(organism_value)
+    return node_organism
 
 def get_metadata_values(dico, node_idx, nodesContent):
     for key_md, value_md in nodesContent[node_idx]['metadata'].items():
         dico.setdefault('metadata', {}).setdefault(key_md, []).append(value_md)
     return dico
+
+def get_non_redundant_prots_info(storage_family_dict, cluster_family_dict):
+    for prot_idx, protAC in enumerate(storage_family_dict['protein_AC']):
+        if protAC not in cluster_family_dict.setdefault('protein_AC', []):
+            for key, value in storage_family_dict.items():
+                cluster_family_dict.setdefault(key, []).append(value[prot_idx])
+    return cluster_family_dict
 
 def add_metadataHeaders(headers_to_print, headersMD):
     metadataHeaders = sorted([header
@@ -376,15 +399,21 @@ def get_metadata_info(familyContent, md_dict):
         familyContent.setdefault('metadata', {}).setdefault(key, []).extend(md_val)
     return familyContent
 
-def get_general_info(familyContent):
-    syntSize = familyContent['synteny_size']
-    nbr_prots = len(set(familyContent['protein_AC']))
-    products = ' / '.join(sorted(set(familyContent['products']), key=lambda x: familyContent['products'].index(x)))
-    gene_names = ' / '.join(sorted(set(familyContent['gene_names']), key=lambda x: familyContent['gene_names'].index(x)))
-    ec_nbrs = ' / '.join(sorted(set(familyContent['ec_numbers']), key=lambda x: familyContent['ec_numbers'].index(x)))
-    locus_tags = ' / '.join(sorted(set(familyContent['locus_tags']), key=lambda x: familyContent['locus_tags'].index(x)))
-    protein_AC = ' / '.join(sorted(set(familyContent['protein_AC']), key=lambda x: familyContent['protein_AC'].index(x)))
-    return syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC
+def get_sorted_nr_data(specific_list, counter=False):
+    if counter:
+        lower_case_list = [name.lower() for name in specific_list]
+        convert_to_dict = {name: lower_case_list.count(name) for name in set(lower_case_list)}
+        if 'na' in convert_to_dict.keys() and len(convert_to_dict) == 1:
+            sorted_nr_list = ['NA']
+        else:
+            if 'na' in convert_to_dict.keys():
+                del convert_to_dict['na']
+            sorted_keys_list = sorted(convert_to_dict.keys(), key=lambda x: x.lower())
+            sorted_nr_list = ['{} [{}]'.format(name, convert_to_dict[name]) for name in sorted_keys_list]
+    else:
+        sorted_nr_list = sorted(set([name for name in specific_list if name != 'NA']), key=lambda x: x.lower())#, key=lambda x: familyContent['gene_names'].index(x))
+    string = ' / '.join(sorted_nr_list)
+    return string
 
 def add_metadata_info(line, metadataHeaders, headers_to_print, familyContent):
     for md_head in metadataHeaders:
@@ -484,46 +513,100 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
 
     ### COM: Storage of information to write ClusteringSynthesis files
     families_of_targetsIdx = get_families_of_targets(nodesContent, proteinsContent)
-
     intra_cluster = {}
     inter_cluster = {}
     for edge in edgesContent:
+        # COM: get the clusterID for each clustering method of source and target nodes
         source_clusterings = nodesContent[int(edge['source'])]['clusterings']
         target_clusterings = nodesContent[int(edge['target'])]['clusterings']
         for cm, clusterID in source_clusterings.items():
-            tmp_dict = {}
-            tmp_dict, source_families = get_clusterID_family_content(tmp_dict, edge['proteins_idx_source'], proteinsContent)
-            tmp_dict, target_families = get_clusterID_family_content(tmp_dict, edge['proteins_idx_target'], proteinsContent)
+            source_dict = {}
+            target_dict = {}
+            source_dict, source_families = get_clusterID_family_content(source_dict, edge['proteins_idx_source'], proteinsContent)
+            target_dict, target_families = get_clusterID_family_content(target_dict, edge['proteins_idx_target'], proteinsContent)
+            source_orgs = get_strain_and_species(int(edge['source']), 'species', organismsContent, nodesContent)
+            target_orgs = get_strain_and_species(int(edge['target']), 'species', organismsContent, nodesContent)
             if metadataFile:
-                tmp_dict = get_metadata_values(tmp_dict, int(edge['source']), nodesContent)
-                tmp_dict = get_metadata_values(tmp_dict, int(edge['target']), nodesContent)
+                source_dict = get_metadata_values(source_dict, int(edge['source']), nodesContent)
+                target_dict = get_metadata_values(target_dict, int(edge['target']), nodesContent)
             if clusterID == target_clusterings[cm]:
                 if set(source_families)-set(target_families) == set():
                     for family in set(source_families):
-                        intra_cluster.setdefault(cm, {}).setdefault(clusterID, {}).setdefault(family, {}).setdefault('nodes_indexes', []).extend([int(edge['source']), int(edge['target'])])
-                        {intra_cluster[cm][clusterID][family].setdefault(key, []).extend(value) for key, value in tmp_dict[family].items()}
-                        intra_cluster[cm][clusterID][family] = get_strain_and_species(intra_cluster[cm][clusterID][family], int(edge['source']), 'species', organismsContent, nodesContent)
-                        intra_cluster[cm][clusterID][family] = get_strain_and_species(intra_cluster[cm][clusterID][family], int(edge['target']), 'species', organismsContent, nodesContent)
+                        intra_cluster.setdefault(cm, {}).setdefault(clusterID, {}).setdefault(family, {}).setdefault('nodes_indexes', [])
+
+                        if (int(edge['source']) not in intra_cluster[cm][clusterID][family]['nodes_indexes']) and (int(edge['target']) not in intra_cluster[cm][clusterID][family]['nodes_indexes']):
+                            intra_cluster[cm][clusterID][family]['nodes_indexes'].extend([int(edge['source']), int(edge['target'])])
+                            intra_cluster[cm][clusterID][family] = get_non_redundant_prots_info(source_dict[family], intra_cluster[cm][clusterID][family])
+                            intra_cluster[cm][clusterID][family] = get_non_redundant_prots_info(target_dict[family], intra_cluster[cm][clusterID][family])
+                            intra_cluster[cm][clusterID][family].setdefault('strains', []).extend(source_orgs['strains'])
+                            intra_cluster[cm][clusterID][family].setdefault('species', []).extend(source_orgs['species'])
+                            intra_cluster[cm][clusterID][family].setdefault('organisms', []).extend(source_orgs['organisms'])
+                            intra_cluster[cm][clusterID][family].setdefault('strains', []).extend(target_orgs['strains'])
+                            intra_cluster[cm][clusterID][family].setdefault('species', []).extend(target_orgs['species'])
+                            intra_cluster[cm][clusterID][family].setdefault('organisms', []).extend(target_orgs['organisms'])
+
+                        elif int(edge['source']) not in intra_cluster[cm][clusterID][family]['nodes_indexes']:
+                            intra_cluster[cm][clusterID][family]['nodes_indexes'].append(int(edge['source']))
+                            intra_cluster[cm][clusterID][family] = get_non_redundant_prots_info(source_dict[family], intra_cluster[cm][clusterID][family])
+                            intra_cluster[cm][clusterID][family].setdefault('strains', []).extend(source_orgs['strains'])
+                            intra_cluster[cm][clusterID][family].setdefault('species', []).extend(source_orgs['species'])
+                            intra_cluster[cm][clusterID][family].setdefault('organisms', []).extend(source_orgs['organisms'])
+
+                        elif int(edge['target']) not in intra_cluster[cm][clusterID][family]['nodes_indexes']:
+                            intra_cluster[cm][clusterID][family]['nodes_indexes'].append(int(edge['target']))
+                            intra_cluster[cm][clusterID][family] = get_non_redundant_prots_info(target_dict[family], intra_cluster[cm][clusterID][family])
+                            intra_cluster[cm][clusterID][family].setdefault('strains', []).extend(target_orgs['strains'])
+                            intra_cluster[cm][clusterID][family].setdefault('species', []).extend(target_orgs['species'])
+                            intra_cluster[cm][clusterID][family].setdefault('organisms', []).extend(target_orgs['organisms'])
+
                         intra_cluster[cm][clusterID][family]['synteny_size'] = intra_cluster[cm][clusterID][family].setdefault('synteny_size', 0) + 1
                         if metadataFile:
-                            intra_cluster[cm][clusterID][family] = get_metadata_info(intra_cluster[cm][clusterID][family], tmp_dict['metadata'])
+                            intra_cluster[cm][clusterID][family] = get_metadata_info(intra_cluster[cm][clusterID][family], source_dict['metadata'])
+                            intra_cluster[cm][clusterID][family] = get_metadata_info(intra_cluster[cm][clusterID][family], target_dict['metadata'])
                 else:
-                    logger.critical('Families ID obtained by proteins for both targets in synteny must be the same. This reveals a development error. Please contact us.')
+                    logger.critical('Families ID obtained by proteins for both targets in synteny must be identical. This reveals a development error. Please contact us.')
             else:
-                for family in tmp_dict['families']:
+                families = source_families
+                families.extend(target_families)
+                for family in set(families):
                     inter_cluster.setdefault(cm, {}).setdefault(family, {}).setdefault('clusters', []).extend([clusterID, target_clusterings[cm]])
-                    inter_cluster[cm][family].setdefault('nodes_indexes', []).extend([int(edge['source']), int(edge['target'])])
-                    {inter_cluster[cm][family].setdefault(key, []).extend(value) for key, value in tmp_dict[family].items()}
+                    inter_cluster[cm][family].setdefault('nodes_indexes', [])
+                    if (int(edge['source']) and int(edge['target'])) not in inter_cluster[cm][family]['nodes_indexes']:
+                        inter_cluster[cm][family]['nodes_indexes'].extend([int(edge['source']), int(edge['target'])])
+                        inter_cluster[cm][family] = get_non_redundant_prots_info(source_dict[family], inter_cluster[cm][family])
+                        inter_cluster[cm][family] = get_non_redundant_prots_info(target_dict[family], inter_cluster[cm][family])
+                        inter_cluster[cm][family].setdefault('strains', []).extend(source_orgs['strains'])
+                        inter_cluster[cm][family].setdefault('species', []).extend(source_orgs['species'])
+                        inter_cluster[cm][family].setdefault('organisms', []).extend(source_orgs['organisms'])
+                        inter_cluster[cm][family].setdefault('strains', []).extend(target_orgs['strains'])
+                        inter_cluster[cm][family].setdefault('species', []).extend(target_orgs['species'])
+                        inter_cluster[cm][family].setdefault('organisms', []).extend(target_orgs['organisms'])
+
+                    elif int(edge['source']) not in inter_cluster[cm][family]['nodes_indexes']:
+                        inter_cluster[cm][family]['nodes_indexes'].append(int(edge['source']))
+                        inter_cluster[cm][family] = get_non_redundant_prots_info(source_dict[family], inter_cluster[cm][family])
+                        inter_cluster[cm][family].setdefault('strains', []).extend(source_orgs['strains'])
+                        inter_cluster[cm][family].setdefault('species', []).extend(source_orgs['species'])
+                        inter_cluster[cm][family].setdefault('organisms', []).extend(source_orgs['organisms'])
+
+                    elif int(edge['target']) not in inter_cluster[cm][family]['nodes_indexes']:
+                        inter_cluster[cm][family]['nodes_indexes'].append(int(edge['target']))
+                        inter_cluster[cm][family] = get_non_redundant_prots_info(target_dict[family], inter_cluster[cm][family])
+                        inter_cluster[cm][family].setdefault('strains', []).extend(target_orgs['strains'])
+                        inter_cluster[cm][family].setdefault('species', []).extend(target_orgs['species'])
+                        inter_cluster[cm][family].setdefault('organisms', []).extend(target_orgs['organisms'])
+
                     inter_cluster[cm][family]['synteny_size'] = inter_cluster[cm][family].setdefault('synteny_size', 0) + 1
                     if metadataFile:
-                        inter_cluster[cm][family] = get_metadata_info(inter_cluster[cm][family], tmp_dict['metadata'])
+                        inter_cluster[cm][family] = get_metadata_info(inter_cluster[cm][family], source_dict['metadata'])
+                        inter_cluster[cm][family] = get_metadata_info(inter_cluster[cm][family], target_dict['metadata'])
 
     # COM: intra cluster process
+    headers_to_print = ['NetSyn_ClusterID', 'NetSyn_FamilyID', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Strains_Nb', 'Organisms_Nb', 'Organisms_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
+    if metadataFile:
+        metadataHeaders = add_metadataHeaders(headers_to_print, headersMD)
+        headers_to_print.extend(metadataHeaders)
     for cm, cmContent in intra_cluster.items():
-        headers_to_print = ['NetSyn_ClusterID', 'NetSyn_FamilyID', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Species_List', 'Strains_Nb', 'Strains_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
-        if metadataFile:
-            metadataHeaders = add_metadataHeaders(headers_to_print, headersMD)
-            headers_to_print.extend(metadataHeaders)
         lines_to_print = []
         # COM: generation of lines containing intra cluster information
         for clusterID, clusterContent in cmContent.items():
@@ -531,25 +614,24 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                 line = [''] * len(headers_to_print)
                 containTarget = 'Y' if familyID in families_of_targetsIdx and set(familyContent['nodes_indexes']) & set(families_of_targetsIdx[familyID]) else 'N'
                 strains_nb = len(set(familyContent['strains']))
-                strains_list = ' / '.join(sorted(set(familyContent['strains']), key=lambda x: familyContent['strains'].index(x)))
                 species_nb = len(set(familyContent['species']))
-                species_list = ' / '.join(sorted(set(familyContent['species']), key=lambda x: familyContent['species'].index(x)))
-                (syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC) = get_general_info(familyContent)
+                orgs_list = ' / '.join(sorted(set(familyContent['organisms']), key=lambda x: x.lower()))
+                orgs_nb = len(set(familyContent['organisms']))
 
                 line[headers_to_print.index('NetSyn_ClusterID')] = clusterID
                 line[headers_to_print.index('NetSyn_FamilyID')] = familyID
                 line[headers_to_print.index('Target_Family')] = containTarget
-                line[headers_to_print.index('Syntenies_Nb')] = syntSize
+                line[headers_to_print.index('Syntenies_Nb')] = familyContent['synteny_size']
                 line[headers_to_print.index('Species_Nb')] = species_nb
-                line[headers_to_print.index('Species_List')] = species_list
                 line[headers_to_print.index('Strains_Nb')] = strains_nb
-                line[headers_to_print.index('Strains_List')] = strains_list
-                line[headers_to_print.index('Proteins_in_Synteny_Nb')] = nbr_prots
-                line[headers_to_print.index('Products')] = products
-                line[headers_to_print.index('Gene_Names')] = gene_names
-                line[headers_to_print.index('EC_Numbers')] = ec_nbrs
-                line[headers_to_print.index('Locus_Tags')] = locus_tags
-                line[headers_to_print.index('Proteins_AC')] = protein_AC
+                line[headers_to_print.index('Organisms_Nb')] = orgs_nb
+                line[headers_to_print.index('Organisms_List')] = orgs_list
+                line[headers_to_print.index('Proteins_in_Synteny_Nb')] = len(set(familyContent['protein_AC'])) # use of set() no longer useful
+                line[headers_to_print.index('Products')] = get_sorted_nr_data(familyContent['products'], counter=True)
+                line[headers_to_print.index('Gene_Names')] = get_sorted_nr_data(familyContent['gene_names'], counter=True)
+                line[headers_to_print.index('EC_Numbers')] = get_sorted_nr_data(familyContent['ec_numbers'], counter=True)
+                line[headers_to_print.index('Locus_Tags')] = get_sorted_nr_data(familyContent['locus_tags'], counter=False)
+                line[headers_to_print.index('Proteins_AC')] = get_sorted_nr_data(familyContent['protein_AC'], counter=False)
 
                 if metadataFile:
                     line = add_metadata_info(line, metadataHeaders, headers_to_print, familyContent)
@@ -583,50 +665,59 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                 file.write('\n')
 
     # COM: inter cluster process
-    for cm, cmContent in inter_cluster.items():
-        headers_to_print = ['NetSynt_FamilyID', 'NetSyn_Clusters_Nb', 'NetSyn_Cluster_IDs', 'Target_Family', 'Syntenies_Nb', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
+    if not inter_cluster.keys():
+        logger.info('This analysis does not contain edges inter clusters')
+    else:
+        headers_to_print = ['NetSynt_FamilyID', 'NetSyn_Clusters_Nb', 'NetSyn_Cluster_IDs', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Strains_Nb', 'Organisms_Nb', 'Organisms_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
         if metadataFile:
             metadataHeaders = add_metadataHeaders(headers_to_print, headersMD)
             headers_to_print.extend(metadataHeaders)
-        lines_to_print = []
-        # COM: generation of lines containing inter cluster information
-        for familyID, familyContent in cmContent.items():
-            line = [''] * len(headers_to_print)
-            containTarget = 'Y' if familyID in families_of_targetsIdx and set(familyContent['nodes_indexes']) & set(families_of_targetsIdx[familyID]) else 'N'
-            clusters = ', '.join([str(clusterID) for clusterID in sorted(set(familyContent['clusters']))])
-            nbr_clusters = len(list(set(familyContent['clusters'])))
-            (syntSize, nbr_prots, products, gene_names, ec_nbrs, locus_tags, protein_AC) = get_general_info(familyContent)
+        for cm, cmContent in inter_cluster.items():
+            lines_to_print = []
+            # COM: generation of lines containing inter cluster information
+            for familyID, familyContent in cmContent.items():
+                line = [''] * len(headers_to_print)
+                containTarget = 'Y' if familyID in families_of_targetsIdx and set(familyContent['nodes_indexes']) & set(families_of_targetsIdx[familyID]) else 'N'
+                clusters = ', '.join([str(clusterID) for clusterID in sorted(set(familyContent['clusters']))])
+                nbr_clusters = len(list(set(familyContent['clusters'])))
+                strains_nb = len(set(familyContent['strains']))
+                species_nb = len(set(familyContent['species']))
+                orgs_list = ' / '.join(familyContent['organisms'])
+                orgs_nb = len(familyContent['organisms'])
 
-            line[headers_to_print.index('NetSynt_FamilyID')] = familyID
-            line[headers_to_print.index('Target_Family')] = containTarget
-            line[headers_to_print.index('NetSyn_Clusters_Nb')] = nbr_clusters
-            line[headers_to_print.index('NetSyn_Cluster_IDs')] = clusters
-            line[headers_to_print.index('Syntenies_Nb')] = syntSize
-            line[headers_to_print.index('Proteins_in_Synteny_Nb')] = nbr_prots
-            line[headers_to_print.index('Products')] = products
-            line[headers_to_print.index('Gene_Names')] = gene_names
-            line[headers_to_print.index('EC_Numbers')] = ec_nbrs
-            line[headers_to_print.index('Locus_Tags')] = locus_tags
-            line[headers_to_print.index('Proteins_AC')] = protein_AC
+                line[headers_to_print.index('NetSynt_FamilyID')] = familyID
+                line[headers_to_print.index('Target_Family')] = containTarget
+                line[headers_to_print.index('NetSyn_Clusters_Nb')] = nbr_clusters
+                line[headers_to_print.index('NetSyn_Cluster_IDs')] = clusters
+                line[headers_to_print.index('Syntenies_Nb')] = familyContent['synteny_size']
+                line[headers_to_print.index('Species_Nb')] = species_nb
+                line[headers_to_print.index('Strains_Nb')] = strains_nb
+                line[headers_to_print.index('Organisms_Nb')] = orgs_nb
+                line[headers_to_print.index('Organisms_List')] = orgs_list
+                line[headers_to_print.index('Proteins_in_Synteny_Nb')] = len(set(familyContent['protein_AC'])) # use of set() no longer useful
+                line[headers_to_print.index('Products')] = get_sorted_nr_data(familyContent['products'], counter=True)
+                line[headers_to_print.index('Gene_Names')] = get_sorted_nr_data(familyContent['gene_names'], counter=True)
+                line[headers_to_print.index('EC_Numbers')] = get_sorted_nr_data(familyContent['ec_numbers'], counter=True)
+                line[headers_to_print.index('Locus_Tags')] = get_sorted_nr_data(familyContent['locus_tags'], counter=False)
+                line[headers_to_print.index('Proteins_AC')] = get_sorted_nr_data(familyContent['protein_AC'], counter=False)
 
-            if metadataFile:
-                line = add_metadata_info(line, metadataHeaders, headers_to_print, familyContent)
-            lines_to_print.append(line)
-        # COM: ordering lines
-        order_targetFam = ['Y', 'N']
-        sorted_lines = sorted(lines_to_print, key=lambda line: (-line[headers_to_print.index('NetSyn_Clusters_Nb')],
-                                                                 order_targetFam.index(line[headers_to_print.index('Target_Family')]),
-                                                                 -line[headers_to_print.index('Syntenies_Nb')],
-                                                                 -line[headers_to_print.index('Proteins_in_Synteny_Nb')],
-                                                                 sorted(line[headers_to_print.index('NetSyn_Cluster_IDs')])))
-        # COM: writting inter cluster synthesis files
-        with open('{}_interCluster_Families_NetSyn.tsv'.format(os.path.join(synthesisDirectory, cm)), 'w') as file:
-            file.write('{}'.format('\t'.join(headers_to_print)))
-            file.write('\n')
-            for line in sorted_lines:
-                file.write('{}'.format('\t'.join([str(value) for value in line])))
+                if metadataFile:
+                    line = add_metadata_info(line, metadataHeaders, headers_to_print, familyContent)
+                lines_to_print.append(line)
+            # COM: ordering lines
+            order_targetFam = ['Y', 'N']
+            sorted_lines = sorted(lines_to_print, key=lambda line: (-line[headers_to_print.index('NetSyn_Clusters_Nb')],
+                                                                     order_targetFam.index(line[headers_to_print.index('Target_Family')]),
+                                                                     -line[headers_to_print.index('Syntenies_Nb')],
+                                                                     -line[headers_to_print.index('Proteins_in_Synteny_Nb')],
+                                                                     sorted(line[headers_to_print.index('NetSyn_Cluster_IDs')])))
+            # COM: writting inter cluster synthesis files
+            with open('{}_interCluster_Families_NetSyn.tsv'.format(os.path.join(synthesisDirectory, cm)), 'w') as file:
+                file.write('{}'.format('\t'.join(headers_to_print)))
                 file.write('\n')
-        inter_cluster[cm].setdefault('nbr_families', str(len(inter_cluster[cm])))
+                for line in sorted_lines:
+                    file.write('{}'.format('\t'.join([str(value) for value in line])))
+                    file.write('\n')
 
     logger.info('{} completed!'.format(boxName))
     reportingMessages.append('Aller faut trouver un truc a mettre...'.format())
