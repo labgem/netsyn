@@ -574,7 +574,7 @@ def reportingFormat(logger, boxName, messages):
 inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
 global_dict = {
-    'version': '0.0.5',
+    'version': '0.0.6',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
