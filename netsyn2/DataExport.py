@@ -417,7 +417,7 @@ def get_sorted_nr_data(specific_list, counter=False):
 
 def add_metadata_info(line, metadataHeaders, headers_to_print, familyContent):
     for md_head in metadataHeaders:
-        line[headers_to_print.index(md_head)] = ' / '.join(set(familyContent['metadata'][md_head]))
+        line[headers_to_print.index(md_head)] = ' / '.join(sorted(set(familyContent['metadata'][md_head]), key=lambda x: x.lower()))
     return line
 
 def skip_duplicates(iterable, key=lambda x: x):
