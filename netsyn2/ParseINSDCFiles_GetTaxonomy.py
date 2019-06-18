@@ -94,18 +94,16 @@ def create_d_input(d_rows, headers_list):
 def get_from_dbxref(aFeature, dbref):
     ''' retrieve the value from the dbxref list
     '''
-    if dbref == 'taxon':
-        pattern = 'taxon:'
-    elif dbref == 'MaGe':
-        pattern = 'MaGe:'
-    elif dbref == 'UniProt':
-        pattern = 'UniProt*'
+    if re.match('UniProt', dbref):
+        pattern = 'UniProt'
+    else:
+        [pattern] = dbref.split(':', 1)[1:]
 
-    result = common.global_dict['defaultValue']
+    result = [common.global_dict['defaultValue']]
     if aFeature.qualifiers.get('db_xref'):
         for aRef in aFeature.qualifiers.get('db_xref'):
-            if re.match(pattern, aRef):
-                result = aRef.split(r':')[-1]
+            if re.match('^{}'.format(pattern), aRef)
+                result = aRef.split(r':', 1)[1:]
     return result
 
 def get_uniq_value(aFeature, ref):
@@ -117,18 +115,20 @@ def get_uniq_value(aFeature, ref):
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     logger = logging.getLogger('{}.{}'.format(get_uniq_value.__module__, get_uniq_value.__name__))
-    result = aFeature.qualifiers.get(ref)
+
+    if re.match('^dbxref:', ref):
+        result = get_from_dbxref(aFeature, ref)
+    else:
+        result = aFeature.qualifiers.get(ref)
+
     if not result:
-        try:
-            result = get_from_dbxref(aFeature, ref)
-            return result
-        except:
-            return common.global_dict['defaultValue']
-    if len(result) == 1:
+        return common.global_dict['defaultValue']
+    elif len(result) == 1:
         return result[0]
-    logger.warning('The field {} of the protein {} has several values while a uniq value expected: {}'.format(ref, aFeature.qualifiers.get('protein_id'), result))
+    else:
+        logger.warning('The field {} of the protein {} has several values while a uniq value expected: {}'.format(ref, aFeature.qualifiers.get('protein_id'), result))
         # exit(1)
-    return(1)
+    return result[0]
 
 def get_required_value(func, aFeature, *args):
     ''' function called if the value is mandatory (protein ID (ident),
@@ -140,6 +140,7 @@ def get_required_value(func, aFeature, *args):
     -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     '''
     logger = logging.getLogger('{}.{}'.format(get_required_value.__module__, get_required_value.__name__))
+
     if not func(aFeature, *args) or func(aFeature, *args) == common.global_dict['defaultValue']:
         logger.error('The required value {} is not provided for the protein {}'.format(args[-1], (aFeature.qualifiers.get('protein_id') or get_from_dbxref(aFeature, 'UniProt'))))
         exit(1)
@@ -148,7 +149,7 @@ def get_required_value(func, aFeature, *args):
 def get_taxonID(aFeature):
     ''' get taxon ID provided in a INSDC file
     '''
-    taxon_ID = get_uniq_value(aFeature, 'taxon')
+    taxon_ID = get_uniq_value(aFeature, 'dbxref:taxon')
     return taxon_ID
 
 def get_orgs_info(aFeature, numFile):
@@ -226,7 +227,7 @@ def get_prot_info(aFeature, sequences, window, proteinField, params):
         'strand': str(aFeature.location.strand),
         'products': ' / '.join(aFeature.qualifiers.get('product') if aFeature.qualifiers.get('product') else [common.global_dict['defaultValue']]),
         'ec_numbers': ', '.join(aFeature.qualifiers.get('EC_number') if aFeature.qualifiers.get('EC_number') else [common.global_dict['defaultValue']]),
-        'UniProt_AC': get_from_dbxref(aFeature, 'UniProt'),
+        'UniProt_AC': get_from_dbxref(aFeature, 'UniProt')[0],
         'gene_names': ', '.join(aFeature.qualifiers.get('gene') if aFeature.qualifiers.get('gene') else [common.global_dict['defaultValue']]),
         'locus_tag': ', '.join(aFeature.qualifiers.get('locus_tag') if aFeature.qualifiers.get('locus_tag') else [common.global_dict['defaultValue']]),
         'targets': [],
