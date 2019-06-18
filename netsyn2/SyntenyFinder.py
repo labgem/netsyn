@@ -98,7 +98,7 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph):#, targets_syntons):
     #print(len(maxi_graph.vs['name']))
     for targetIndex in maxi_graph.vs['name']:
         for proteinIndex in targets_info[targetIndex]['context_idx']:
-            if proteinIndex not in proteinsIndexInSynteny:
+            if int(proteinIndex) not in proteinsIndexInSynteny:
                 proteinsIndexInSynteny.append(int(proteinIndex))
     proteinsIndexInSynteny.sort()
     proteinsIndexToDel = sorted(list(set(proteinsIndex).difference(set(proteinsIndexInSynteny))))
@@ -115,11 +115,13 @@ def proteinsRemoval(prots_info, targets_info, maxi_graph):#, targets_syntons):
     # Uptades indexes in targets_info
     new_targets_info = []
     for target_idx, target_dict in enumerate(targets_info):
-        target_dict['context_idx'] = [str(proteinsIndex[int(i)]) for i in target_dict['context_idx']]
-        new_protein_index = str(target_dict['context_idx'][target_dict['target_pos']])
-        target_dict['protein_idx'] = new_protein_index
-        new_targets_info.append(target_dict)
-    #print(len(new_targets_info))
+        new_target_dict = dict(target_dict)
+        new_target_dict['context_idx'] = [str(proteinsIndex[int(i)]) for i in target_dict['context_idx'] if proteinsIndex[int(i)] != -1]
+        new_protein_index = str(proteinsIndex[int(target_dict['context_idx'][target_dict['target_pos']])])
+        if new_protein_index == '-1': # when overlaping genomic context, all the context of an excluded target must be at -1
+            new_target_dict['context_idx'] = []
+        new_target_dict['protein_idx'] = new_protein_index
+        new_targets_info.append(new_target_dict)
 
     # Uptades indexes in maxi_graph
     # maxi_graph.vs['name'] = [str(proteinsIndex[int(lastIndex)]) for lastIndex in maxi_graph.vs['name']]
