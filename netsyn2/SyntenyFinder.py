@@ -426,184 +426,190 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                 no_synteny += 1
     maxi_graph = ig.Graph()
     maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
-    # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
-    # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
-    # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
-    # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
-
-    ### Edge-betweenness clustering
-    # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
-    # print(graph_edge_btwness)
-    # complete_dendogram = fix_dendrogram(maxi_graph, graph_edge_btwness)
-    # btwness_clusters = complete_dendogram.as_clustering()
-    # print(btwness_clusters)
-
-    # with open('maxi_graph_11_1.list', 'w') as file:
-    #     ordered_vertices = sorted(maxi_graph.vs['name'])
-    #     for vertex in ordered_vertices:
-    #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
-
-    ### Walktrap clustering
-    graph_walktrap = maxi_graph.community_walktrap(weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
-    walktrap_clustering = graph_walktrap.as_clustering()
-
-    for cluster in range(len(walktrap_clustering)):
-        for vertex in walktrap_clustering[cluster]:
-            maxi_graph.vs[vertex]['cluster_WT'] = cluster
-
-    ### Louvain clustering
-    graph_louvain = maxi_graph.community_multilevel(weights='weight')
-
-    for cluster in range(len(graph_louvain)):
-        for vertex in graph_louvain[cluster]:
-            maxi_graph.vs[vertex]['cluster_Louvain'] = cluster
-
-    # ### Spinglass clustering
-    # # algorithm dont le résultat peut varier (changements mineurs)
-    # # méthode trop lente ~40sec pour clusteriser 526 noeuds
-    # logger.info('*** Spinglass clustering ***')
-    # connected_components = maxi_graph.components()
-    # for cluster in connected_components:
-    #     graph_cluster = maxi_graph.subgraph(cluster)
-    #     graph_spinglass = graph_cluster.community_spinglass()#weigths=maxi_graph.es['weight'])
-    #     logger.info('{} -- {}'.format(cluster, graph_spinglass))
-
-    # ### Label Propagation Clustering
-    # # solutions variant entre les résultats retournés par Louvain et WalkTrap
-    # # cependant, ne prends pas en compte le poids des arêtes
-    # # algorithme stochastique, il faudrait obtenir un clustering consensus à partir de plusieurs runs (>100-200)
-    # logger.info('*** Label Propagation Clustering***')
-    # graph_labelPropagation = maxi_graph.community_label_propagation()#weigths=maxi_graph.es['weight'])
-    # logger.info(graph_labelPropagation) # list of VertexClustering objects
-
-    ### Infomap Clustering
-    # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
-    # l'algo n'utilise pas non plus le poids des arêtes
-    graph_infomap = maxi_graph.community_infomap(edge_weights='weight', trials=advanced_settings[common.global_dict['Infomap']]['infomap_trials'])
-
-    for cluster in range(len(graph_infomap)):
-        for vertex in graph_infomap[cluster]:
-            maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
-
-    # ### Leading EigenVector Clustering
-    # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
-    # # ne génère que 11 clusters à partir d'un graph formé de 10 composantes connexes (en split 1 seul en 2)
-    # logger.info('*** Leading EigenVector Clustering***')
-    # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
-    # logger.info(graph_eigenvector) # list of VertexClustering objects
-
-    ### Markov Cluster Algorithm (MCL Clustering)
-    nxGraph = nx.Graph()
-    names = maxi_graph.vs['name']
-    nxGraph.add_nodes_from(names)
-    nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(x[0],x[1])]['weight']) for x in maxi_graph.get_edgelist()])
-
-    matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
-
-    # # A tester sur d'autres jeux de données pour voir l'évolution des paramètres inflation et expansion
-    # for inflation in [i/10 for i in range(15,26)]:
-    #     for expansion in [j for j in range(2,11)]:
-    #         result = mc.run_mcl(matrix_adjacency, inflation=inflation, expansion=expansion)
-    #         clusters = mc.get_clusters(result)
-    #         Q = mc.modularity(matrix=result, clusters=clusters)
-    #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
-
-    result = mc.run_mcl(
-        matrix_adjacency,
-        inflation=advanced_settings[common.global_dict['MCL']]['MCL_inflation'],
-        expansion=advanced_settings[common.global_dict['MCL']]['MCL_expansion'],
-        iterations=advanced_settings[common.global_dict['MCL']]['MCL_iterations']
-    )
-    clusters = mc.get_clusters(result)
-
-    for cluster in range(len(clusters)):
-        for vertex in clusters[cluster]:
-            maxi_graph.vs[vertex]['cluster_MCL'] = cluster
-
-    targetsNumber = len(targets_info)
-    #print(len(targets_info), len(maxi_graph.vs['name']))
-    # targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
-    targets_info, prots_info = proteinsRemoval(prots_info, targets_info, maxi_graph)
-    #print(len(targets_info), len(maxi_graph.vs['name']))
-    #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
-    # print(targets_info.keys())
-    # print(maxi_graph.vs['name'])
-
-    list_of_nodes = []
-    for target_node in maxi_graph.vs:
-        target_idx = int(target_node['name'])
-        protein_idx = int(targets_info[target_idx]['protein_idx'])
-        dico = {'protein_idx': protein_idx,
-                'id': prots_info[protein_idx]['id'],
-                'UniProt_AC': prots_info[protein_idx]['UniProt_AC'],
-                'protein_AC': prots_info[protein_idx]['protein_AC'],
-                #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
-                #'GC_size': len(prots_info[cds_inc]['userGC']),
-                #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
-                'context': targets_info[target_idx]['context'],
-                'context_idx': targets_info[target_idx]['context_idx'],
-                'organism_id': targets_info[target_idx]['organism_id'],
-                'organism_idx': targets_info[target_idx]['organism_idx'],
-                'clusterings': {'WalkTrap':
-                                    maxi_graph.vs[target_node.index]['cluster_WT'],
-                                'Louvain':
-                                    maxi_graph.vs[target_node.index]['cluster_Louvain'],
-                                'Infomap':
-                                    maxi_graph.vs[target_node.index]['cluster_Infomap'],
-                                'MCL':
-                                    maxi_graph.vs[target_node.index]['cluster_MCL']
-                               },
-                'families': list(set(targets_info[target_idx]['families'])),
-                'Size': 1
-                }
-        list_of_nodes.append(dico)
-
-    list_of_edges = []
-    for edge in maxi_graph.es:
-        node_0_idx = maxi_graph.vs[edge.tuple[0]].index
-        node_1_idx = maxi_graph.vs[edge.tuple[1]].index
-        targetA = min(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
-        targetB = max(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
-        nodeA_idx, nodeB_idx = (node_0_idx, node_1_idx) if maxi_graph.vs[node_0_idx]['name'] == targetA else (node_1_idx, node_0_idx)
-
-        if targets_syntons[(targetA, targetB)]:
-            families = targets_syntons[(targetA, targetB)]['families_intersect']
-        else:
-            logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
-            families = targets_syntons[(targetB, targetA)]['families_intersect']
-
-        proteins_idx_source, proteins_idx_target = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
-
-        dico = {'source': nodeA_idx,
-                'target': nodeB_idx,
-                'proteins_idx_source': proteins_idx_source,
-                'proteins_idx_target': proteins_idx_target,
-                'weight': maxi_graph.es[edge.index]['weight']
-                }
-        list_of_edges.append(dico)
-
-    common.write_json(prots_info, protsOut)
-    common.write_json(list_of_nodes, nodesOut)
-    common.write_json(list_of_edges, edgesOut)
-
-    if os.listdir(dataDirectoryProcess) == []:
-        shutil.rmtree(dataDirectoryProcess)
-
-    logger.info('{} completed!'.format(boxName))
-    # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
-    # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
-    # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
-    # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
-    reportingMessages.append('Genomic context size: {}'.format(GCUSER))
-    reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
-        len(list_of_nodes),targetsNumber
-    ))
-    reportingMessages.append('Conserved genomic context found: {}'.format(len(list_of_edges)))
-    reportingMessages.append('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
-    reportingMessages.append('NetSyn Louvain: {}'.format(graph_louvain.summary()))
-    reportingMessages.append('NetSyn Infomap: {}'.format(graph_infomap.summary()))
-    reportingMessages.append('NetSyn MCL: Clustering with {} elements and {} clusters'.format(len([item for subCluster in clusters for item in subCluster]), len(clusters)))
-    common.reportingFormat(logger, boxName, reportingMessages)
+    if maxi_graph.vcount() != 0:
+        # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
+        # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
+        # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
+        # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+    
+        ### Edge-betweenness clustering
+        # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
+        # print(graph_edge_btwness)
+        # complete_dendogram = fix_dendrogram(maxi_graph, graph_edge_btwness)
+        # btwness_clusters = complete_dendogram.as_clustering()
+        # print(btwness_clusters)
+    
+        # with open('maxi_graph_11_1.list', 'w') as file:
+        #     ordered_vertices = sorted(maxi_graph.vs['name'])
+        #     for vertex in ordered_vertices:
+        #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
+    
+        ### Walktrap clustering
+        graph_walktrap = maxi_graph.community_walktrap(weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
+        walktrap_clustering = graph_walktrap.as_clustering()
+    
+        for cluster in range(len(walktrap_clustering)):
+            for vertex in walktrap_clustering[cluster]:
+                maxi_graph.vs[vertex]['cluster_WT'] = cluster
+    
+        ### Louvain clustering
+        graph_louvain = maxi_graph.community_multilevel(weights='weight')
+    
+        for cluster in range(len(graph_louvain)):
+            for vertex in graph_louvain[cluster]:
+                maxi_graph.vs[vertex]['cluster_Louvain'] = cluster
+    
+        # ### Spinglass clustering
+        # # algorithm dont le résultat peut varier (changements mineurs)
+        # # méthode trop lente ~40sec pour clusteriser 526 noeuds
+        # logger.info('*** Spinglass clustering ***')
+        # connected_components = maxi_graph.components()
+        # for cluster in connected_components:
+        #     graph_cluster = maxi_graph.subgraph(cluster)
+        #     graph_spinglass = graph_cluster.community_spinglass()#weigths=maxi_graph.es['weight'])
+        #     logger.info('{} -- {}'.format(cluster, graph_spinglass))
+    
+        # ### Label Propagation Clustering
+        # # solutions variant entre les résultats retournés par Louvain et WalkTrap
+        # # cependant, ne prends pas en compte le poids des arêtes
+        # # algorithme stochastique, il faudrait obtenir un clustering consensus à partir de plusieurs runs (>100-200)
+        # logger.info('*** Label Propagation Clustering***')
+        # graph_labelPropagation = maxi_graph.community_label_propagation()#weigths=maxi_graph.es['weight'])
+        # logger.info(graph_labelPropagation) # list of VertexClustering objects
+    
+        ### Infomap Clustering
+        # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
+        # l'algo n'utilise pas non plus le poids des arêtes
+        graph_infomap = maxi_graph.community_infomap(edge_weights='weight', trials=advanced_settings[common.global_dict['Infomap']]['infomap_trials'])
+    
+        for cluster in range(len(graph_infomap)):
+            for vertex in graph_infomap[cluster]:
+                maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
+    
+        # ### Leading EigenVector Clustering
+        # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
+        # # ne génère que 11 clusters à partir d'un graph formé de 10 composantes connexes (en split 1 seul en 2)
+        # logger.info('*** Leading EigenVector Clustering***')
+        # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
+        # logger.info(graph_eigenvector) # list of VertexClustering objects
+    
+        ### Markov Cluster Algorithm (MCL Clustering)
+        nxGraph = nx.Graph()
+        names = maxi_graph.vs['name']
+        nxGraph.add_nodes_from(names)
+        nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(x[0],x[1])]['weight']) for x in maxi_graph.get_edgelist()])
+    
+        matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
+    
+        # # A tester sur d'autres jeux de données pour voir l'évolution des paramètres inflation et expansion
+        # for inflation in [i/10 for i in range(15,26)]:
+        #     for expansion in [j for j in range(2,11)]:
+        #         result = mc.run_mcl(matrix_adjacency, inflation=inflation, expansion=expansion)
+        #         clusters = mc.get_clusters(result)
+        #         Q = mc.modularity(matrix=result, clusters=clusters)
+        #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
+    
+        result = mc.run_mcl(
+            matrix_adjacency,
+            inflation=advanced_settings[common.global_dict['MCL']]['MCL_inflation'],
+            expansion=advanced_settings[common.global_dict['MCL']]['MCL_expansion'],
+            iterations=advanced_settings[common.global_dict['MCL']]['MCL_iterations']
+        )
+        clusters = mc.get_clusters(result)
+    
+        for cluster in range(len(clusters)):
+            for vertex in clusters[cluster]:
+                maxi_graph.vs[vertex]['cluster_MCL'] = cluster
+    
+        targetsNumber = len(targets_info)
+        #print(len(targets_info), len(maxi_graph.vs['name']))
+        # targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
+        targets_info, prots_info = proteinsRemoval(prots_info, targets_info, maxi_graph)
+        #print(len(targets_info), len(maxi_graph.vs['name']))
+        #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
+        # print(targets_info.keys())
+        # print(maxi_graph.vs['name'])
+    
+        list_of_nodes = []
+        for target_node in maxi_graph.vs:
+            target_idx = int(target_node['name'])
+            protein_idx = int(targets_info[target_idx]['protein_idx'])
+            dico = {'protein_idx': protein_idx,
+                    'id': prots_info[protein_idx]['id'],
+                    'UniProt_AC': prots_info[protein_idx]['UniProt_AC'],
+                    'protein_AC': prots_info[protein_idx]['protein_AC'],
+                    #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
+                    #'GC_size': len(prots_info[cds_inc]['userGC']),
+                    #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
+                    'context': targets_info[target_idx]['context'],
+                    'context_idx': targets_info[target_idx]['context_idx'],
+                    'organism_id': targets_info[target_idx]['organism_id'],
+                    'organism_idx': targets_info[target_idx]['organism_idx'],
+                    'clusterings': {'WalkTrap':
+                                        maxi_graph.vs[target_node.index]['cluster_WT'],
+                                    'Louvain':
+                                        maxi_graph.vs[target_node.index]['cluster_Louvain'],
+                                    'Infomap':
+                                        maxi_graph.vs[target_node.index]['cluster_Infomap'],
+                                    'MCL':
+                                        maxi_graph.vs[target_node.index]['cluster_MCL']
+                                   },
+                    'families': list(set(targets_info[target_idx]['families'])),
+                    'Size': 1
+                    }
+            list_of_nodes.append(dico)
+    
+        list_of_edges = []
+        for edge in maxi_graph.es:
+            node_0_idx = maxi_graph.vs[edge.tuple[0]].index
+            node_1_idx = maxi_graph.vs[edge.tuple[1]].index
+            targetA = min(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
+            targetB = max(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
+            nodeA_idx, nodeB_idx = (node_0_idx, node_1_idx) if maxi_graph.vs[node_0_idx]['name'] == targetA else (node_1_idx, node_0_idx)
+    
+            if targets_syntons[(targetA, targetB)]:
+                families = targets_syntons[(targetA, targetB)]['families_intersect']
+            else:
+                logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
+                families = targets_syntons[(targetB, targetA)]['families_intersect']
+    
+            proteins_idx_source, proteins_idx_target = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
+    
+            dico = {'source': nodeA_idx,
+                    'target': nodeB_idx,
+                    'proteins_idx_source': proteins_idx_source,
+                    'proteins_idx_target': proteins_idx_target,
+                    'weight': maxi_graph.es[edge.index]['weight']
+                    }
+            list_of_edges.append(dico)
+    
+        common.write_json(prots_info, protsOut)
+        common.write_json(list_of_nodes, nodesOut)
+        common.write_json(list_of_edges, edgesOut)
+    
+        if os.listdir(dataDirectoryProcess) == []:
+            shutil.rmtree(dataDirectoryProcess)
+    
+        logger.info('{} completed!'.format(boxName))
+        # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
+        # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
+        # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
+        # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
+        reportingMessages.append('Genomic context size: {}'.format(GCUSER))
+        reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
+            len(list_of_nodes),targetsNumber
+        ))
+        reportingMessages.append('Conserved genomic context found: {}'.format(len(list_of_edges)))
+        reportingMessages.append('NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
+        reportingMessages.append('NetSyn Louvain: {}'.format(graph_louvain.summary()))
+        reportingMessages.append('NetSyn Infomap: {}'.format(graph_infomap.summary()))
+        reportingMessages.append('NetSyn MCL: Clustering with {} elements and {} clusters'.format(len([item for subCluster in clusters for item in subCluster]), len(clusters)))
+        common.reportingFormat(logger, boxName, reportingMessages)
+    else:
+        reportingMessages.append('Genomic context size: {}'.format(GCUSER))
+        reportingMessages.append('No synteny found.')
+        common.reportingFormat(logger, boxName, reportingMessages)
+        exit(0)
 
 def argumentsParser():
     '''

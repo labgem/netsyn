@@ -102,7 +102,7 @@ def get_from_dbxref(aFeature, dbref):
     result = [common.global_dict['defaultValue']]
     if aFeature.qualifiers.get('db_xref'):
         for aRef in aFeature.qualifiers.get('db_xref'):
-            if re.match('^{}'.format(pattern), aRef)
+            if re.match('^{}'.format(pattern), aRef):
                 result = aRef.split(r':', 1)[1:]
     return result
 
@@ -662,18 +662,19 @@ def orgs_output_formatting(orgs_info, targets_info):
     toprint = []
     for taxon_id, taxon_content in orgs_info.items():
         for idx, _ in enumerate(taxon_content['organisms']):
-            one_organism = {
-                'id': taxon_content['organisms'][idx]['id'],
-                'name': taxon_content['organisms'][idx]['name'],
-                'strain': taxon_content['organisms'][idx]['strain'],
-                'taxon_id': taxon_id,
-                # 'targets_idx': taxon_content['organisms'][idx]['targets_idx'],
-                'lineage': list(taxon_content['lineage'])
-                }
-            toprint.append(one_organism)
-            org_idx = len(toprint)-1
-            for target_idx in taxon_content['organisms'][idx]['targets_idx']:
-                targets_info[target_idx]['organism_idx'] = org_idx
+            if 'targets_idx' in taxon_content['organisms'][idx]:
+                one_organism = {
+                    'id': taxon_content['organisms'][idx]['id'],
+                    'name': taxon_content['organisms'][idx]['name'],
+                    'strain': taxon_content['organisms'][idx]['strain'],
+                    'taxon_id': taxon_id,
+                    # 'targets_idx': taxon_content['organisms'][idx]['targets_idx'],
+                    'lineage': list(taxon_content['lineage'])
+                    }
+                toprint.append(one_organism)
+                org_idx = len(toprint)-1
+                for target_idx in taxon_content['organisms'][idx]['targets_idx']:
+                    targets_info[target_idx]['organism_idx'] = org_idx
     return toprint, targets_info
 
 def taxonomicLineage_runner(orgs_info, dataDirectoryProcess):
