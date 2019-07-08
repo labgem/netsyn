@@ -226,7 +226,7 @@ def httpRequest(poolManager,method, url):
     Return http request result.
     '''
     logger = logging.getLogger('{}.{}'.format(httpRequest.__module__, httpRequest.__name__))
-    retry = urllib3.util.Retry(read=5, backoff_factor=2)
+    retry = urllib3.util.Retry(read=5, connect=5, backoff_factor=0.5, status_forcelist=set([504]))
     try:
         res = poolManager.request(method, url, retries=retry)
     except urllib3.exceptions.NewConnectionError:

@@ -643,7 +643,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                                     line[headers_to_print.index('Strains_Nb')],
                                     line[headers_to_print.index('Proteins_in_Synteny_Nb')])
                                    for line in lines_to_print
-                                   if line[headers_to_print.index('Target_Family')] == 'Y'],
+                                   ],
                                   key=lambda figures: (-figures[1], -figures[2], -figures[3], -figures[4]))
         order_NSclusters = [figures[0] for figures in order_NSclusters]
         order_NSclusters = list(skip_duplicates(order_NSclusters))

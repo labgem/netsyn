@@ -8,6 +8,7 @@ import logging
 import gzip
 import re
 import common
+import time
 import urllib3
 
 #############
@@ -75,19 +76,29 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
     Download EMBL file from ENA website.
     '''
     logger = logging.getLogger('{}.{}'.format(getEMBLfromENA.__module__, getEMBLfromENA.__name__))
-    res = common.httpRequest(PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
-    contentType = res.info()['Content-Type']
-    if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
-        logger.error(res.data.decode('utf-8'))
-        exit(1)
-    with open(nucleicFilePath, 'w') as file:
-        if contentType == 'text/plain;charset=UTF-8':
-            file.write(res.data.decode('utf-8'))
-        elif contentType == 'application/x-gzip':
-            file.write(gzip.decompress(res.data).decode('utf-8'))
-        else:
-            logger.critical('Unsupported content type ({}).'.format(contentType))
+    trial = True
+    consTrialNB = 3
+    trialNb = consTrialNB
+    while trial:
+        if trialNb < consTrialNB:
+            time.sleep(2)
+        trialNb -= 1
+        res = common.httpRequest(PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
+        contentType = res.info()['Content-Type']
+        if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
+            logger.error(res.data.decode('utf-8'))
             exit(1)
+        with open(nucleicFilePath, 'w') as file:
+            if contentType == 'text/plain;charset=UTF-8':
+                file.write(res.data.decode('utf-8'))
+                trial = False
+            elif contentType in ['application/x-gzip', 'application/octet-stream']:
+                file.write(gzip.decompress(res.data).decode('utf-8'))
+                trial = False
+            else:
+                if not trialNb:
+                    logger.critical('Unsupported content type ({}).'.format(contentType))
+                    exit(1)
     logger.info('{} downloaded.'.format(nucleicFilePath))
 
 def run(InputName):
@@ -126,17 +137,27 @@ def run(InputName):
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
                 filesExtension = common.global_dict['filesExtension']
                 nucleicFilePath = '{}.{}'.format(os.path.join(dataDirectoryProcess, getNucleicFileName(nucleicAccession)), filesExtension)
-                if not os.path.isfile(nucleicFilePath):
-                    getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
-                else:
-                    logger.info('{} already existing.'.format(nucleicFilePath))
-                with open(nucleicFilePath, 'r') as file:
-                    m = re.search(r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
-                    if m:
-                        assemblyLength = int(m.group('length'))
+                trial = True
+                consTrialNb = 2
+                trialNb = consTrialNb
+                while trial:
+                    if trialNb < consTrialNb:
+                        os.remove(nucleicFilePath)
+                        time.sleep(2)
+                    trialNb -= 1
+                    if not os.path.isfile(nucleicFilePath):
+                        getEMBLfromENA(nucleicAccession, nucleicFilePath, http)
                     else:
-                        logger.error('{}: improper file format.'.format(nucleicFilePath))
-                        exit(1)
+                        logger.info('{} already existing.'.format(nucleicFilePath))
+                    with open(nucleicFilePath, 'r') as file:
+                        m = re.search(r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
+                        if m:
+                            assemblyLength = int(m.group('length'))
+                            trial = False
+                        else:
+                            if not trialNb:
+                                logger.error('{}: improper file format.'.format(nucleicFilePath))
+                                exit(1)
                 if assemblyLength > maxAssemblyLength:
                     maxAssemblyLength = assemblyLength
                     toAppend = [
