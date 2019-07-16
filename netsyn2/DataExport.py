@@ -242,75 +242,87 @@ def fill_node_information(node_reference, prot_in_synteny, prot_family, edges_at
             node_reference[pkey].setdefault(prot_family, []).append(pvalue)
     return node_reference
 
-def get_neighbour(proteins_idx, edgesAttributes, attribute_families, allData):
+def get_neighbour(proteins_idx, edgesAttributes, attribute_families, proteinsContent):
     for prot_idx in proteins_idx:
-        prot_in_synt = allData['proteins'][int(prot_idx)]
+        prot_in_synt = proteinsContent[int(prot_idx)]
         prot_family = prot_in_synt['family']
         attribute_families = fill_node_information(attribute_families, prot_in_synt, prot_family, edgesAttributes)
     return attribute_families
 
-def createFullGraph(allData, clusteringMethod, headersMD=None):
-    graph = ig.Graph()
-    edgesAttributes = common.global_dict['graphML_edgesAttributes']
+def createFullGraph(nodesContent, edgesContent, organismsContent, proteinsContent, clusteringMethod, headersMD):
+    '''
+    Graph building from nodesContent and edgesContent (JSON format).
+    Includes of metada if headersMD is not None.
+    '''
 
-    # COM: Generate nodes in a graph
-    for idx, node in enumerate(allData['nodes']):
-        graph.add_vertex(node['protein_AC'])
-        for nkey, nvalue in node.items():
-            # COM: addition of organism information to the node
-            if nkey == 'organism_idx':
-                for okey, ovalue in allData['organisms'][nvalue].items():
-                    if okey not in ['id', 'targets_idx', 'lineage']:
-                        graph.vs[idx]['organism_{}'.format(okey)] = ovalue
-                    elif okey == 'lineage':
-                        for level in allData['organisms'][nvalue]['lineage']:
+    logger = logging.getLogger('{}.{}'.format(createFullGraph.__module__, createFullGraph.__name__))
+    logger.info('Output graph building, in process:')
+    graph = ig.Graph.Full(len(nodesContent))
+
+    logger.info('Nodes content formatting...')
+    nodesContentFormated = {}
+    for nodeIndex, node in enumerate(nodesContent):
+        nodesContentFormated.setdefault('name', []).append(str(nodeIndex))
+        for nodeAttribute, nodeValue in node.items():
+            if nodeAttribute == 'organism_idx':
+                for orgAttribute, orgValue in organismsContent[nodeValue].items():
+                    if orgAttribute not in ['id', 'targets_idx', 'lineage']:
+                        nodesContentFormated.setdefault('organism_{}'.format(orgAttribute), []).append(orgValue)
+                    elif orgAttribute == 'lineage':
+                        for level in organismsContent[nodeValue][orgAttribute]:
                             rank = level['rank']
                             scientificName = level['scientificName']
-                            graph.vs[idx]['lineage_{}'.format(rank)] = scientificName
-            # COM: writting every cluster out of a list
-            elif nkey == 'clusterings':
+                            nodesContentFormated.setdefault('lineage_{}'.format(rank), []).append(scientificName)
+            elif nodeAttribute == 'clusterings':
                 if clusteringMethod:
-                    graph.vs[idx]['NetSyn_{}'.format(clusteringMethod)] = node[nkey][clusteringMethod]
+                        nodesContentFormated.setdefault('NetSyn_{}'.format(clusteringMethod), []).append(nodeValue[clusteringMethod])
                 else:
-                    for ckey, cvalue in node[nkey].items():
-                        graph.vs[idx]['NetSyn_{}'.format(ckey)] = cvalue
-            # COM: recovery of metadata information //// lists of metadata do not need to be initialized :/ very strange ...
-            elif nkey == 'metadata':
-                for mkey, mvalue in node[nkey].items():
-                    graph.vs[idx]['metadata_{}'.format(mkey)] = mvalue
-            # COM: recovery of identifiers and accession numbers
-            elif nkey in ['id', 'target_idx', 'UniProt_AC', 'protein_AC', 'Size']:
-                graph.vs[idx][nkey] = nvalue
+                    for clusteringAttribute, clusteringValue in nodeValue.items():
+                        nodesContentFormated.setdefault('NetSyn_{}'.format(clusteringAttribute), []).append(clusteringValue)
+            elif nodeAttribute == 'metadata':
+                for metadataAttribute, metadataValue in nodeValue.items():
+                        nodesContentFormated.setdefault('metadata_{}'.format(metadataAttribute), []).append(metadataValue)
+            elif nodeAttribute in ['id', 'target_idx', 'UniProt_AC', 'protein_AC', 'Size']:
+                nodesContentFormated.setdefault(nodeAttribute, []).append(nodeValue)
 
-    # COM: Generate edges in a graph
-    for edge in allData['edges']:
-        graph.add_edge(int(edge['source']), int(edge['target']))
-        edge_index = graph.get_eid(int(edge['source']), int(edge['target']))
-        graph.es[edge_index]['weight'] = edge['weight']
+    for attribute, values in nodesContentFormated.items():
+        graph.vs[attribute] = values
+
+    logger.info('Edges content formatting...')
+    nodeTypes = ['source', 'target']
+    edgesAttributes = common.global_dict['graphML_edgesAttributes']
+
+    edgesContentFormated = {}
+    edgesToConservedIndex = []
+    for nodeType in nodeTypes:
+        for attribute in edgesAttributes:
+            edgesContentFormated['{}_{}'.format(attribute, nodeType)] = [None]*graph.ecount()
+    edgesContentFormated['MMseqs_families'] = [None]*graph.ecount()
+    edgesContentFormated['weight'] = [None]*graph.ecount()
+    edgeCPT = 0
+    for edge in edgesContent:
+        if edgeCPT%500000 == 0:
+            logger.debug('edge processed: {}/{}'.format(format(edgeCPT, ',d'),format(len(edgesContent), ',d')))
+        edgeCPT += 1
+        # graph.add_edge(str(edge['source']), str(edge['target']))
+        graphEdgeIndex = graph.get_eid(str(edge['source']), str(edge['target']), directed=True)
+        edgesToConservedIndex.append(graphEdgeIndex)
 
         # COM: generate a dictionnary to get all information of the proteins involved in the synteny relation between two 'targets' (source, target)
-        attribute_families = {
-            'source': {},
-            'target': {}
-            }
-        for attr in edgesAttributes:
-            attribute_families['source'].setdefault(attr, {})
-            attribute_families['target'].setdefault(attr, {})
+        attribute_families = {}
+        for nodeType in nodeTypes:
+            attribute_families[nodeType] = {}
 
-        attribute_families['source'] = get_neighbour(edge['proteins_idx_source'], edgesAttributes, attribute_families['source'], allData)
-        attribute_families['target'] = get_neighbour(edge['proteins_idx_target'], edgesAttributes, attribute_families['target'], allData)
+        for nodeType in nodeTypes:
+            for attr in edgesAttributes:
+                attribute_families[nodeType].setdefault(attr, {})
+            attribute_families[nodeType] = get_neighbour(edge['proteins_idx_{}'.format(nodeType)], edgesAttributes, attribute_families[nodeType], proteinsContent)
 
         # COM: concatenate all the values with ' ~~ ' as separator between values belonging to the same MMseqs family and ' |-| ' as separator between families
-        for node_type, node_information in attribute_families.items(): # node_type = source OR target
-            # COM: iGraph reorders the source and edge nodes, so the assigment of attributes has to be also inverted
-            if int(edge['source']) > int(edge['target']):
-                if node_type == 'source':
-                    node_type = 'target'
-                else:
-                    node_type = 'source'
-            for attr_name, attr in node_information.items(): # attr_name = one after the other value of edgesAttibutes
+        for nodeType, node in attribute_families.items():
+            for attribute, value in node.items(): # attr_name = one after the other value of edgesAttibutes
                 complete_value = []
-                families = list(attr.keys())
+                families = list(value.keys())
                 if common.global_dict['defaultValue'] in families:
                     families.remove(common.global_dict['defaultValue'])
                     families.sort()
@@ -318,10 +330,19 @@ def createFullGraph(allData, clusteringMethod, headersMD=None):
                 else:
                     families.sort()
                 for afam in families:
-                    glued_content = ' ~~ '.join(attr[afam])
+                    glued_content = ' ~~ '.join(value[afam])
                     complete_value.append(glued_content)
-                graph.es[edge_index]['{}_{}'.format(attr_name, node_type)] = ' |-| '.join(complete_value)
-        graph.es[edge_index]['MMseqs_families'] = ' |-| '.join(str(fam) for fam in families)
+                edgesContentFormated['{}_{}'.format(attribute, nodeType)][graphEdgeIndex] = ' |-| '.join(complete_value)
+        edgesContentFormated['MMseqs_families'][graphEdgeIndex] = ' |-| '.join(str(fam) for fam in families)
+        edgesContentFormated['weight'][graphEdgeIndex] = edge['weight']
+    logger.debug('edge processed: {}/{}'.format(format(edgeCPT, ',d'),format(len(edgesContent), ',d')))
+
+    for attribute, values in edgesContentFormated.items():
+        graph.es[attribute] = values
+
+    edgesNotConservedIndex = set([i for i in range(graph.ecount())]).difference(set(sorted(edgesToConservedIndex)))
+    graph.delete_edges(list(edgesNotConservedIndex))
+    logger.debug('End of graph building!')
     return graph
 
 def get_families_of_targets(nodesContent, proteinsContent):
@@ -464,6 +485,8 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         else:
             logger.error('Please make sure that {} file is in the appropriate repertory'.format(metadataFile))
             exit(1)
+    else:
+        headersMD = None
 
     if redundancyRemovalLabel or redundancyRemovalTaxonomy:
         logger.info('Redundancy removal processing...')
@@ -495,11 +518,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         'organisms': organismsContent
     }
 
-    logger.info('Output graph building...')
-    if metadataFile:
-        full_graph = createFullGraph(netsynResult, clusteringMethod, headersMD)
-    else:
-        full_graph = createFullGraph(netsynResult, clusteringMethod)
+    full_graph = createFullGraph(nodesContent, edgesContent, organismsContent, proteinsContent, clusteringMethod, headersMD)
 
     dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
     if not os.path.isdir(dataDirectoryProcess):
@@ -511,6 +530,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     full_graph.write_graphml(graphmlOut)
 
     ### COM: Storage of information to write ClusteringSynthesis files
+    logger.info('Analysis synthesis process...')
     families_of_targetsIdx = get_families_of_targets(nodesContent, proteinsContent)
     intra_cluster = {}
     inter_cluster = {}
@@ -601,6 +621,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                         inter_cluster[cm][family] = get_metadata_info(inter_cluster[cm][family], target_dict['metadata'])
 
     # COM: intra cluster process
+    logger.info('Output "intraCluster" synthesis files building...')
     headers_to_print = ['NetSyn_ClusterID', 'NetSyn_FamilyID', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Strains_Nb', 'Organisms_Nb', 'Organisms_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
     if metadataFile:
         metadataHeaders = add_metadataHeaders(headers_to_print, headersMD)
@@ -667,7 +688,8 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     if not inter_cluster.keys():
         logger.info('This analysis does not contain edges inter clusters')
     else:
-        headers_to_print = ['NetSynt_FamilyID', 'NetSyn_Clusters_Nb', 'NetSyn_Cluster_IDs', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Strains_Nb', 'Organisms_Nb', 'Organisms_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
+        logger.info('Output "interCluster" synthesis files building...')
+        headers_to_print = ['NetSyn_FamilyID', 'NetSyn_Clusters_Nb', 'NetSyn_Cluster_IDs', 'Target_Family', 'Syntenies_Nb', 'Species_Nb', 'Strains_Nb', 'Organisms_Nb', 'Organisms_List', 'Proteins_in_Synteny_Nb', 'Products', 'Gene_Names', 'EC_Numbers', 'Locus_Tags', 'Proteins_AC']
         if metadataFile:
             metadataHeaders = add_metadataHeaders(headers_to_print, headersMD)
             headers_to_print.extend(metadataHeaders)
@@ -684,7 +706,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                 orgs_list = ' / '.join(familyContent['organisms'])
                 orgs_nb = len(familyContent['organisms'])
 
-                line[headers_to_print.index('NetSynt_FamilyID')] = familyID
+                line[headers_to_print.index('NetSyn_FamilyID')] = familyID
                 line[headers_to_print.index('Target_Family')] = containTarget
                 line[headers_to_print.index('NetSyn_Clusters_Nb')] = nbr_clusters
                 line[headers_to_print.index('NetSyn_Cluster_IDs')] = clusters

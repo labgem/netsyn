@@ -16,57 +16,6 @@ import common
 #############
 # Functions #
 #############
-
-# def get_userGC(targets_info, windowSize, prots_info):
-#     ''' reduce the genomic context to the user parameter '--WindowSize'
-#     input: list of targets_info, '-ws' user parameter
-#     output: prots_info dictionary updated with 2 new fields 1)prots_info[target]['userGC'] and
-#     2)prots_info[target]['similarityContext']
-#     '''
-#     half_user_window = math.floor(windowSize/2)
-#     new_targets_info = {}
-
-#     proteinsToConserve = []
-#     proteinsIndexToDel = []
-#     for target_idx, target_dict in targets_info.items():
-#         center = target_dict['context_idx'].index(target_idx)
-#         low_limit = max(0, center-half_user_window)
-#         high_limit = min(len(target_dict['context_idx']),
-#                          center+half_user_window+1)
-
-#         for i in target_dict['context_idx'][:low_limit] + target_dict['context_idx'][high_limit:]:
-#             if i not in proteinsToConserve and i not in proteinsIndexToDel:
-#                 proteinsIndexToDel.append(i)
-#         for i in target_dict['context_idx'][low_limit:high_limit]:
-#             if i in proteinsIndexToDel:
-#                 del proteinsIndexToDel[proteinsIndexToDel.index(i)]
-#             if i not in proteinsToConserve:
-#                 proteinsToConserve.append(i)
-#     proteinsIndexes = [i for i in range(len(prots_info))]
-
-#     decrement = 0
-#     for i in proteinsIndexes:
-#         if i in proteinsIndexToDel:
-#             proteinsIndexes[i] = -1
-#             decrement += 1
-#         else:
-#             proteinsIndexes[i] -= decrement
-
-#     for target_idx, target_dict in targets_info.items():#
-#         center = target_dict['context_idx'].index(target_idx)#
-#         low_limit = max(0, center-half_user_window)#
-#         high_limit = min(len(target_dict['context_idx']),
-#                          center+half_user_window+1)#
-#         target_dict['context_idx'] = [proteinsIndexes[i] for i in target_dict['context_idx'][low_limit:high_limit]]# juste i
-#         target_dict['context'] = target_dict['context'][low_limit:high_limit]#
-#         target_dict['target_pos'] = target_dict['context'].index(target_dict['id'])#
-#         new_index = target_dict['context_idx'][target_dict['target_pos']]
-#         new_targets_info.setdefault(new_index, {}).update(target_dict)
-
-#     for i in sorted(proteinsIndexToDel, reverse=True):
-#         del prots_info[i]
-#     return new_targets_info, prots_info
-
 def get_userGC(targets_info, windowSize):
     ''' reduce the genomic context to the user parameter '--WindowSize'
     input: list of targets_info, '-ws' user parameter
@@ -198,10 +147,12 @@ def evaluate_proximity(syntons, graph, gapValue, look_at):
     genomic context A/B)
     output: no output, but the graph has a new edge if the gapValue constraint is fulfilled
     '''
+    edges = []
     for idx, synton1 in enumerate(syntons[:-1]):
         synton2 = syntons[idx+1]
         if synton2[look_at]-synton1[look_at] <= gapValue+1:
-            graph.add_edge(graph.vs['name'].index(synton1), graph.vs['name'].index(synton2))
+            edges.append([graph.vs['name'].index(synton1), graph.vs['name'].index(synton2)])
+    graph.add_edges(edges)
     return graph
 
 def get_connected_components(graph, synton_of_targets, gapValue, look_at):
@@ -250,7 +201,7 @@ def compute_score(syntons, synton_of_targets, boolean_synton_of_targets):
     score = avg_genes * weighting
     return score
 
-def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params):
+def find_common_connected_components(graphContent, gA, gB, targetA, targetB, AB_targets_syntons, params):
     ''' recursive function to detect a common connected component set in the set
     of nodes in genome A and genome B
     input: maxi graph, subgraphs A and B (nodes are identical, edges differ),
@@ -270,31 +221,27 @@ def find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets
             if score < params['SCORE_CUTOFF']:
                 params['INC_CUTOFF'] += 1
             else:
-                if not maxiG.vertex_attributes() or targetA not in maxiG.vs['name']:
-                    maxiG.add_vertex(targetA)
-                    maxiG.vs[maxiG.vs['name'].index(targetA)]['targetPosition'] = synton_of_targets[0]
-                if not maxiG.vertex_attributes() or targetB not in maxiG.vs['name']:
-                    maxiG.add_vertex(targetB)
-                    maxiG.vs[maxiG.vs['name'].index(targetB)]['targetPosition'] = synton_of_targets[1]
-                # print(maxiG.vs['name'])
-                # print("\t"*2,targetA, targetB)
-                vertex_idx_targetA = maxiG.vs['name'].index(targetA)
-                vertex_idx_targetB = maxiG.vs['name'].index(targetB)
-                # print("\t"*2,vertex_idx_targetA, vertex_idx_targetB)
-                maxiG.add_edge(vertex_idx_targetA, vertex_idx_targetB)
-                edge_idx_AB = maxiG.get_eid(vertex_idx_targetA, vertex_idx_targetB)
-                maxiG.es[edge_idx_AB]['weight'] = score
+                if targetA not in graphContent['nodes']['name']:
+                    graphContent['nodes']['name'].append(targetA)
+                    graphContent['nodes']['targetPosition'].append(synton_of_targets[0])
+                if targetB not in graphContent['nodes']['name']:
+                    graphContent['nodes']['name'].append(targetB)
+                    graphContent['nodes']['targetPosition'].append(synton_of_targets[1])
+                vertex_idx_targetA = graphContent['nodes']['name'].index(targetA)
+                vertex_idx_targetB = graphContent['nodes']['name'].index(targetB)
+                graphContent['edges']['source_target'].append([vertex_idx_targetA, vertex_idx_targetB])
+                graphContent['edges']['weight'].append(score)
         else:
             gA_memory = gA.copy()
             gA = ig.Graph()
             gA.add_vertices(gA_memory.vs[itrsect]['name'])
             gB = gA.copy()
-            maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, AB_targets_syntons, params)
+            graphContent, params = find_common_connected_components(graphContent, gA, gB, targetA, targetB, AB_targets_syntons, params)
     else:
         params['INC_NO_SYNTENY'] += 1
-    return maxiG, params
+    return graphContent, params
 
-def build_maxi_graph(maxiG, targets_syntons, params):
+def build_maxi_graph(targets_syntons, params):
     ''' construction of the maxi graph where nodes are equivalent to targets and
     edges represent a synteny relation between targets
     input: empty graph (maxiG), targets_syntons dictionary
@@ -303,14 +250,36 @@ def build_maxi_graph(maxiG, targets_syntons, params):
     '''
     logger = logging.getLogger('{}.{}'.format(build_maxi_graph.__module__, build_maxi_graph.__name__))
     logger.info('Synteny graph in construction...')
+    possibleSyntonsNb = len(targets_syntons)
+    logger.debug('Number of possible syntenies: {}'.format(format(possibleSyntonsNb, ',d')))
+    possibleSyntonsProcessed = 0
+    graphContent = {
+        'nodes': {
+            'name': [],
+            'targetPosition': []
+            },
+        'edges': {
+            'source_target': [],
+            'weight': []
+            }
+        }
     for (targetA, targetB) in targets_syntons:
+        if possibleSyntonsProcessed%100000 == 0:
+            logger.debug('Number of possible syntenies processed: {}/{}'.format(format(possibleSyntonsProcessed, ',d'),format(possibleSyntonsNb, ',d')))
         gA = ig.Graph()
         gA.add_vertices(targets_syntons[(targetA, targetB)]['syntons'])
         # COM: gA and gB have the same nodes, only edges diff
         gB = gA.copy()
-        maxiG, params = find_common_connected_components(maxiG, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
-        # print(targetA, targetB)
-    return maxiG, params
+        graphContent, params = find_common_connected_components(graphContent, gA, gB, targetA, targetB, targets_syntons[(targetA, targetB)], params)
+        possibleSyntonsProcessed += 1
+    logger.debug('Number of possible syntenies processed: {}/{}'.format(format(possibleSyntonsProcessed, ',d'),format(possibleSyntonsNb, ',d')))
+    graph = ig.Graph()
+    graph.add_vertices(graphContent['nodes']['name'])
+    graph.vs['targetPosition'] = graphContent['nodes']['targetPosition']
+    graph.add_edges(graphContent['edges']['source_target'])
+    graph.es['weight'] = graphContent['edges']['weight']
+
+    return graph, params
 
 def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
     '''
@@ -405,6 +374,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         # targetA = targets_info[targetAidx]
         # for targetBidx in targets_list[idx+1:]:
         #     targetB = targets_info[targetBidx]
+    logger.info('Conserved syntenies computing...')
     for targetAidx, targetA in enumerate(targets_info[:-1]):
         for i, targetB in enumerate(targets_info[targetAidx+1:]):
             targetBidx = (targetAidx + i + 1)
@@ -424,41 +394,37 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     no_synteny += 1
             else:
                 no_synteny += 1
-    maxi_graph = ig.Graph()
-    maxi_graph, params = build_maxi_graph(maxi_graph, targets_syntons, params)
+    maxi_graph, params = build_maxi_graph(targets_syntons, params)
     if maxi_graph.vcount() != 0:
-        # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
-        # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
-        # logger.info('Number of conserved synteny between 2 targets where synteny score is less than Synteny Score Cut-Off: {}'.format(params['INC_CUTOFF']))
-        # logger.info('Number of conserved synteny between 2 targets in the analysis: {}'.format(len(maxi_graph.es)))
-    
         ### Edge-betweenness clustering
         # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
         # print(graph_edge_btwness)
         # complete_dendogram = fix_dendrogram(maxi_graph, graph_edge_btwness)
         # btwness_clusters = complete_dendogram.as_clustering()
         # print(btwness_clusters)
-    
+
         # with open('maxi_graph_11_1.list', 'w') as file:
         #     ordered_vertices = sorted(maxi_graph.vs['name'])
         #     for vertex in ordered_vertices:
         #         file.write('{}\t{}\n'.format(maxi_graph.vs['name'].index(vertex), vertex))
-    
+
         ### Walktrap clustering
+        logger.info('Walktrap clustering...')
         graph_walktrap = maxi_graph.community_walktrap(weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
         walktrap_clustering = graph_walktrap.as_clustering()
-    
+
         for cluster in range(len(walktrap_clustering)):
             for vertex in walktrap_clustering[cluster]:
                 maxi_graph.vs[vertex]['cluster_WT'] = cluster
-    
+
         ### Louvain clustering
+        logger.info('Louvain clustering...')
         graph_louvain = maxi_graph.community_multilevel(weights='weight')
-    
+
         for cluster in range(len(graph_louvain)):
             for vertex in graph_louvain[cluster]:
                 maxi_graph.vs[vertex]['cluster_Louvain'] = cluster
-    
+
         # ### Spinglass clustering
         # # algorithm dont le résultat peut varier (changements mineurs)
         # # méthode trop lente ~40sec pour clusteriser 526 noeuds
@@ -468,7 +434,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         #     graph_cluster = maxi_graph.subgraph(cluster)
         #     graph_spinglass = graph_cluster.community_spinglass()#weigths=maxi_graph.es['weight'])
         #     logger.info('{} -- {}'.format(cluster, graph_spinglass))
-    
+
         # ### Label Propagation Clustering
         # # solutions variant entre les résultats retournés par Louvain et WalkTrap
         # # cependant, ne prends pas en compte le poids des arêtes
@@ -476,39 +442,33 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         # logger.info('*** Label Propagation Clustering***')
         # graph_labelPropagation = maxi_graph.community_label_propagation()#weigths=maxi_graph.es['weight'])
         # logger.info(graph_labelPropagation) # list of VertexClustering objects
-    
+
         ### Infomap Clustering
         # donne le même résultat que Louvain (sur données UniProtAC, pas avec BKACE !)
         # l'algo n'utilise pas non plus le poids des arêtes
+        logger.info('Infomap clustering...')
         graph_infomap = maxi_graph.community_infomap(edge_weights='weight', trials=advanced_settings[common.global_dict['Infomap']]['infomap_trials'])
-    
+
         for cluster in range(len(graph_infomap)):
             for vertex in graph_infomap[cluster]:
                 maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
-    
+
         # ### Leading EigenVector Clustering
         # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
         # # ne génère que 11 clusters à partir d'un graph formé de 10 composantes connexes (en split 1 seul en 2)
         # logger.info('*** Leading EigenVector Clustering***')
         # graph_eigenvector = maxi_graph.community_leading_eigenvector()#weigths=maxi_graph.es['weight'])
         # logger.info(graph_eigenvector) # list of VertexClustering objects
-    
+
         ### Markov Cluster Algorithm (MCL Clustering)
+        logger.info('MCL clustering...')
         nxGraph = nx.Graph()
         names = maxi_graph.vs['name']
         nxGraph.add_nodes_from(names)
         nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(x[0],x[1])]['weight']) for x in maxi_graph.get_edgelist()])
-    
+
         matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
-    
-        # # A tester sur d'autres jeux de données pour voir l'évolution des paramètres inflation et expansion
-        # for inflation in [i/10 for i in range(15,26)]:
-        #     for expansion in [j for j in range(2,11)]:
-        #         result = mc.run_mcl(matrix_adjacency, inflation=inflation, expansion=expansion)
-        #         clusters = mc.get_clusters(result)
-        #         Q = mc.modularity(matrix=result, clusters=clusters)
-        #         print('inflation: {}\texpansion: {}\t modularity: {}'.format(inflation, expansion, Q))
-    
+
         result = mc.run_mcl(
             matrix_adjacency,
             inflation=advanced_settings[common.global_dict['MCL']]['MCL_inflation'],
@@ -516,20 +476,15 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
             iterations=advanced_settings[common.global_dict['MCL']]['MCL_iterations']
         )
         clusters = mc.get_clusters(result)
-    
+
         for cluster in range(len(clusters)):
             for vertex in clusters[cluster]:
                 maxi_graph.vs[vertex]['cluster_MCL'] = cluster
-    
+
+        logger.info('Graph formatting...')
         targetsNumber = len(targets_info)
-        #print(len(targets_info), len(maxi_graph.vs['name']))
-        # targets_info, prots_info, maxi_graph, targets_syntons = proteinsRemoval(prots_info, targets_info, maxi_graph, targets_syntons)
         targets_info, prots_info = proteinsRemoval(prots_info, targets_info, maxi_graph)
-        #print(len(targets_info), len(maxi_graph.vs['name']))
-        #print(set(targets_info.keys()).difference(set(maxi_graph.vs['name'])))
-        # print(targets_info.keys())
-        # print(maxi_graph.vs['name'])
-    
+
         list_of_nodes = []
         for target_node in maxi_graph.vs:
             target_idx = int(target_node['name'])
@@ -538,9 +493,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     'id': prots_info[protein_idx]['id'],
                     'UniProt_AC': prots_info[protein_idx]['UniProt_AC'],
                     'protein_AC': prots_info[protein_idx]['protein_AC'],
-                    #'targetPosition': maxi_graph.vs[target_node.index]['targetPosition'],
-                    #'GC_size': len(prots_info[cds_inc]['userGC']),
-                    #'Product': prots_info[cds_inc]['product'], ### est-ce utile, l'information sera répétée dans families
                     'context': targets_info[target_idx]['context'],
                     'context_idx': targets_info[target_idx]['context_idx'],
                     'organism_id': targets_info[target_idx]['organism_id'],
@@ -558,7 +510,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     'Size': 1
                     }
             list_of_nodes.append(dico)
-    
+
         list_of_edges = []
         for edge in maxi_graph.es:
             node_0_idx = maxi_graph.vs[edge.tuple[0]].index
@@ -566,15 +518,15 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
             targetA = min(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
             targetB = max(int(maxi_graph.vs[node_0_idx]['name']), int(maxi_graph.vs[node_1_idx]['name']))
             nodeA_idx, nodeB_idx = (node_0_idx, node_1_idx) if maxi_graph.vs[node_0_idx]['name'] == targetA else (node_1_idx, node_0_idx)
-    
+
             if targets_syntons[(targetA, targetB)]:
                 families = targets_syntons[(targetA, targetB)]['families_intersect']
             else:
                 logger.debug('The order is not respected; the pair of targetA {} - targetB {} is referenced in the reverse order'.format(targetA, targetB))
                 families = targets_syntons[(targetB, targetA)]['families_intersect']
-    
+
             proteins_idx_source, proteins_idx_target = get_proteins_in_synteny(families, targets_info[targetA], targets_info[targetB], prots_info)
-    
+
             dico = {'source': nodeA_idx,
                     'target': nodeB_idx,
                     'proteins_idx_source': proteins_idx_source,
@@ -582,14 +534,14 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     'weight': maxi_graph.es[edge.index]['weight']
                     }
             list_of_edges.append(dico)
-    
+
         common.write_json(prots_info, protsOut)
         common.write_json(list_of_nodes, nodesOut)
         common.write_json(list_of_edges, edgesOut)
-    
+
         if os.listdir(dataDirectoryProcess) == []:
             shutil.rmtree(dataDirectoryProcess)
-    
+
         logger.info('{} completed!'.format(boxName))
         # logger.info('Number of pairs of targets that don\'t share more than 1 family: {}'.format(no_synteny))
         # logger.info('Number of conserved synteny between 2 targets doesn\'t respect gap parameter: {}'.format(params['INC_NO_SYNTENY']))
