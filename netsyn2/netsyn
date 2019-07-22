@@ -589,11 +589,11 @@ if __name__ == '__main__':
     else:
         '''Fichier de setting == analyse deja lance'''
         nameBoxToResum = getBoxToResum(args)
-        inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
         if nameBoxToResum == 'General informations':
             logger.error('Already existing project. Please start a new project')
             exit(1)
         else:
+            inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
         nameBoxDone = getLastBoxDone()
         runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)

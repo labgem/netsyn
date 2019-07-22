@@ -58,8 +58,16 @@ def create_d_input(d_rows, headers_list):
         if UniProt_AC_list: # ce test sera fait à chaque tour de boucle, j'aime pas ...
             d_input[filename][contig_id].setdefault('UniProt_AC_list', []).append(arow[UniProt_AC])
 
-        d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
-        d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
+        if 'protein_AC_field' in d_input[filename] and d_input[filename]['protein_AC_field'] != arow['protein_AC_field']:
+            logger.error('protein_AC_field values must be uniform for the same file. {} to checked.'.format(filename))
+            errors = True
+        else:
+            d_input[filename]['protein_AC_field'] = arow['protein_AC_field']
+        if 'nucleic_File_Format' in d_input[filename] and d_input[filename]['nucleic_File_Format'] != arow['nucleic_File_Format']:
+            logger.error('nucleic_File_Format values must be uniform for the same file. {} to checked.'.format(filename))
+            errors = True
+        else:
+            d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
 
         if taxon_ID:
             input_taxon = arow['taxon_ID']
