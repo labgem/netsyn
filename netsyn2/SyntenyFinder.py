@@ -506,7 +506,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                                     'MCL':
                                         maxi_graph.vs[target_node.index]['cluster_MCL']
                                    },
-                    'families': list(set(targets_info[target_idx]['families'])),
+                    'families': targets_info[target_idx]['families'],
                     'Size': 1
                     }
             list_of_nodes.append(dico)
