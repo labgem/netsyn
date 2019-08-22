@@ -573,6 +573,7 @@ def reportingFormat(logger, boxName, messages):
 #########################
 inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
+resourcesDir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')), 'resources')
 global_dict = {
     'version': '0.0.6',
     'defaultValue': 'NA',
@@ -631,7 +632,9 @@ global_dict = {
     ],
     'MCL': 'MCL advanced settings',
     'WalkTrap': 'WalkTrap advanced settings',
-    'Infomap': 'Infomap advanced settings'
+    'Infomap': 'Infomap advanced settings',
+    'htmlTemplate': os.path.join(resourcesDir, 'index.html'),
+    'jsTemplate': os.path.join(resourcesDir, 'main.min.js')
 }
 
 ##############################

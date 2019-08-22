@@ -8,6 +8,7 @@ import logging
 import os
 import igraph as ig
 import common
+import re
 #############
 # Functions #
 #############
@@ -461,6 +462,28 @@ def skip_duplicates(iterable, key=lambda x: x):
             yield x
             fingerprints.add(fingerprint)
 
+def mergeResultIntoHTML(outputName, htmlTemplate, jsTemplate, jsonResults):
+    '''
+    Inserts the netsyn results (json) into the javascript template.
+    Then inserts the javascript (from template + json) into html template.
+    '''
+    # logger = logging.getLogger('{}.{}'.format(mergeResultIntoHTML.__module__, mergeResultIntoHTML.__name__))
+
+    jsHook = r'\/\* BEGIN HOOK FOR WF >const src_data = <END HOOK FOR WF \*\/'
+    jsReplace = '{}{};'.format(jsHook.split('<')[0].split('>')[1], jsonResults)
+    with open(jsTemplate, 'r') as file:
+        jsContent = re.sub(jsHook, jsReplace, file.read())
+
+    htmlHook = r'<!--  BEGIN HOOK FOR WF-->\n<script src="js\/main.min.js"><\/script>\n<!--  END HOOK FOR WF-->'
+    htmlReplace = '<script>@</script>'
+    with open(htmlTemplate, 'r') as file:
+        htmlContentTmp = re.sub(htmlHook, htmlReplace, file.read())
+    begin, end = htmlContentTmp.split('@')
+    htmlContent = '{}{}{}'.format(begin, jsContent, end)
+
+    with open(outputName, 'w') as file:
+        file.write(htmlContent)
+
 def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
@@ -526,7 +549,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     if not os.path.isdir(synthesisDirectory):
         os.mkdir(synthesisDirectory)
 
-    common.write_json(netsynResult, htmlOut)
+    mergeResultIntoHTML(htmlOut, common.global_dict['htmlTemplate'], common.global_dict['jsTemplate'], netsynResult)
     full_graph.write_graphml(graphmlOut)
 
     ### COM: Storage of information to write ClusteringSynthesis files
