@@ -240,7 +240,7 @@ def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
     Calling from netsyn or BoxManager modules.
     '''
     global_dict['workingDirectory'] = outputDirName
-    global_dict['dataDirectory'] = os.path.join(outputDirName, 'data')
+    global_dict['dataDirectory'] = os.path.join(outputDirName, '.netsyn')
     global_dict['inputsMergedName'] = os.path.join(outputDirName, 'inputsMerged.tsv')
     global_dict['settingsFileName'] = os.path.join(outputDirName, '.lastSettings.yml')
     global_dict['reportFileName'] = os.path.join(outputDirName, '.report')
@@ -575,7 +575,7 @@ inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
 resourcesDir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')), 'resources')
 global_dict = {
-    'version': '0.0.6',
+    'version': '0.0.7',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,
