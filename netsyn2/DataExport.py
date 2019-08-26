@@ -162,6 +162,9 @@ def nodes_organismsMerging(nodesToMerge, organismsContent, clusteringMethod):
             newNode['metadata'] = metadata
         newNode['clusterings'] = clusterings
         newNode['Size'] = len(nodes)
+        newNode['context'] = []
+        newNode['context_idx'] = []
+        newNode['families'] = []
 
         metaLineage = {}
         organismIdMax += 1
