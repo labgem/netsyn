@@ -1,3 +1,5 @@
 scripts_test/
 **/*.swp
 **/*__pycache__/
+.vscode/
+files_example/
