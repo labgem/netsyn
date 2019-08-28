@@ -552,21 +552,25 @@ def reportingFormat(logger, boxName, messages):
     '''
     Formats the reporting.
     '''
-    msg = '# {} reporting #'.format(boxName)
-    contentFile = []
-    logger.info('#'*len(msg))
-    contentFile.append('#'*len(msg))
-    logger.info(msg)
-    contentFile.append(msg)
-    logger.info('#'*len(msg))
-    contentFile.append('#'*len(msg))
-    for msg in messages:
+    if (messages):
+        msg = '# {} reporting #'.format(boxName)
+        contentFile = []
+        logger.info('#'*len(msg))
+        contentFile.append('#'*len(msg))
         logger.info(msg)
         contentFile.append(msg)
-    logger.info('#'*len(msg))
-    contentFile.append('\n')
-    with open(global_dict['files'][boxName]['report'], 'w') as file:
-        file.write('\n'.join(contentFile))
+        logger.info('#'*len(msg))
+        contentFile.append('#'*len(msg))
+        for msg in messages:
+            logger.info(msg)
+            contentFile.append(msg)
+        logger.info('#'*len(msg))
+        contentFile.append('\n')
+        with open(global_dict['files'][boxName]['report'], 'w') as file:
+            file.write('\n'.join(contentFile))
+    else:
+        with open(global_dict['files'][boxName]['report'], 'w') as file:
+            file.write('*')
 
 #########################
 # Constantes definition #
@@ -575,7 +579,7 @@ inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
 resourcesDir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')), 'resources')
 global_dict = {
-    'version': '0.0.7',
+    'version': '0.0.8',
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,

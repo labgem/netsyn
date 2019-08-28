@@ -32,16 +32,16 @@ def checkArguments(parser):
         if args.conserveDownloadedINSDC:
             parser.error('ambigous option: --conserveDownloadedINSDC option requires -u/--UniProtACList option. Please specify the -u/--UniProtACList option')
 
-    if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choose one of two options')
+    if args.GroupingOnLabel and args.GroupingOnTaxonomy:
+        parser.error('GroupingOnLabel and GroupingOnTaxonomy are incompatible options. Please choose one of two options')
 
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
-        parser.error('The redundancy removal functionality can\'t be computed with every clustering method. Please choose a unique clustering method (-cm/--ClusteringMethod)')
+    if (args.GroupingOnLabel or args.GroupingOnTaxonomy) and not args.ClusteringMethod:
+        parser.error('The grouping clustering functionality can\'t be computed with every clustering method. Please choose a unique clustering method (-cm/--ClusteringMethod)')
 
-    if args.ClusteringMethod and not (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy):
-        parser.error('The selection of a clustering algorithm is available only when redundancy removal is enabled (see section Redundancy Removal settings: netsyn -h/--help)')
+    if args.ClusteringMethod and not (args.GroupingOnLabel or args.GroupingOnTaxonomy):
+        parser.error('The selection of a clustering algorithm is available only when grouping clustering is enabled (see section Grouping Clustering settings: netsyn -h/--help)')
 
-    if args.RedundancyRemovalLabel and not args.MetaDataFile:
+    if args.GroupingOnLabel and not args.MetaDataFile:
         parser.error('Please specify the --MetaDataFile option')
 
     for key, value in {'Identity': args.Identity, 'Coverage': args.Coverage}.items():
@@ -100,15 +100,15 @@ def argumentsParser():
     group3.add_argument('-cas', '--ClusteringAdvancedSettings', type=str,
                         help='YAML file with the advanced clustering settings to determine synteny NetSyn. Settings of clusterings methods')
 
-    group6 = parser.add_argument_group('Redundancy Removal settings')
+    group6 = parser.add_argument_group('Grouping clustering settings')
     group6.add_argument('-cm', '--ClusteringMethod', type=str,
                         choices=['MCL','Infomap','Louvain','WalkTrap'],
                         default=None,
                         help='Clustering method choices: MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
-    group6.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
-                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
-    group6.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
-                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
+    group6.add_argument('-rrl', '--GroupingOnLabel', type=str,
+                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --GroupingOnTaxonomy option.)')
+    group6.add_argument('-rrt', '--GroupingOnTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
+                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --GroupingOnLabel option)')
 
     group7 = parser.add_argument_group('logger')
     group7.add_argument( '--log_level',
@@ -243,8 +243,8 @@ def createYamlSettingsFile(args):
         YAML_File[step] = {}
         YAML_File[step]['MetaDataFile'] = args.MetaDataFile
         YAML_File[step]['ClusteringMethod'] = args.ClusteringMethod
-        YAML_File[step]['RedundancyRemovalLabel'] = args.RedundancyRemovalLabel
-        YAML_File[step]['RedundancyRemovalTaxonomy'] = args.RedundancyRemovalTaxonomy
+        YAML_File[step]['GroupingOnLabel'] = args.GroupingOnLabel
+        YAML_File[step]['GroupingOnTaxonomy'] = args.GroupingOnTaxonomy
         YAML_File = writtingYAML(YAML_File, outfile, step)
 
 def writtingYAML(YAML_to_write, outfile, block):
@@ -527,8 +527,8 @@ def runBox(nameBox, resultsDirectory):
             organimsFile,
             proteinsFile,
             args.MetaDataFile,
-            args.RedundancyRemovalLabel,
-            args.RedundancyRemovalTaxonomy,
+            args.GroupingOnLabel,
+            args.GroupingOnTaxonomy,
             args.ClusteringMethod)
     elif nameBox == 'EndNetSynAnalysis':
         EndNetSynAnalysis.run(resultsDirectory, analysisNumber, ORDERBOX)

@@ -767,7 +767,6 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
                     file.write('\n')
 
     logger.info('{} completed!'.format(boxName))
-    reportingMessages.append('Aller faut trouver un truc a mettre...'.format())
     common.reportingFormat(logger, boxName, reportingMessages)
 
 def argumentsParser():
@@ -776,7 +775,7 @@ def argumentsParser():
     '''
     parser = argparse.ArgumentParser(description='version: {}'.format(common.global_dict['version']),
                                      usage='''DataExport.py -in <inputNodes> -ie <inputEdges> -io <inputOrganisms> -ip <inputProteins> -o <outputName>\n\
-\t\t[-md <metadataFile>]\n\t\t[-rrl <RedundancyRemovalLabel> | -rrt <RedundancyRemovalTaxonomy> -cm <ClusteringMethod>]''',
+\t\t[-md <metadataFile>]\n\t\t[-rrl <GroupingOnLabel> | -rrt <GroupingOnTaxonomy> -cm <ClusteringMethod>]''',
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     group1 = parser.add_argument_group('General settings')
@@ -798,10 +797,10 @@ def argumentsParser():
                         choices=['MCL','Infomap','Louvain','WalkTrap'],
                         default=None,
                         help='Clustering method choose in : MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
-    group2.add_argument('-rrl', '--RedundancyRemovalLabel', type=str,
-                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --RedundancyRemovalTaxonomy option.)')
-    group2.add_argument('-rrt', '--RedundancyRemovalTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
-                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --RedundancyRemovalLabel option)')
+    group2.add_argument('-rrl', '--GroupingOnLabel', type=str,
+                        help='Label of the metadata column on which the redundancy will be computed (Incompatible with --GroupingOnTaxonomy option.)')
+    group2.add_argument('-rrt', '--GroupingOnTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
+                        help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --GroupingOnLabel option)')
 
     group3 = parser.add_argument_group('logger')
     group3.add_argument( '--log_level',
@@ -824,13 +823,13 @@ if __name__ == '__main__':
     # Parse command line #
     ######################
     args, parser = argumentsParser()
-    if args.RedundancyRemovalLabel and args.RedundancyRemovalTaxonomy:
-        parser.error('RedundancyRemovalLabel and RedundancyRemovalTaxonomy are incompatible options. Please choose one of two options')
-    if (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy) and not args.ClusteringMethod:
+    if args.GroupingOnLabel and args.GroupingOnTaxonomy:
+        parser.error('GroupingOnLabel and GroupingOnTaxonomy are incompatible options. Please choose one of two options')
+    if (args.GroupingOnLabel or args.GroupingOnTaxonomy) and not args.ClusteringMethod:
         parser.error('A clustering method must be provided since a redundancy removal option (-rrl, -rrt) is selected')
-    if args.ClusteringMethod and not (args.RedundancyRemovalLabel or args.RedundancyRemovalTaxonomy):
+    if args.ClusteringMethod and not (args.GroupingOnLabel or args.GroupingOnTaxonomy):
         parser.error('The selection of a clustering algorithm is available only when redundancy removal is enabled (see DataExport.py -h/--help)')
-    if args.RedundancyRemovalLabel and not args.metadataFile:
+    if args.GroupingOnLabel and not args.metadataFile:
         parser.error('Please specify the --metadataFile option')
     ##########
     # Logger #
@@ -852,6 +851,6 @@ if __name__ == '__main__':
         args.inputOrganisms,
         args.inputProteins,
         args.metadataFile,
-        args.RedundancyRemovalLabel,
-        args.RedundancyRemovalTaxonomy,
+        args.GroupingOnLabel,
+        args.GroupingOnTaxonomy,
         args.ClusteringMethod)
