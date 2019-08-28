@@ -17,14 +17,6 @@ import yaml
 #############
 # Functions #
 #############
-def unPetitBonjourPourredonnerLeMoral(msg=None):
-    '''
-    Fonction de desespoire pour les developpeur en quete de debogage...
-    '''
-    print("=D I'M HAPPY!!!")
-    if msg:
-        print(msg)
-
 def getMMseqsDefaultSettings():
     '''
     Defines MMseqs2 default Seetings.

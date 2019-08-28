@@ -14,7 +14,7 @@ import filecmp
 import glob
 
 import yaml
-import GetINSDCFiles, ParseINSDCFiles_GetTaxonomy, ClusteringIntoFamilies, SyntenyFinder, DataExport, EndNetSynAnalysis
+import netsyn_getINSDCFiles, netsyn_parseINSDCFiles_GetTaxonomy, netsyn_clusteringIntoFamilies, netsyn_syntenyFinder, netsyn_dataExport, EndNetSynAnalysis
 import common
 
 #############
@@ -488,7 +488,7 @@ def runBox(nameBox, resultsDirectory):
     global ORDERBOX
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
-        GetINSDCFiles.run(args.UniProtACList)
+        netsyn_getINSDCFiles.run(args.UniProtACList)
     elif nameBox == 'ParseINSDCFiles_GetTaxonomy':
         logger = logging.getLogger('runParseINSDCFiles_GetTaxonomy')
         if args.UniProtACList and args.CorrespondencesFile:
@@ -501,7 +501,7 @@ def runBox(nameBox, resultsDirectory):
             inputBoxII = args.CorrespondencesFile
         else:
             inputBoxII = common.global_dict['files']['GetINSDCFiles']['inputClusteringStep']
-        ParseINSDCFiles_GetTaxonomy.run(inputBoxII, args.IncludedPseudogenes)
+        netsyn_parseINSDCFiles_GetTaxonomy.run(inputBoxII, args.IncludedPseudogenes)
         if 'GetINSDCFiles' in ORDERBOX:
             if not args.conserveDownloadedINSDC:
                 logger.info('Removing downloded files in GetINSDC step')
@@ -511,18 +511,18 @@ def runBox(nameBox, resultsDirectory):
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
-        ClusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage, args.MMseqsAdvancedSettings)
+        netsyn_clusteringIntoFamilies.run(fasta, proteins, args.Identity, args.Coverage, args.MMseqsAdvancedSettings)
     elif nameBox == 'SyntenyFinder':
         logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
-        SyntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff, args.ClusteringAdvancedSettings)
+        netsyn_syntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff, args.ClusteringAdvancedSettings)
     elif nameBox == 'DataExport':
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges']
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
-        DataExport.run(nodesFile,
+        netsyn_dataExport.run(nodesFile,
             edgesFile,
             organimsFile,
             proteinsFile,
