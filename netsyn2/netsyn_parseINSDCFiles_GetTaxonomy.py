@@ -67,7 +67,11 @@ def create_d_input(d_rows, headers_list):
             logger.error('nucleic_File_Format values must be uniform for the same file. {} to checked.'.format(filename))
             errors = True
         else:
-            d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
+            if arow['nucleic_File_Format'] in common.global_dict['formatOfFilesToParse']:
+                d_input[filename]['nucleic_File_Format'] = arow['nucleic_File_Format']
+            else:
+                logger.error('{} is an unauthorized file format. Allowed file formats: {}'.format(arow['nucleic_File_Format'], ', '.join(common.global_dict['formatOfFilesToParse'])))
+                errors = True
 
         if taxon_ID:
             input_taxon = arow['taxon_ID']
@@ -323,8 +327,12 @@ def parse_insdc(afile, d_infile, prots_info, targets_info, orgs_info, sequences,
     fieldProteinID = d_infile['protein_AC_field']
 
     with open(afile, 'r') as insdcFile:
-        seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
-        CONTIG = next(seqRecordParsed)
+        try:
+            seqRecordParsed = SeqIO.parse(insdcFile, typeParsing)
+            CONTIG = next(seqRecordParsed)
+        except:
+            logger.error('Parsing of {} failed. Please, check format file filled ({}) in matches the format of this file.'.format(afile, typeParsing))
+            exit(1)
         while CONTIG_LIST and CONTIG:
             # COM: getting the contig ID depending on its format
             if CONTIG.id in d_infile:
@@ -502,8 +510,8 @@ def parse_INSDC_files(d_input, prots_info, targets_info, orgs_info, params):
     sequences = {}
     for afile in d_input:
         params['INC_FILE'] += 1
-        logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
         prots_info, targets_info, orgs_info, sequences, params = parse_insdc(afile, d_input[afile], prots_info, targets_info, orgs_info, sequences, params)
+        logger.info('Parsing of INSDC file ({}/{}): {}'.format(params['INC_FILE'], nbr_of_files, afile))
     return prots_info, targets_info, orgs_info, sequences, params
 
 def write_multiFasta(sequences, output, prots_info):

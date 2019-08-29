@@ -577,6 +577,7 @@ global_dict = {
     'minGCSize': 3,
     'sscDefault': 3.0,
     'filesExtension': 'embl',
+    'formatOfFilesToParse': ['embl', 'gb', 'genbank'],
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
         'ParseINSDCFiles_GetTaxonomy': 'ParseINSDCFiles_GetTaxonomy',
