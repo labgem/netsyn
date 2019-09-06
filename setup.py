@@ -10,8 +10,8 @@ setup(
     version = netsyn2.__version__,
     packages = find_packages(),
 
-    author = 'CEA/JACOB/GENOSCOPE/LABGeM',
-    author_email = '???@genoscope.cns.fr',
+    author = 'CEA/DRF/JACOB/GENOSCOPE/LABGeM',
+    author_email = 'labgem@genoscope.cns.fr',
 
     description = 'NetSyn2 is a tool implemented to detect conserved syntenies around listed targets.',
     long_description = open('README.md').read(),
@@ -30,11 +30,11 @@ setup(
 
     include_package_data = True,
 
-    url = 'http://github.com/labgem/???',
+    url = 'http://github.com/labgem/netsyn',
 
     classifiers = [
         'Programming Language :: Python :: 3.7',
-        'License :: ???',
+        'License :: OSI Approved :: CEA CNRS Inria Logiciel Libre License, version 2.1 (CeCILL-2.1)',
         'Topic :: Scientific/Engineering :: Bio-Informatics'
     ],
 
