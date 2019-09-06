@@ -3,7 +3,7 @@
 ##########
 # Import #
 ##########
-from netsyn2 import common
+from netsyn import common
 
 import argparse
 import logging

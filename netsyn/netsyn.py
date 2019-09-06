@@ -4,8 +4,8 @@
 # Import #
 ##########
 
-from netsyn2 import common
-from netsyn2 import netsyn_getINSDCFiles, netsyn_parseINSDCFiles_GetTaxonomy, netsyn_clusteringIntoFamilies, netsyn_syntenyFinder, netsyn_dataExport, EndNetSynAnalysis
+from netsyn import common
+from netsyn import netsyn_getINSDCFiles, netsyn_parseINSDCFiles_GetTaxonomy, netsyn_clusteringIntoFamilies, netsyn_syntenyFinder, netsyn_dataExport, EndNetSynAnalysis
 
 import argparse
 import os
@@ -231,7 +231,7 @@ def createYamlSettingsFile(args, ORDERBOX):
         YAML_File[step] = {}
         YAML_File[step]['WindowSize'] = args.WindowSize
         YAML_File[step]['SyntenyGap'] = args.SyntenyGap
-        YAML_File[step]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
+        YAML_File[step]['SyntenyScoreCutoff'] = args.SyntenyScoreCutoff
         addsAvancedSettings(YAML_File, step, args.ClusteringAdvancedSettings, common.getClusteringMethodsDefaultSettings())
         YAML_File = writtingYAML(YAML_File, outfile, step, ORDERBOX)
 
@@ -508,7 +508,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber, ORDERBOX, args):
         logger = logging.getLogger('runSyntenyFinder')
         proteins = common.global_dict['files']['ClusteringIntoFamilies']['proteins_2']
         targets = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['targets_2']
-        netsyn_syntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCuttoff, args.ClusteringAdvancedSettings)
+        netsyn_syntenyFinder.run(proteins, targets, args.WindowSize, args.SyntenyGap, args.SyntenyScoreCutoff, args.ClusteringAdvancedSettings)
     elif nameBox == 'DataExport':
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges']

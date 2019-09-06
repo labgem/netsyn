@@ -3,11 +3,11 @@
 
 from setuptools import setup, find_packages
 
-import netsyn2
+import netsyn
 
 setup(
     name = 'netsyn',
-    version = netsyn2.__version__,
+    version = netsyn.__version__,
     packages = find_packages(),
 
     author = 'CEA/DRF/JACOB/GENOSCOPE/LABGeM',
@@ -40,12 +40,12 @@ setup(
 
     entry_points = {
         'console_scripts': [
-            'netsyn=netsyn2.netsyn:main',
-            'netsyn_getINSDCFiles=netsyn2.netsyn_getINSDCFiles:main',
-            'netsyn_parseINSDCFiles_GetTaxonomy=netsyn2.netsyn_parseINSDCFiles_GetTaxonomy:main',
-            'netsyn_clusteringIntoFamilies=netsyn2.netsyn_clusteringIntoFamilies:main',
-            'netsyn_syntenyFinder=netsyn2.netsyn_syntenyFinder:main',
-            'netsyn_dataExport=netsyn2.netsyn_dataExport:main'
+            'netsyn=netsyn.netsyn:main',
+            'netsyn_getINSDCFiles=netsyn.netsyn_getINSDCFiles:main',
+            'netsyn_parseINSDCFiles_GetTaxonomy=netsyn.netsyn_parseINSDCFiles_GetTaxonomy:main',
+            'netsyn_clusteringIntoFamilies=netsyn.netsyn_clusteringIntoFamilies:main',
+            'netsyn_syntenyFinder=netsyn.netsyn_syntenyFinder:main',
+            'netsyn_dataExport=netsyn.netsyn_dataExport:main'
         ]
     }
 )

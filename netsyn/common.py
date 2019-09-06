@@ -2,7 +2,7 @@
 # Import #
 ##########
 import __main__ as namespace
-from netsyn2 import __version__
+from netsyn import __version__
 
 import json
 import jsonschema
