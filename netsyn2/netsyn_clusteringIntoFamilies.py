@@ -3,13 +3,15 @@
 ##########
 # Import #
 ##########
-import common
+from netsyn2 import common
+
 import re
 import sys
 import os
 import shutil
 import subprocess
 import logging
+import argparse
 #############
 # Functions #
 #############
@@ -24,13 +26,13 @@ def mmseqs_createdb(dataDirectoryProcess, multiFasta):
     '''
     logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
-    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log')
-    with open(log_file, 'w') as file:
+    logFile = os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log')
+    with open(logFile, 'w') as file:
         try:
             subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
             logger.info('Createdb completed')
         except:
-            logger.error('mmseqs createdb failed. Please, check {}'.format(log_file))
+            logger.error('mmseqs createdb failed. Please, check {}'.format(logFile))
             exit(1)
 
 def mmseqs_clustering(dataDirectoryProcess, params):
@@ -52,13 +54,13 @@ def mmseqs_clustering(dataDirectoryProcess, params):
         for name, value in settings.items():
             clustering_settings.append('--{}'.format(settings_separator.join(name.split(settings_separator)[1:])))
             clustering_settings.append(str(value))
-    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log')
-    with open(log_file, 'w') as file:
+    logFile = os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log')
+    with open(logFile, 'w') as file:
         try:
             subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
             logger.info('Clustering completed')
         except:
-            logger.error('mmseqs cluster failed. Please, check {}'.format(log_file))
+            logger.error('mmseqs cluster failed. Please, check {}'.format(logFile))
             exit(1)
 
 def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
@@ -67,15 +69,15 @@ def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
-    log_file = os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log')
-    with open(log_file, 'w') as file:
+    logFile = os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log')
+    with open(logFile, 'w') as file:
         try:
             subprocess.run(['mmseqs', 'createtsv', dataBase_path,
                                         dataBase_path, cluster_path, outputTSV_path
                                         ], stdout=file, stderr=file, check=True)
             logger.info('CreateTSV completed')
         except:
-            logger.error('mmseqs createtsv failed. Please, check {}'.format(log_file))
+            logger.error('mmseqs createtsv failed. Please, check {}'.format(logFile))
             exit(1)
 
 def regroup_families(tsv_file, prots_info):
@@ -180,22 +182,21 @@ def argumentsParser():
                         help='YAML file with the advanced clustering settings to determine protein families. Settings of MMseqs2 software')
 
     group2 = parser.add_argument_group('logger')
-    group2.add_argument('--log_level',
+    group2.add_argument('--logLevel',
                          type=str,
                          nargs='?',
                          default='INFO',
                          help='log level',
                          choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                          required=False)
-    group2.add_argument('--log_file',
+    group2.add_argument('--logFile',
                          type=str,
                          nargs='?',
                          help='log file (use the stderr by default)',
                          required=False)
     return parser.parse_args(), parser
 
-if __name__ == '__main__':
-    import argparse
+def main():
     ######################
     # Parse command line #
     ######################
@@ -223,3 +224,6 @@ if __name__ == '__main__':
     # Run #
     #######
     run(args.FastaFile, args.inputProteins, args.Identity, args.Coverage, args.MMseqsAdvancedSettings)
+
+if __name__ == '__main__':
+    main()

@@ -1,1 +1,2 @@
-recusive-include resources *.html *.js
+include *.md
+recursive-include netsyn2/resources *.html *.js

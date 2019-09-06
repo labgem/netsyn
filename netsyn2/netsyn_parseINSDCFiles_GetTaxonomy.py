@@ -3,6 +3,8 @@
 ##########
 # Import #
 ##########
+from netsyn2 import common
+
 import re
 import os
 import math
@@ -10,8 +12,9 @@ import shutil
 import xml.etree.ElementTree as ET
 import urllib3
 import logging
+import argparse
 from Bio import SeqIO
-import common
+
 #############
 # Functions #
 #############
@@ -813,22 +816,21 @@ def argumentsParser():
                         help='CDS annotated as pseudogenes are considered as part of the genomic context')
 
     group2 = parser.add_argument_group('logger')
-    group2.add_argument('--log_level',
+    group2.add_argument('--logLevel',
                          type=str,
                          nargs='?',
                          default='INFO',
                          help='log level',
                          choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                          required=False)
-    group2.add_argument('--log_file',
+    group2.add_argument('--logFile',
                          type=str,
                          nargs='?',
                          help='log file (use the stderr by default)',
                          required=False)
     return parser.parse_args()
 
-if __name__ == '__main__':
-    import argparse
+def main():
     ######################
     # Parse command line #
     ######################
@@ -857,3 +859,6 @@ if __name__ == '__main__':
     # Run #
     #######
     run(args.CorrespondencesFile, args.IncludedPseudogenes)
+
+if __name__ == '__main__':
+    main()

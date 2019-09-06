@@ -3,13 +3,15 @@
 ##########
 # Import #
 ##########
+from netsyn2 import common
+
 import os
 import logging
 import gzip
 import re
-import common
 import time
 import urllib3
+import argparse
 
 #############
 # Functions #
@@ -207,22 +209,21 @@ def argumentsParser():
                         required=True, help='Name of corresponding file.')
 
     group2 = parser.add_argument_group('logger')
-    group2.add_argument('--log_level',
+    group2.add_argument('--logLevel',
                         type=str,
                         nargs='?',
                         default='INFO',
                         help='log level',
                         choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                         required=False)
-    group2.add_argument('--log_file',
+    group2.add_argument('--logFile',
                         type=str,
                         nargs='?',
                         help='log file (use the stderr by default)',
                         required=False)
     return parser.parse_args()
 
-if __name__ == '__main__':
-    import argparse
+def main():
     ######################
     # Parse command line #
     ######################
@@ -242,3 +243,6 @@ if __name__ == '__main__':
     # Run #
     #######
     run(args.UniProtACList)
+
+if __name__ == '__main__':
+    main()

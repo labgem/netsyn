@@ -3,8 +3,9 @@
 ##########
 # Import #
 ##########
+from netsyn2 import common
+
 import shutil
-import common
 import logging
 import os
 #############

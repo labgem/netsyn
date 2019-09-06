@@ -4,6 +4,9 @@
 # Import #
 ##########
 
+from netsyn2 import common
+from netsyn2 import netsyn_getINSDCFiles, netsyn_parseINSDCFiles_GetTaxonomy, netsyn_clusteringIntoFamilies, netsyn_syntenyFinder, netsyn_dataExport, EndNetSynAnalysis
+
 import argparse
 import os
 import shutil
@@ -12,10 +15,7 @@ import re
 import sys
 import filecmp
 import glob
-
 import yaml
-import netsyn_getINSDCFiles, netsyn_parseINSDCFiles_GetTaxonomy, netsyn_clusteringIntoFamilies, netsyn_syntenyFinder, netsyn_dataExport, EndNetSynAnalysis
-import common
 
 #############
 # Functions #
@@ -85,7 +85,7 @@ def argumentsParser():
                         default=0.3, help='Sequence identity.\nDefault value: 0.3')
     group4.add_argument('-cov', '--Coverage', type=float,
                         default=0.8, help='Minimal coverage allowed.\nDefault value: 0.8')
-    group4.add_argument('-asm', '--MMseqsAdvancedSettings', type=str,
+    group4.add_argument('-mas', '--MMseqsAdvancedSettings', type=str,
                         help='YAML file with the advanced clustering settings to determine protein families. Settings of MMseqs2 software')
 
     group3 = parser.add_argument_group('Synteny settings')
@@ -95,8 +95,8 @@ def argumentsParser():
                         choices=common.widowsSizePossibilities(common.global_dict['minGCSize'],common.global_dict['maxGCSize']))
     group3.add_argument('-sg', '--SyntenyGap', type=int, default=3,
                         help='Number of genes allowed between two genes in synteny.\nDefault value: 3')
-    group3.add_argument('-ssc', '--SyntenyScoreCuttoff', type=float,
-                        default=common.global_dict['sscDefault'], help='Define the Synteny Score Cuttoff to conserved.\nDefault value: >= {}'.format(common.global_dict['sscDefault']))
+    group3.add_argument('-ssc', '--SyntenyScoreCutoff', type=float,
+                        default=common.global_dict['sscDefault'], help='Define the Synteny Score Cutoff to conserved.\nDefault value: >= {}'.format(common.global_dict['sscDefault']))
     group3.add_argument('-cas', '--ClusteringAdvancedSettings', type=str,
                         help='YAML file with the advanced clustering settings to determine synteny NetSyn. Settings of clusterings methods')
 
@@ -105,22 +105,20 @@ def argumentsParser():
                         choices=['MCL','Infomap','Louvain','WalkTrap'],
                         default=None,
                         help='Clustering method choices: MCL (small graph), Infomap (medium graph), Louvain (medium graph) or WalkTrap (big  graph).\nDefault value: MCL')
-    group6.add_argument('-rrl', '--GroupingOnLabel', type=str,
+    group6.add_argument('-gl', '--GroupingOnLabel', type=str,
                         help='Label of the metadata column on which the redundancy will be computed (Incompatible with --GroupingOnTaxonomy option.)')
-    group6.add_argument('-rrt', '--GroupingOnTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
+    group6.add_argument('-gt', '--GroupingOnTaxonomy', type=str, choices=common.global_dict['desired_ranks_lineage'].keys(),
                         help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --GroupingOnLabel option)')
 
     group7 = parser.add_argument_group('logger')
-    group7.add_argument( '--log_level',
+    group7.add_argument( '--logLevel',
                          type=str,
-                         nargs='?',
                          default='INFO',
                          help='log level',
                          choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                          required=False )
-    group7.add_argument( '--log_file',
+    group7.add_argument( '--logFile',
                          type=str,
-                         nargs='?',
                          help='log file (use the stderr by default). Disable the log colors.',
                          required=False )
 
@@ -205,11 +203,10 @@ def addsAvancedSettings(yaml,step, settingsFileName, defaultValue):
         for name, value in settings.items():
             yaml[step][name] = value
 
-def createYamlSettingsFile(args):
+def createYamlSettingsFile(args, ORDERBOX):
     '''
     YAML settings file creation. Used for resumption of analysis.
     '''
-    global ORDERBOX
     YAML_File = {}
     gap = 0 if args.UniProtACList else 1 # Depending on whether execution start from GetINSDCFiles or ClusteringIntoFamilies
     with open(common.global_dict['settingsFileName'], 'w') as outfile:
@@ -219,7 +216,7 @@ def createYamlSettingsFile(args):
         YAML_File['General informations']['OutputDirName'] = args.OutputDirName
         YAML_File['General informations']['ProjectDescription'] = args.ProjectDescription
         YAML_File['General informations']['IncludedPseudogenes'] = args.IncludedPseudogenes
-        YAML_File = writtingYAML(YAML_File, outfile, 'General informations')
+        YAML_File = writtingYAML(YAML_File, outfile, 'General informations', ORDERBOX)
 
         # Clustering into Families
         step = ORDERBOX[2-gap]
@@ -227,7 +224,7 @@ def createYamlSettingsFile(args):
         YAML_File[step]['Coverage'] = args.Coverage
         YAML_File[step]['Identity'] = args.Identity
         addsAvancedSettings(YAML_File, step, args.MMseqsAdvancedSettings, common.getMMseqsDefaultSettings())
-        YAML_File = writtingYAML(YAML_File, outfile, step)
+        YAML_File = writtingYAML(YAML_File, outfile, step, ORDERBOX)
 
         # Synteny Finder
         step = ORDERBOX[3-gap]
@@ -236,7 +233,7 @@ def createYamlSettingsFile(args):
         YAML_File[step]['SyntenyGap'] = args.SyntenyGap
         YAML_File[step]['SyntenyScoreCuttoff'] = args.SyntenyScoreCuttoff
         addsAvancedSettings(YAML_File, step, args.ClusteringAdvancedSettings, common.getClusteringMethodsDefaultSettings())
-        YAML_File = writtingYAML(YAML_File, outfile, step)
+        YAML_File = writtingYAML(YAML_File, outfile, step, ORDERBOX)
 
         # Data export
         step = ORDERBOX[4-gap]
@@ -245,9 +242,9 @@ def createYamlSettingsFile(args):
         YAML_File[step]['ClusteringMethod'] = args.ClusteringMethod
         YAML_File[step]['GroupingOnLabel'] = args.GroupingOnLabel
         YAML_File[step]['GroupingOnTaxonomy'] = args.GroupingOnTaxonomy
-        YAML_File = writtingYAML(YAML_File, outfile, step)
+        YAML_File = writtingYAML(YAML_File, outfile, step, ORDERBOX)
 
-def writtingYAML(YAML_to_write, outfile, block):
+def writtingYAML(YAML_to_write, outfile, block, ORDERBOX):
     '''
     YAML file writting.
     '''
@@ -289,11 +286,10 @@ def getBoxToResum(args):
                 logger.info('New parameter for {}: {} -> {}'.format(parameterKey, oldSettings[boxKey][parameterKey], newsettings[parameterKey]))
     return boxToResume
 
-def getLastBoxDone():
+def getLastBoxDone(ORDERBOX):
     '''
     Get name box executed.
     '''
-    global ORDERBOX
     logger = logging.getLogger(getLastBoxDone.__name__)
     if os.path.isfile(common.global_dict['reportFileName']):
         with open(common.global_dict['reportFileName'], 'r') as file:
@@ -326,11 +322,10 @@ def inputFilesModificationChecking(inputI, inputII):
     if inputII:
         inputFileModificationChecking(inputII, common.global_dict['correspondingFileSaved'])
 
-def resumptionFrom(nameBoxToResum, nameBoxDone):
+def resumptionFrom(nameBoxToResum, nameBoxDone, ORDERBOX):
     '''
     Returns the name of the box from which to resume the analysis.
     '''
-    global ORDERBOX
     logger = logging.getLogger(resumptionFrom.__name__)
     if nameBoxDone:
         indexBoxDone = ORDERBOX.index(nameBoxDone)
@@ -381,16 +376,15 @@ def removeDownloadedINSDC():
     for file in filesToRemoved:
         os.remove(file)
 
-def boxesManager(runFrom, resultsDirectory):
+def boxesManager(runFrom, resultsDirectory, analysisNumber, ORDERBOX, args):
     '''
     Allows execution from a box.
     '''
-    global ORDERBOX
     logger = logging.getLogger(boxesManager.__name__)
     boxesToRun = [ORDERBOX[i] for i in range(ORDERBOX.index(runFrom), len(ORDERBOX))]
     logger.debug('Boxes to run: {}'.format(boxesToRun))
     for nameBox in boxesToRun:
-        runBox(nameBox, resultsDirectory)
+        runBox(nameBox, resultsDirectory, analysisNumber ,ORDERBOX, args)
         checkingAfterRun(nameBox)
         updateLastBoxDone(nameBox)
 
@@ -480,12 +474,10 @@ def mergeInputsII(outputStepI, inputII, inputMergedName, inputI):
                 file.write('{}\n'.format('\t'.join(line)))
     return 0
 
-def runBox(nameBox, resultsDirectory):
+def runBox(nameBox, resultsDirectory, analysisNumber, ORDERBOX, args):
     '''
     Running box.
     '''
-    global args
-    global ORDERBOX
     logger = logging.getLogger(runBox.__name__)
     if nameBox == 'GetINSDCFiles':
         netsyn_getINSDCFiles.run(args.UniProtACList)
@@ -536,11 +528,7 @@ def runBox(nameBox, resultsDirectory):
         logger.critical('No execution planned for {}'.format(nameBox))
         exit(1)
 
-####################
-# Script execution #
-####################
-
-if __name__ == '__main__':
+def main():
     ######################
     # Parse command line #
     ######################
@@ -595,11 +583,11 @@ if __name__ == '__main__':
         else:
             inputFilesModificationChecking(args.UniProtACList, args.CorrespondencesFile)
             logger.info('NetSyn project recovery: {}'.format(common.global_dict['workingDirectory']))
-        nameBoxDone = getLastBoxDone()
-        runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone)
+        nameBoxDone = getLastBoxDone(ORDERBOX)
+        runFromBox = resumptionFrom(nameBoxToResum, nameBoxDone, ORDERBOX)
         analysisNumber, resultsDirectory = getAnalysisNumber(args.OutputDirName)
         common.filesNameInitialization(resultsDirectory, args.OutputDirName, analysisNumber)
-    createYamlSettingsFile(args)
+    createYamlSettingsFile(args, ORDERBOX)
     if runFromBox:
         '''Execution a partir de la boite x'''
         runFromBoxIndex = ORDERBOX.index(runFromBox)
@@ -608,10 +596,16 @@ if __name__ == '__main__':
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
         writeCurrentVersion(common.global_dict['version'], common.global_dict['versionFileName'])
-        boxesManager(runFromBox, resultsDirectory)
+        boxesManager(runFromBox, resultsDirectory, analysisNumber, ORDERBOX, args)
     else:
         '''Nous avons deja des resultats'''
         logger.debug('Box from which resume: {}'.format(nameBoxToResum))
         logger.debug('Last box done: {}'.format(nameBoxDone))
         logger.debug('Run from: {}'.format(runFromBox))
         logger.info('This analysis already exists')
+
+####################
+# Script execution #
+####################
+if __name__ == '__main__':
+    main()

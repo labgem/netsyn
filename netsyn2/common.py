@@ -2,10 +2,10 @@
 # Import #
 ##########
 import __main__ as namespace
+from netsyn2 import __version__
+
 import json
 import jsonschema
-# from jsonschema import validate
-# from jsonschema.exception import ValidationError
 import os
 import logging
 import urllib3
@@ -515,7 +515,7 @@ def parametersLogger(args):
     '''
     Logger setting.
     '''
-    if not args.log_file:
+    if not args.logFile:
         cyanColor = '\033[36m'
         yellowColor = '\033[33m'
         endColor = '\033[0m'
@@ -525,20 +525,20 @@ def parametersLogger(args):
         endColor = ''
     logging_std_format = '{}[%(levelname)s]{} %(message)s'.format(yellowColor, endColor)
     logging_debug_format = '{}%(asctime)s {}[%(levelname)s]{} [%(threadName)s - %(name)s]{} %(message)s'.format(cyanColor, yellowColor, cyanColor, endColor)
-    log_level = args.log_level.upper()
-    if (log_level == 'DEBUG'):
+    logLevel = args.logLevel.upper()
+    if (logLevel == 'DEBUG'):
         logging_std_format = logging_debug_format
     logging_datefmt = '%Y/%m/%d - %H:%M:%S'
-    if (args.log_file != None):
+    if (args.logFile != None):
         logging.basicConfig(format = logging_std_format,
                              datefmt = logging_datefmt,
-                             filename = args.log_file,
+                             filename = args.logFile,
                              filemode = 'w',
-                             level = log_level)
+                             level = logLevel)
     else:
         logging.basicConfig(format = logging_std_format,
                              datefmt = logging_datefmt,
-                             level = log_level)
+                             level = logLevel)
 
 def reportingFormat(logger, boxName, messages):
     '''
@@ -569,9 +569,9 @@ def reportingFormat(logger, boxName, messages):
 #########################
 inputIheader = 'UniProt_AC'
 proteinACHeader = 'protein_AC'
-resourcesDir = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')), 'resources')
+resourcesDir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'resources')
 global_dict = {
-    'version': '0.0.8',
+    'version': __version__,
     'defaultValue': 'NA',
     'maxGCSize': 11, #MAXGCSIZE
     'minGCSize': 3,

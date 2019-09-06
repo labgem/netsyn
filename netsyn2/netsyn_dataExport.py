@@ -3,11 +3,12 @@
 ##########
 # Import #
 ##########
+from netsyn2 import common
+
 import argparse
 import logging
 import os
 import igraph as ig
-import common
 import re
 #############
 # Functions #
@@ -803,22 +804,21 @@ def argumentsParser():
                         help='Taxonomic rank on which the redundancy will be computed. (Incompatible with --GroupingOnLabel option)')
 
     group3 = parser.add_argument_group('logger')
-    group3.add_argument( '--log_level',
+    group3.add_argument( '--logLevel',
                          type = str,
                          nargs = '?',
                          default = 'INFO',
                          help = 'log level',
                          choices = ['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
                          required = False )
-    group3.add_argument( '--log_file',
+    group3.add_argument( '--logFile',
                          type = str,
                          nargs = '?',
                          help = 'log file (use the stderr by default)',
                          required = False )
     return parser.parse_args(), parser
 
-if __name__ == '__main__':
-    import argparse
+def main():
     ######################
     # Parse command line #
     ######################
@@ -854,3 +854,6 @@ if __name__ == '__main__':
         args.GroupingOnLabel,
         args.GroupingOnTaxonomy,
         args.ClusteringMethod)
+
+if __name__ == '__main__':
+    main()
