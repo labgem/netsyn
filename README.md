@@ -6,9 +6,29 @@ Prerequisites: python 3.6.5 or 3.7 and MMseqs2.
 
  - Netsyn installation:  `
 
-python3 install setup.py`
+`python3 install setup.py`
  
- For the installation of MMseqs2 please refer to
+ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MMseqs2/wiki#installation
+ 
+ Python library list:
+
+-   pyyaml
+    
+-   python-igraph
+    
+-   jsonschema
+    
+-   networkx
+    
+-   markov_clustering
+    
+-   urllib3
+    
+-   biopython
+    
+-   scipy==1.1.0
+ 
+ 
 # Basic Usage
 
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u`), while the other one is a file of correspondences (`-c`). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
@@ -449,33 +469,4 @@ EBI-ENA: allows to recover the INSDC file (embl format) from a nucleic accession
   
 
 NCBI-taxonomy: allows to recover the lineage taxonomic from a toxon identifier (into the ParseINSDCFles_GetTaxonomy part).
-
-# Dependencies
-
-Python 3: développé pour la version 3.6.5 python ou plus.
-
-  
-
-Python library list:
-
--   pyyaml
-    
--   python-igraph
-    
--   jsonschema
-    
--   networkx
-    
--   markov_clustering
-    
--   urllib3
-    
--   biopython
-    
--   scipy==1.1.0
-    
-
-  
-
-Additional tool: MMseqs2 ([https://github.com/soedinglab/MMseqs2/wiki#installation](https://github.com/soedinglab/MMseqs2/wiki#installation)) to determine the protein families (into the ClusteringIntoFamilies part).
 
