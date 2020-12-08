@@ -4,7 +4,7 @@ NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation
   # Installation
 Prerequisites: python 3.6.5 or 3.7 and MMseqs2.
 
-Netsyn installation: `python3 install setup.py`
+Netsyn installation: `python3 setup.py install`
  
 For the installation of MMseqs2 please refer to https://github.com/soedinglab/MMseqs2/wiki#installation
  
