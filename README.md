@@ -42,8 +42,6 @@ NetSyn can be used with 2 different input file formats. One is a file containing
 
 	`netsyn -u <UniProtAC.list> -c <CorrespondencesFileName> -o <OutputDirName>`
 
-
-
 Whatever the type of input, it is necessary to provide an output directory (-o). NetSyn creates the directory and stores all the results in it.
 
 # Settings
@@ -73,9 +71,6 @@ These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in
 
 
 ----------
-
-
-
 
 ### Synteny Settings
 
@@ -145,8 +140,6 @@ Infomap advanced settings:
 	infomap_trials: 10
 ```
 
-
-
 # Input Data
 
 This part is dedicated to the description of the files used as input for NetSyn. They are provided by the user. NetSyn can take two kind input files a user can provide with the `--UniProtACList` or K option and one metadata file with the `--MetaDataFile` option.
@@ -171,16 +164,12 @@ A0A1H4FNN6
 
 Starting from the UniProt AC in the list, NetSyn sends a request to the UniProt website (see more on Web Requests part) to get the EMBL protein_id and the EMBL nucleic_id accessions for every UniProt accession. With these identifiants NetSyn is able to download the INSDC file where the genomic context for each UniProt_AC is computed.
 
-
-
 Some target (sequences given by the user) may be loose at this stage. If there is no correspondence between the UniProt_AC and a INSDC file, the target sequence will not be taken into account for the rest of the analysis and will not be retrieved into the final graph.
 
 
 ## File of Correspondences
 
 The file of correspondences is created by NetSyn when using a UniProt accessions list as input. However, the user may have his own data, which are not stored on UniProt. This is the reason why the user has the possibility to start an analysis with different kind of inputs, but must create the correspondence file by his own.
-
-
 
 The correspondences file requires 5 columns separated by tabulations (UniProt_AC can be considered as an optional column):
 
@@ -280,7 +269,6 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
 	MNDQLFKKVLGYIESESYLMAYRELHKLADEYMPLATRMDFDALHSSLSIIIGERSGYPDIADQLADTAGFYERLAYLLTKKLLGDDEAGEKADTLMLCVVAFGNHRRN
 	```
 
-
 -   The file of protein data in json format (see … for more information).
 
 	```json
@@ -340,7 +328,6 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
 	}
 }
 ```
-
 
 ### DataExport step
 
@@ -459,10 +446,6 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
 
 UniProt: allows to recover the protein accession and nucleic accession from a UniProt accession (into the GetINSDCFiles part).
 
-
-
 EBI-ENA: allows to recover the INSDC file (embl format) from a nucleic accession (into the GetINSDCFiles part).
-
-
 
 NCBI-taxonomy: allows to recover the lineage taxonomic from a taxon identifier (into the ParseINSDCFles_GetTaxonomy part).
