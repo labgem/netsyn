@@ -465,4 +465,4 @@ EBI-ENA: allows to recover the INSDC file (embl format) from a nucleic accession
 
 
 
-NCBI-taxonomy: allows to recover the lineage taxonomic from a toxon identifier (into the ParseINSDCFles_GetTaxonomy part).
+NCBI-taxonomy: allows to recover the lineage taxonomic from a taxon identifier (into the ParseINSDCFles_GetTaxonomy part).
