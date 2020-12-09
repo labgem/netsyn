@@ -26,8 +26,6 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 
 -   biopython
 
--   scipy==1.1.0
-
 ## Basic Usage
 
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u`), while the other one is a file of correspondences (`-c`). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:

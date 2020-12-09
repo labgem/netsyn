@@ -22,10 +22,8 @@ setup(
         'jsonschema',
         'networkx',
         'markov_clustering',
-        'matplotlib',
         'urllib3',
         'biopython',
-        'scipy==1.1.0'
     ],
 
     include_package_data = True,
