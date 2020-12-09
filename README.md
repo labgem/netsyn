@@ -1,7 +1,7 @@
 NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets. Synteny are computed using a re-implementation of the method described in Boyer *et al.* article ([https://doi.org/10.1093/bioinformatics/bti711](https://doi.org/10.1093/bioinformatics/bti711)).
 
   # Installation
-Prerequisites: python 3.6.5 or 3.7 and MMseqs2.
+Prerequisites: python 3.7 and MMseqs2.
 
 Netsyn installation: `python3 setup.py install`
 
