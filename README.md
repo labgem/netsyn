@@ -71,9 +71,6 @@ These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in
 
 -   `-cov/--Coverage`: minimum sequence coverage (default value: 0.8).
 
-
-----------
-
 ### Synteny Settings
 
 -   `-ws/--WindowSize`: size of the genomic contexts to compare. The value must be an odd number between 3 to 11. The target is considered in the middle of the genomic context. If the target is close to a border of the contig, the larger existing genomic context is taken. By default, the larger genomic context is taken (11)
@@ -115,12 +112,12 @@ These settings are transmitted through two YAML files as follows.
 
 ```yaml
 MMseqs advanced settings:
-	MMseqs_cov-mode: 1
-	MMseqs_cluster-mode: 1
-	MMseqs_kmer-per-seq: 80
-	MMseqs_max-seqs: 300
-	MMseqs_single-step-clustering: false
-	MMseqs_threads: 4
+    MMseqs_cov-mode: 1
+    MMseqs_cluster-mode: 1
+    MMseqs_kmer-per-seq: 80
+    MMseqs_max-seqs: 300
+    MMseqs_single-step-clustering: false
+    MMseqs_threads: 4
 ```
 
 #### Graph clustering methods advanced settings
@@ -131,15 +128,15 @@ MMseqs advanced settings:
 
 ```yaml
 MCL advanced settings:
-	MCL_inflation: 2
-	MCL_expansion: 2
-	MCL_iterations: 1000
+    MCL_inflation: 2
+    MCL_expansion: 2
+    MCL_iterations: 1000
 
 WalkTrap advanced settings:
-	walktrap_step: 4
+    walktrap_step: 4
 
 Infomap advanced settings:
-	infomap_trials: 10
+    infomap_trials: 10
 ```
 
 ## Input Data
