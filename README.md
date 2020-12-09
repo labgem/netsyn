@@ -79,7 +79,7 @@ These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in
 -   `-sg/--SyntenyGap`: minimal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is , the less stringent the definition of conserved synteny is. Target genes do not enter into consideration in this setting. The default value is equal to 3.
 
 
-<p align="center"><img src="/images/gap.jpg" width="80%"></p>
+<p align="center"><img src="/images/gap.jpg" width="100%"></p>
 
 -   `-ssc/--SyntenyScoreCutoff`: score lower threshold between two synteny mandatory to create an edge between the two target gene in the graph. By default, the minimum threshold is equal to 3
 
