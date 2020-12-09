@@ -13,7 +13,7 @@ setup(
     author = 'CEA/DRF/JACOB/GENOSCOPE/LABGeM',
     author_email = 'labgem@genoscope.cns.fr',
 
-    description = 'NetSyn2 is a tool implemented to detect conserved syntenies around listed targets.',
+    description = 'NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets.',
     long_description = open('README.md').read(),
 
     install_requires = [
