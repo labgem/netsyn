@@ -1,6 +1,9 @@
+# NetSyn: detect synteny conservation among a list of protein targets
+
 NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets. Synteny are computed using a re-implementation of the method described in Boyer *et al.* article ([https://doi.org/10.1093/bioinformatics/bti711](https://doi.org/10.1093/bioinformatics/bti711)).
 
-  # Installation
+## Installation
+
 Prerequisites: python 3.7 and MMseqs2.
 
 Netsyn installation: `python3 setup.py install`
@@ -25,8 +28,7 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 
 -   scipy==1.1.0
 
-
-# Basic Usage
+## Basic Usage
 
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u`), while the other one is a file of correspondences (`-c`). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
 
@@ -44,7 +46,7 @@ NetSyn can be used with 2 different input file formats. One is a file containing
 
 Whatever the type of input, it is necessary to provide an output directory (-o). NetSyn creates the directory and stores all the results in it.
 
-# Settings
+## Settings
 
 ### General Settings
 
@@ -140,11 +142,11 @@ Infomap advanced settings:
 	infomap_trials: 10
 ```
 
-# Input Data
+## Input Data
 
 This part is dedicated to the description of the files used as input for NetSyn. They are provided by the user. NetSyn can take two kind input files a user can provide with the `--UniProtACList` or K option and one metadata file with the `--MetaDataFile` option.
 
-## UniProt Accessions list
+### UniProt Accessions list
 
 This file must be written as a one column-like. The head column name must be UniProt_AC. The next lines contain only one value, a UniProt accession.
 ```
@@ -167,7 +169,7 @@ Starting from the UniProt AC in the list, NetSyn sends a request to the UniProt 
 Some target (sequences given by the user) may be loose at this stage. If there is no correspondence between the UniProt_AC and a INSDC file, the target sequence will not be taken into account for the rest of the analysis and will not be retrieved into the final graph.
 
 
-## File of Correspondences
+### File of Correspondences
 
 The file of correspondences is created by NetSyn when using a UniProt accessions list as input. However, the user may have his own data, which are not stored on UniProt. This is the reason why the user has the possibility to start an analysis with different kind of inputs, but must create the correspondence file by his own.
 
@@ -199,7 +201,7 @@ C5AU40	ACS42739.1	protein_id	CP001510	embl	data/CP001510.embl
 -   UniProt_AC: UniProt accession of the protein. This column is optional and can be filled with “NA” values. If the UniProt accession stored in the INSDC file differs from the one provided by the user (unless ‘NAs’), the UniProt accessions of the user have the priority and a Warning message is printed
 
 
-## Metadata file
+### Metadata file
 
 The user has the possibility to add information on the sequences computed. These informations can be map on the final graph.
 
@@ -226,7 +228,7 @@ UniProt_AC	A0A1V9GD33	2	classification_4
 -   Any other column useful for characterizing a target protein by a metadata. In this example, two metadata ("metadata_1" and "metadata_2") have been used. "NA" is the default value if the metadata value unknown for one protein target.
 
 
-# Data and multiple analysis inside a project
+## Data and multiple analysis inside a project
 
 A NetSyn project is defined by the `-o/--outputDirName` option (output directory) and the input file(s) (`-u/--UniProtList` and/or `-c/--CorrespondencesFiles`).
 
@@ -442,7 +444,7 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
 		}
 	]
 	```
-# Web Requests
+## Web Requests
 
 UniProt: allows to recover the protein accession and nucleic accession from a UniProt accession (into the GetINSDCFiles part).
 
