@@ -97,6 +97,9 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
             elif contentType in ['application/x-gzip', 'application/octet-stream']:
                 file.write(gzip.decompress(res.data).decode('utf-8'))
                 trial = False
+            elif contentType == 'text/plain':
+                file.write(res.data.decode('utf-8'))
+                trial = False
             else:
                 if not trialNb:
                     logger.critical('Unsupported content type ({}).'.format(contentType))

@@ -602,19 +602,19 @@ def get_lineage(xml, desiredTaxonIDs, orgs_info):
                 indexLineage += 1
                 indexDesiredTaxon += 1
             else:
-                logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
+                logger.warning('1 NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
                 allLineages.append([desiredTaxon, {}, []])
                 indexDesiredTaxon += 1
             if indexDesiredTaxon == len(desiredTaxonIDs):
                 break
             elif indexLineage == len(allLineages):
                 for desiredTaxon in desiredTaxonIDs[indexDesiredTaxon:]:
-                    logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
+                    logger.warning('2 NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
                     allLineages.append([desiredTaxon, {}, []])
                 break
     else:
         for desiredTaxon in desiredTaxonIDs:
-            logger.warning('NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
+            logger.warning('3 NCBI doesn\'t recognise the taxonID: {}'.format(desiredTaxon))
     return allLineages, orgs_info
 
 def get_taxo_from_web(taxonIDs, dataDirectoryProcess, orgs_info):
