@@ -31,16 +31,13 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u`), while the other one is a file of correspondences (`-c`). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
 
   - with the UniProt accessions list:
-
-	`netsyn -u <UniProtAC.list> -o <OutputDirName>`
+    `netsyn -u <UniProtAC.list> -o <OutputDirName>`
 
   - with the correspondences file:
-
-	`netsyn -c <CorrespondencesFileName> -o <OutputDirName>`
+    `netsyn -c <CorrespondencesFileName> -o <OutputDirName>`
 
   - with both entries:
-
-	`netsyn -u <UniProtAC.list> -c <CorrespondencesFileName> -o <OutputDirName>`
+    `netsyn -u <UniProtAC.list> -c <CorrespondencesFileName> -o <OutputDirName>`
 
 Whatever the type of input, it is necessary to provide an output directory (-o). NetSyn creates the directory and stores all the results in it.
 
@@ -242,188 +239,180 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
 ### ClusteringIntoFamilies step
 
   - The file of protein sequences in fasta format.
-
-	```
-	>828 // protein unique identifier from proteins_parsingStep.json
-	MNDQLFKKVLGYIESESYLMAYRELHKLADEYMPLATRMDFDALHSSLSIIIGERSGYPDIADQLADTAGFYERLAYLLTKKLLGDDEAGEKADTLMLCVVAFGNHRRN
-	```
+    ```
+    >828 // protein unique identifier from proteins_parsingStep.json
+    MNDQLFKKVLGYIESESYLMAYRELHKLADEYMPLATRMDFDALHSSLSIIIGERSGYPDIADQLADTAGFYERLAYLLTKKLLGDDEAGEKADTLMLCVVAFGNHRRN
+    ```
 
   - The file of protein data in json format (see … for more information).
-
-	```json
-	[
-		{
-			"id": "828", // protein unique identifier
-			"protein_AC": "ACF11257.1",
-			"begin": 916518,
-			"end": 916847,
-			"strand": "1",
-			"products": "conserved hypothetical protein",
-			"ec_numbers": "NA",
-			"UniProt_AC": "B3QMV4",
-			"gene_names": "NA",
-			"locus_tag": "Cpar_0841",
-			"targets": ["833"], // protein unique identifier list from this file
-			"targets_idx": ["5"] // protein index list from this file
-		}
-	]
-	```
+    ```json
+    [
+        {
+            "id": "828", // protein unique identifier
+            "protein_AC": "ACF11257.1",
+            "begin": 916518,
+            "end": 916847,
+            "strand": "1",
+            "products": "conserved hypothetical protein",
+            "ec_numbers": "NA",
+            "UniProt_AC": "B3QMV4",
+            "gene_names": "NA",
+            "locus_tag": "Cpar_0841",
+            "targets": ["833"], // protein unique identifier list from this file
+            "targets_idx": ["5"] // protein index list from this file
+        }
+    ]
+    ```
 
 ### Synteny Finder step
 
   - The file of protein data in json format (see … for more information).
-
-	```json
-	[
-		{
-			"id": "828", // protein unique identifier
-			"protein_AC": "ACF11257.1",
-			"begin": 916518,
-			"end": 916847,
-			"strand": "1",
-			"products": "conserved hypothetical protein",
-			"ec_numbers": "NA",
-			"UniProt_AC": "B3QMV4",
-			"gene_names": "NA",
-			"locus_tag": "Cpar_0841",
-			"targets": ["833"], // protein unique identifier list from this file
-			"targets_idx": ["5"], // protein index list from this file
-			"family": 453  // family identifier
-		}
-	]
-	```
+    ```json
+    [
+        {
+            "id": "828", // protein unique identifier
+            "protein_AC": "ACF11257.1",
+            "begin": 916518,
+            "end": 916847,
+            "strand": "1",
+            "products": "conserved hypothetical protein",
+            "ec_numbers": "NA",
+            "UniProt_AC": "B3QMV4",
+            "gene_names": "NA",
+            "locus_tag": "Cpar_0841",
+            "targets": ["833"], // protein unique identifier list from this file
+            "targets_idx": ["5"], // protein index list from this file
+            "family": 453  // family identifier
+        }
+    ]
+    ```
 
   - The file of target data in json format (see … for information).
-
-```json
-{
-	"5": { // protein index from proteins_parsingsStep.json
-		"id": "833",
-		"organism_id": 1,
-		"context": ["828","829 ", "830", "831", "832", "833", "834", "835", "836", "837", "838"], // proteins unique identifier list from proteins_parsingsStep.json
-		"context_idx": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], // proteins index list from proteins_parsingsStep.json
-		"UniProt_AC": "B3QMV9",
-		"protein_AC": "ACF11262.1",
-		"organism_idx": 0  // organism index from organisms_taxonomyStep.json
-	}
-}
-```
+    ```json
+    {
+        "5": { // protein index from proteins_parsingsStep.json
+            "id": "833",
+            "organism_id": 1,
+            "context": ["828","829 ", "830", "831", "832", "833", "834", "835", "836", "837", "838"], // proteins unique identifier list from proteins_parsingsStep.json
+            "context_idx": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], // proteins index list from proteins_parsingsStep.json
+            "UniProt_AC": "B3QMV9",
+            "protein_AC": "ACF11262.1",
+            "organism_idx": 0  // organism index from organisms_taxonomyStep.json
+        }
+    }
+    ```
 
 ### DataExport step
 
   - The file of node data in json format (see … for more information).
-
-	```json
-	[
-		{
-			"target_idx": "5", // protein index from proteins_familiesStep.json
-			"id": "1200", // protein unique identifier from proteins_familiesStep.json
-			"UniProt_AC": "A2VZ04",
-			"protein_AC": "EAY64950.1",
-			"context": ["1195", "1196", "1197", "1198", "1199", "1200", "1201", "1202", "1203", "1204", "1205"],// proteins unique identifier list from proteins_familiesStep.json
-			"context_idx": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], // proteins index list from proteins_familiesStep.json
-			"organism_id": 2,
-			"organism_idx": 1,
-			"clusterings": { "WalkTrap": 0, "Louvain": 0, "Infomap": 2, "MCL": 0 }, // cluster identifier by clustering methods
-			"families": [1064, 2154, 171, 237, 47, 1809, 1458, 883, 756, 565, 2230], // families identifier list same proteins_familiesStep.json
-			"Size": 1
-		}
-	]
-	```
+    ```json
+    [
+        {
+            "target_idx": "5", // protein index from proteins_familiesStep.json
+            "id": "1200", // protein unique identifier from proteins_familiesStep.json
+            "UniProt_AC": "A2VZ04",
+            "protein_AC": "EAY64950.1",
+            "context": ["1195", "1196", "1197", "1198", "1199", "1200", "1201", "1202", "1203", "1204", "1205"],// proteins unique identifier list from proteins_familiesStep.json
+            "context_idx": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], // proteins index list from proteins_familiesStep.json
+            "organism_id": 2,
+            "organism_idx": 1,
+            "clusterings": { "WalkTrap": 0, "Louvain": 0, "Infomap": 2, "MCL": 0 }, // cluster identifier by clustering methods
+            "families": [1064, 2154, 171, 237, 47, 1809, 1458, 883, 756, 565, 2230], // families identifier list same proteins_familiesStep.json
+            "Size": 1
+        }
+    ]
+    ```
 
   - The file of edge data in json format (see … for more information).
-
-	```json
-	[
-		{
-			"source": "0", // nodes index from nodes_list.json
-			"target": "1", // nodes index from nodes_list.json
-			"proteins_idx_source": ["6", "10", "9", "3", "4", "5"], // proteins index list from nodes_list.json
-			"proteins_idx_target": ["48", "47", "53", "51", "50", "49"], // proteins index list from nodes_list.json
-			"weight": 4.800000000000001
-		}
-	]
-	```
+    ```json
+    [
+        {
+            "source": "0", // nodes index from nodes_list.json
+            "target": "1", // nodes index from nodes_list.json
+            "proteins_idx_source": ["6", "10", "9", "3", "4", "5"], // proteins index list from nodes_list.json
+            "proteins_idx_target": ["48", "47", "53", "51", "50", "49"], // proteins index list from nodes_list.json
+            "weight": 4.800000000000001
+        }
+    ]
+    ```
 
   - The file of protein data in json format (see … for more information).
-
-```json
-[
-	{
-		"id": "1195", // protein unique identifier
-		"protein_AC": "EAY64945.1",
-		"begin": 452015,
-		"end": 452842,
-		"strand": "-1",
-		"products": "Arginine 3rd transport system periplasmic binding protein",
-		"ec_numbers": "NA",
-		"UniProt_AC": "A2VYZ9",
-		"gene_names": "NA",
-		"locus_tag": "BCPG_03285",
-		"targets": ["1200"], // protein unique identifier list from this file
-		"targets_idx": ["5"], // protein index list from this file
-		"family": 2230  // family identifier
-	}
-]
-```
+    ```json
+    [
+        {
+            "id": "1195", // protein unique identifier
+            "protein_AC": "EAY64945.1",
+            "begin": 452015,
+            "end": 452842,
+            "strand": "-1",
+            "products": "Arginine 3rd transport system periplasmic binding protein",
+            "ec_numbers": "NA",
+            "UniProt_AC": "A2VYZ9",
+            "gene_names": "NA",
+            "locus_tag": "BCPG_03285",
+            "targets": ["1200"], // protein unique identifier list from this file
+            "targets_idx": ["5"], // protein index list from this file
+            "family": 2230  // family identifier
+        }
+    ]
+    ```
 
   - The file of organism data in json format (see … for more information).
-
-	```json
-	[
-		{
-			"id": 1, // unique identifier
-			"name": "Chlorobaculum parvum NCIB 8327",
-			"strain": "NCIB 8327",
-			"taxon_id": "517417",
-			"targets_idx": ["5"],
-			"lineage": [
-				{
-					"rank": "superkingdom",
-					"scientificName": "Bacteria",
-					"tax_id": "2",
-					"level": 1
-				},
-				{
-					"rank": "phylum",
-					"scientificName": "Chlorobi",
-					"tax_id": "1090",
-					"level": 5
-				},
-				{
-					"rank": "class",
-					"scientificName": "Chlorobia",
-					"tax_id": "191410",
-					"level": 8
-				},
-				{
-					"rank": "order",
-					"scientificName": "Chlorobiales",
-					"tax_id": "191411",
-					"level": 13
-				},
-				{
-					"rank": "family",
-					"scientificName": "Chlorobiaceae",
-					"tax_id": "191412",T
-					"level": 17
-				},
-				{
-					"rank": "genus",
-					"scientificName": "Chlorobaculum",
-					"tax_id": "256319",
-					"level": 21
-				},
-				{
-					"rank": "species",
-					"scientificName": "Chlorobaculum parvum",
-					"tax_id": "274539",
-					"level": 26
-				}
-			]
-		}
-	]
-	```
+    ```json
+    [
+        {
+            "id": 1, // unique identifier
+            "name": "Chlorobaculum parvum NCIB 8327",
+            "strain": "NCIB 8327",
+            "taxon_id": "517417",
+            "targets_idx": ["5"],
+            "lineage": [
+                {
+                    "rank": "superkingdom",
+                    "scientificName": "Bacteria",
+                    "tax_id": "2",
+                    "level": 1
+                },
+                {
+                    "rank": "phylum",
+                    "scientificName": "Chlorobi",
+                    "tax_id": "1090",
+                    "level": 5
+                },
+                {
+                    "rank": "class",
+                    "scientificName": "Chlorobia",
+                    "tax_id": "191410",
+                    "level": 8
+                },
+                {
+                    "rank": "order",
+                    "scientificName": "Chlorobiales",
+                    "tax_id": "191411",
+                    "level": 13
+                },
+                {
+                    "rank": "family",
+                    "scientificName": "Chlorobiaceae",
+                    "tax_id": "191412",T
+                    "level": 17
+                },
+                {
+                    "rank": "genus",
+                    "scientificName": "Chlorobaculum",
+                    "tax_id": "256319",
+                    "level": 21
+                },
+                {
+                    "rank": "species",
+                    "scientificName": "Chlorobaculum parvum",
+                    "tax_id": "274539",
+                    "level": 26
+                }
+            ]
+        }
+    ]
+    ```
 
 ## Web Requests
 
