@@ -16,69 +16,84 @@ import argparse
 # Functions #
 #############
 
+
 def removeUselessFiles(dataDirectoryProcess):
     for fileName in os.listdir(dataDirectoryProcess):
         if not (fileName.endswith('.tsv') or fileName.endswith('.log')):
             os.remove(os.path.join(dataDirectoryProcess, fileName))
 
+
 def mmseqs_createdb(dataDirectoryProcess, multiFasta):
     ''' create database using the mmseqs software
     '''
-    logger = logging.getLogger('{}.{}'.format(mmseqs_createdb.__module__, mmseqs_createdb.__name__))
+    logger = logging.getLogger('{}.{}'.format(
+        mmseqs_createdb.__module__, mmseqs_createdb.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     logFile = os.path.join(dataDirectoryProcess, 'mmseqs_createdb.log')
     with open(logFile, 'w') as file:
         try:
-            subprocess.run(['mmseqs', 'createdb', multiFasta, dataBase_path], stdout=file, stderr=file, check=True)
+            subprocess.run(['mmseqs', 'createdb', multiFasta,
+                            dataBase_path], stdout=file, stderr=file, check=True)
             logger.info('Createdb completed')
         except:
-            logger.error('mmseqs createdb failed. Please, check {}'.format(logFile))
+            logger.error(
+                'mmseqs createdb failed. Please, check {}'.format(logFile))
             exit(1)
+
 
 def mmseqs_clustering(dataDirectoryProcess, params):
     ''' cluster sequences using the mmseqs software
     '''
-    logger = logging.getLogger('{}.{}'.format(mmseqs_clustering.__module__, mmseqs_clustering.__name__))
+    logger = logging.getLogger('{}.{}'.format(
+        mmseqs_clustering.__module__, mmseqs_clustering.__name__))
     mmseqsTMPdirectory = os.path.join(dataDirectoryProcess, 'MMseqsTMP')
     os.mkdir(mmseqsTMPdirectory)
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
     clustering_settings = ['mmseqs', 'cluster', dataBase_path,
-                            cluster_path, mmseqsTMPdirectory,
-                            '--min-seq-id', params['min_id'],
-                            '-c', params['min_coverage'],
-                         ]
-    advanced_settings = common.readYamlAdvancedSettingsFile(params['advancedSettings'], common.getMMseqsDefaultSettings())
+                           cluster_path, mmseqsTMPdirectory,
+                           '--min-seq-id', params['min_id'],
+                           '-c', params['min_coverage'],
+                           ]
+    advanced_settings = common.readYamlAdvancedSettingsFile(
+        params['advancedSettings'], common.getMMseqsDefaultSettings())
     settings_separator = '_'
     for settings in advanced_settings.values():
         for name, value in settings.items():
-            clustering_settings.append('--{}'.format(settings_separator.join(name.split(settings_separator)[1:])))
+            clustering_settings.append(
+                '--{}'.format(settings_separator.join(name.split(settings_separator)[1:])))
             clustering_settings.append(str(value))
     logFile = os.path.join(dataDirectoryProcess, 'mmseqs_clustering.log')
     with open(logFile, 'w') as file:
         try:
-            subprocess.run(clustering_settings, stdout=file, stderr=file, check=True)
+            subprocess.run(clustering_settings, stdout=file,
+                           stderr=file, check=True)
             logger.info('Clustering completed')
         except:
-            logger.error('mmseqs cluster failed. Please, check {}'.format(logFile))
+            logger.error(
+                'mmseqs cluster failed. Please, check {}'.format(logFile))
             exit(1)
+
 
 def mmseqs_createTSV(dataDirectoryProcess, outputTSV_path):
     ''' execute the mmseqs command line 'mmseqs createtsv'
     '''
-    logger = logging.getLogger('{}.{}'.format(mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
+    logger = logging.getLogger('{}.{}'.format(
+        mmseqs_createTSV.__module__, mmseqs_createTSV.__name__))
     dataBase_path = os.path.join(dataDirectoryProcess, 'dataBase.DB')
     cluster_path = os.path.join(dataDirectoryProcess, 'cluster.cluster')
     logFile = os.path.join(dataDirectoryProcess, 'mmseqs_createtsv.log')
     with open(logFile, 'w') as file:
         try:
             subprocess.run(['mmseqs', 'createtsv', dataBase_path,
-                                        dataBase_path, cluster_path, outputTSV_path
-                                        ], stdout=file, stderr=file, check=True)
+                            dataBase_path, cluster_path, outputTSV_path
+                            ], stdout=file, stderr=file, check=True)
             logger.info('CreateTSV completed')
         except:
-            logger.error('mmseqs createtsv failed. Please, check {}'.format(logFile))
+            logger.error(
+                'mmseqs createtsv failed. Please, check {}'.format(logFile))
             exit(1)
+
 
 def regroup_families(tsv_file, prots_info):
     ''' create a dictionary to store families obtained by MMseqs2
@@ -96,8 +111,10 @@ def regroup_families(tsv_file, prots_info):
         tmp_dict[cds] = INC_FAMILY
 
     for idx, _ in enumerate(prots_info):
-        prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']] if prots_info[idx]['id'] in tmp_dict else common.global_dict['defaultValue']
+        prots_info[idx]['family'] = tmp_dict[prots_info[idx]['id']
+                                             ] if prots_info[idx]['id'] in tmp_dict else common.global_dict['defaultValue']
     return prots_info
+
 
 def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
     ''' main script to run the second box of NetSyn2
@@ -105,7 +122,8 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
     # Constants
     # common.constantsInitialiszation(args.ProjectName, args.InputFile) # depends on how the function is launched (by hand or via netsyn)
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    dataDirectoryProcess = os.path.join(common.global_dict['dataDirectory'], boxName)
+    dataDirectoryProcess = os.path.join(
+        common.global_dict['dataDirectory'], boxName)
     # Outputs
     families = common.global_dict['files'][boxName]['families']
     proteins_2 = common.global_dict['files'][boxName]['proteins_2']
@@ -119,7 +137,7 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
         'min_id': str(IDENTITY),
         'min_coverage': str(COVERAGE),
         'advancedSettings': ADVANCEDSETTINGSFILENAME
-        }
+    }
 
     if not os.path.isdir(dataDirectoryProcess):
         os.mkdir(dataDirectoryProcess)
@@ -134,7 +152,8 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
     shutil.rmtree(os.path.join(dataDirectoryProcess, 'MMseqsTMP/'))
     removeUselessFiles(dataDirectoryProcess)
 
-    prots_info = common.readJSON(PROTEINS, common.getProteinsParsingStepSchema())
+    prots_info = common.readJSON(
+        PROTEINS, common.getProteinsParsingStepSchema())
     prots_info = regroup_families(families, prots_info)
     common.write_json(prots_info, proteins_2)
 
@@ -147,15 +166,21 @@ def run(FASTA_FILE, PROTEINS, IDENTITY, COVERAGE, ADVANCEDSETTINGSFILENAME):
         else:
             countEachFamily[protein['family']] += 1
 
-    countSingeton = len([1 for _, count in countEachFamily.items() if count == 1])
-    reportingMessages.append('Genomic context size processed: {}'.format(common.global_dict['maxGCSize']))
-    reportingMessages.append('Proteins number processed: {}'.format(len(prots_info)))
+    countSingeton = len(
+        [1 for _, count in countEachFamily.items() if count == 1])
+    reportingMessages.append('Genomic context size processed: {}'.format(
+        common.global_dict['maxGCSize']))
+    reportingMessages.append(
+        'Proteins number processed: {}'.format(len(prots_info)))
     reportingMessages.append('Proteins families number: {}'.format(
         len(countEachFamily)-countSingeton
     ))
-    reportingMessages.append('Proteins singleton number: {}'.format(countSingeton))
-    reportingMessages.append('Proteins cluster number: {}'.format(len(countEachFamily)))
+    reportingMessages.append(
+        'Proteins singleton number: {}'.format(countSingeton))
+    reportingMessages.append(
+        'Proteins cluster number: {}'.format(len(countEachFamily)))
     common.reportingFormat(logger, boxName, reportingMessages)
+
 
 def argumentsParser():
     '''
@@ -183,27 +208,30 @@ def argumentsParser():
 
     group2 = parser.add_argument_group('logger')
     group2.add_argument('--logLevel',
-                         type=str,
-                         nargs='?',
-                         default='INFO',
-                         help='log level',
-                         choices=['ERROR', 'error', 'WARNING', 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
-                         required=False)
+                        type=str,
+                        nargs='?',
+                        default='INFO',
+                        help='log level',
+                        choices=['ERROR', 'error', 'WARNING',
+                                 'warning', 'INFO', 'info', 'DEBUG', 'debug'],
+                        required=False)
     group2.add_argument('--logFile',
-                         type=str,
-                         nargs='?',
-                         help='log file (use the stderr by default)',
-                         required=False)
+                        type=str,
+                        nargs='?',
+                        help='log file (use the stderr by default)',
+                        required=False)
     return parser.parse_args(), parser
+
 
 def main():
     ######################
     # Parse command line #
     ######################
     args, parser = argumentsParser()
-    for key, value in {'Identity':args.Identity, 'Coverage':args.Coverage}.items():
+    for key, value in {'Identity': args.Identity, 'Coverage': args.Coverage}.items():
         if not (0 < value <= 1):
-            parser.error('ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
+            parser.error(
+                'ValueError: value of --{} option must be a float number according to the condition: 0 < value <= 1'.format(key))
     ##########
     # Logger #
     ##########
@@ -217,13 +245,18 @@ def main():
     #############
     common.global_dict['dataDirectory'] = '.'
     boxName = common.global_dict['boxName']['ClusteringIntoFamilies']
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('proteins_2', '{}_proteins_familiesStep.json'.format(args.outputName))
-    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault('families', '{}_families.tsv'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
-    common.global_dict.setdefault('files', {}).setdefault(boxName,{}).setdefault('report', '{}_{}_report.txt'.format(args.outputName, boxName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault(
+        'proteins_2', '{}_proteins_familiesStep.json'.format(args.outputName))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault(
+        'families', '{}_families.tsv'.format(os.path.join(common.global_dict['dataDirectory'], boxName, args.outputName)))
+    common.global_dict.setdefault('files', {}).setdefault(boxName, {}).setdefault(
+        'report', '{}_{}_report.txt'.format(args.outputName, boxName))
     #######
     # Run #
     #######
-    run(args.FastaFile, args.inputProteins, args.Identity, args.Coverage, args.MMseqsAdvancedSettings)
+    run(args.FastaFile, args.inputProteins, args.Identity,
+        args.Coverage, args.MMseqsAdvancedSettings)
+
 
 if __name__ == '__main__':
     main()

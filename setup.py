@@ -6,17 +6,17 @@ from setuptools import setup, find_packages
 import netsyn
 
 setup(
-    name = 'netsyn',
-    version = netsyn.__version__,
-    packages = find_packages(),
+    name='netsyn',
+    version=netsyn.__version__,
+    packages=find_packages(),
 
-    author = 'CEA/DRF/JACOB/GENOSCOPE/LABGeM',
-    author_email = 'labgem@genoscope.cns.fr',
+    author='CEA/DRF/JACOB/GENOSCOPE/LABGeM',
+    author_email='labgem@genoscope.cns.fr',
 
-    description = 'NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets.',
-    long_description = open('README.md').read(),
+    description='NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets.',
+    long_description=open('README.md').read(),
 
-    install_requires = [
+    install_requires=[
         'pyyaml',
         'python-igraph',
         'jsonschema',
@@ -26,17 +26,17 @@ setup(
         'biopython',
     ],
 
-    include_package_data = True,
+    include_package_data=True,
 
-    url = 'http://github.com/labgem/netsyn',
+    url='http://github.com/labgem/netsyn',
 
-    classifiers = [
+    classifiers=[
         'Programming Language :: Python :: 3.7',
         'License :: OSI Approved :: CEA CNRS Inria Logiciel Libre License, version 2.1 (CeCILL-2.1)',
         'Topic :: Scientific/Engineering :: Bio-Informatics'
     ],
 
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'netsyn=netsyn.netsyn:main',
             'netsyn_getINSDCFiles=netsyn.netsyn_getINSDCFiles:main',
