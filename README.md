@@ -1,6 +1,6 @@
 # NetSyn: detect synteny conservation among a list of protein targets
 
-NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a list of protein targets. Synteny are computed using a re-implementation of the method described in Boyer *et al.* article ([https://doi.org/10.1093/bioinformatics/bti711](https://doi.org/10.1093/bioinformatics/bti711)).
+NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a set of protein (call protein targets). Synteny are computed using a re-implementation of the method described in Boyer *et al.* article ([https://doi.org/10.1093/bioinformatics/bti711](https://doi.org/10.1093/bioinformatics/bti711)).
 
 ## Installation
 
@@ -28,7 +28,7 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 
 ## Basic Usage
 
-NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u`), while the other one is a file of correspondences (`-c`). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
+NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u` option), while the other one is a correspondences file (`-c` option). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
 
   - with the UniProt accessions list:
     `netsyn -u <UniProtAC.list> -o <OutputDirName>`
@@ -39,13 +39,13 @@ NetSyn can be used with 2 different input file formats. One is a file containing
   - with both entries:
     `netsyn -u <UniProtAC.list> -c <CorrespondencesFileName> -o <OutputDirName>`
 
-Whatever the type of input, it is necessary to provide an output directory (-o). NetSyn creates the directory and stores all the results in it.
+Whatever the type of input, it is necessary to provide an output directory name (-o) which will be created and where NetSyn will stores all the results.
 
 ## Settings
 
 ### General Settings
 
-  - `-o/--OutputDirName`: Name of the directory which is going to be created into the working directory from where the analysis starts. This directory must not exist already. It is the only one required parameter of this section.
+  - `-o/--OutputDirName`: Name of the directory which is going to be created into the working directory and where the analysis  will start. This directory must not already exist. This option is required.
 
   - `-u/--UniProtACList`: Name of the file containing the Uniprot accession list (full description in the Input Data part).
 
@@ -60,7 +60,7 @@ Whatever the type of input, it is necessary to provide an output directory (-o).
 
 ### Clustering Settings
 
-These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in the Dependencies part.
+These parameters control the MMseqs2 call (more details in the Dependencies part).
 
   - `-id/--Identity`: minimum sequence identity (default value: 0.3).
 
@@ -68,9 +68,9 @@ These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in
 
 ### Synteny Settings
 
-  - `-ws/--WindowSize`: size of the genomic contexts to compare. The value must be an odd number between 3 to 11. The target is considered in the middle of the genomic context. If the target is close to a border of the contig, the larger existing genomic context is taken. By default, the larger genomic context is taken (11)
+  - `-ws/--WindowSize`: Number of genes considered into the comparing genomic contexts. The value must be an odd number between 3 to 11. The target protein is considered at the middle of the genomic context. If the target is close to a border of a contig (i.e. near a end of a INSDC file), the larger existing genomic context is taken. By default, the larger genomic context is taken (11)
 
-  - `-sg/--SyntenyGap`: minimal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is , the less stringent the definition of conserved synteny is. Target genes do not enter into consideration in this setting. The default value is equal to 3.
+  - `-sg/--SyntenyGap`: minimal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is, the less stringent the definition of conserved synteny is. Target genes do not enter into consideration in this setting. The default value is equal to 3.
 
 
 <p align="center"><img src="/images/gap.jpg" width="100%"></p>
@@ -79,13 +79,13 @@ These parameters control the call to MMseqs2. The call to MMseqs2 is detailed in
 
 ### Graph reduction settings
 
-In order to reduce the graph complexity target nodes identified as belonging to the same synteny cluster (several clustering methods are available) and sharing a given property (indicated by the `-gl` option) will be merged into a unique node. The merging can be applied on only one property at a time. It is not allowed to specify a taxonomic rank (with the `-gt` option) and a metadata label (with the `-gl` option) in a single analysis. In order to define which synteny cluster repartition to use to compute the redundancy removal, a clustering method (`-cm`) must be provided.
+In order to reduce the graph complexity, target nodes identified as belonging to the same synteny cluster (several clustering methods are available) and sharing a given property (indicated by the `-gl` option) will be merged into a unique node. The merging can be applied on only one property at a time. It is not allowed to specify a taxonomic rank (with the `-gt` option) and a metadata label (with the `-gl` option) in a single analysis. In order to define which synteny cluster repartition to use to compute the redundancy removal, a clustering method (`-cm`) must be provided.
 
-  - `-cm/--ClusteringMethod`: clustering method that will provide the synteny clusters repartition in order to determine the nodes to merge according to a given property. Clustering methods are: {MCL, Infomap, Louvain, WalkTrap}
+  - `-cm/--ClusteringMethod`: clustering method used to group syntenies sharing hight similarity. Several clustering methods are available: {MCL, Infomap, Louvain, WalkTrap, All}. By default this option is set to all. In order to reduce the graph, only one method must be chosen.
 
-  - `-gt/--GroupingOnTaxonomy`: taxonomic rank on which the grouping clustering will be computed. A choice is given on the list of taxonomic ranks retrieved from NCBI taxonomy request: {superkingdom, phylum, class, order, family, genus, species} (see more on Web Requests part). Only one rank can be specified at a time. This option is not compatible with the `--GroupingOnLabel` option but requires the `--ClusteringMethod` option to make the functionality enabled
+  - `-gt/--GroupingOnTaxonomy`: taxonomic rank use to reduce the graph. Nodes belonging to a same cluster and a same taxonomic rank will be merged. A choice is given on the list of taxonomic ranks retrieved from NCBI taxonomy request: {superkingdom, phylum, class, order, family, genus, species} (see more on Web Requests part). Only one rank can be specified at a time. This option is not compatible with the `--GroupingOnLabel` option but requires the `--ClusteringMethod` option to make the functionality enabled
 
-  - `-gl/--GroupingOnLabel`: label taken from the list of metadata labels provided by the user. It requires the use of the K option. The name must be equal to the header of the provided metadata file. Names “accession_type” and “accession” are not available for the option. Only one label can be specified at a time. This option is not compatible with the `--GroupingOnTaxonomy` option but requires the `--ClusteringMethod` option to make it enabled
+  - `-gl/--GroupingOnLabel`: label taken from the list of metadata labels provided by the user and use to merge nodes in a same cluster. The given name must the same to the header of the provided metadata file. Names “accession_type” and “accession” are not available for this option. Only one label can be specified at the same time. This option is not compatible with the `--GroupingOnTaxonomy` option but requires the `--ClusteringMethod` option.
 
 ### Advanced Settings
 
@@ -130,11 +130,11 @@ Infomap advanced settings:
 
 ## Input Data
 
-This part is dedicated to the description of the files used as input for NetSyn. They are provided by the user. NetSyn can take two kind input files a user can provide with the `--UniProtACList` or K option and one metadata file with the `--MetaDataFile` option.
+This part is dedicated to the description of the files used as input for NetSyn. They are provided by the user. NetSyn can take two kind input files a user can provide with the `--UniProtACList` or the `--CorrespondencesFile` option and one metadata file with the `--MetaDataFile` option.
 
 ### UniProt Accessions list
 
-This file must be written as a one column-like. The head column name must be UniProt_AC. The next lines contain only one value, a UniProt accession.
+This file must contain only one column labeled as "UniProt_AC" with one UniProt accession per line.
 ```
 UniProt_AC
 A0A090WTF7
@@ -149,7 +149,7 @@ A0A1C5UBS1
 A0A1H4FNN6
 ```
 
-Starting from the UniProt AC in the list, NetSyn sends a request to the UniProt website (see more on Web Requests part) to get the EMBL protein_id and the EMBL nucleic_id accessions for every UniProt accession. With these identifiants NetSyn is able to download the INSDC file where the genomic context for each UniProt_AC is computed.
+Starting from the UniProt AC in the list, NetSyn sends a request to the UniProt website (see more on Web Requests part) to get the corresponding EMBL protein_id and the EMBL nucleic_id accessions for every UniProt accession. With these identifiants NetSyn is able to download the INSDC file where the genomic context for each UniProt_AC can be retrieved.
 
 Some target (sequences given by the user) may be loose at this stage. If there is no correspondence between the UniProt_AC and a INSDC file, the target sequence will not be taken into account for the rest of the analysis and will not be retrieved into the final graph.
 
@@ -157,7 +157,7 @@ Some target (sequences given by the user) may be loose at this stage. If there i
 
 The file of correspondences is created by NetSyn when using a UniProt accessions list as input. However, the user may have his own data, which are not stored on UniProt. This is the reason why the user has the possibility to start an analysis with different kind of inputs, but must create the correspondence file by his own.
 
-The correspondences file requires 5 columns separated by tabulations (UniProt_AC can be considered as an optional column):
+The correspondences file requires 6 columns separated by tabulations:
 
 ```
 UniProt_AC	protein_AC	protein_AC_field	nucleic_AC	 nucleic_File_Format	nucleic_File_Path
@@ -176,25 +176,19 @@ C5AU40	ACS42739.1	protein_id	CP001510	embl	data/CP001510.embl
 
   - protein_AC_field: name of the field where the protein_AC is provided for every protein. Syntax to used if field is a dbxref: “dbxref:MaGe” (MaGe is the desired dbxref name)
 
-  - nucleic_AC: identifier of the contig that contains the protein_AC, unless identifier of the genome in the file contains the whole assembled genome
+  - nucleic_AC: identifier of the contig that contains the protein_AC, or identifier of the genome if the file contains the whole assembled genome
 
-  - nucleic_File_Format: format of INSDC file. NetSyn2 support file formats that the BioPython library (see more in Dependences part) is able to parse: .embl (embl), .gbff et .gbk (genbank or gb)
+  - nucleic_File_Format: format of INSDC file. NetSyn support file formats that the BioPython library (see more in Dependences part) is able to parse: .embl (embl), .gbff et .gbk (genbank or gb)
 
-  - nucleic_File_Path: relative or absolute path where NetSyn2 will find the INSDC file to parse
+  - nucleic_File_Path: relative or absolute path where NetSyn can find the INSDC file to parse
 
   - UniProt_AC: UniProt accession of the protein. This column is optional and can be filled with “NA” values. If the UniProt accession stored in the INSDC file differs from the one provided by the user (unless ‘NAs’), the UniProt accessions of the user have the priority and a Warning message is printed
 
 ### Metadata file
 
-The user has the possibility to add information on the sequences computed. These informations can be map on the final graph.
+Various information may be added for every target proteins, or only for a subset of them, with a metadata file. These informations will be map on the final graph.
 
-The user adds information on target proteins via the metadata file.
-
-Various information may be added for every target proteins, or only for a subset of these target proteins.
-
-Several metadata may be specified to a subset of target proteins.
-
-It consists of 2 required columns in order to specify the concerned target protein and as many columns as the existing metadata fields.
+The metadata file consists of 2 required columns in order to specify the concerned target protein and as many columns as metadata fields.
 ```
 accession_type	accession	metada_1	medata_n
 UniProt_AC	A0A090WTF7	2	classification_4
@@ -210,33 +204,48 @@ UniProt_AC	A0A1V9GD33	2	classification_4
 
   - Any other column useful for characterizing a target protein by a metadata. In this example, two metadata ("metadata_1" and "metadata_2") have been used. "NA" is the default value if the metadata value unknown for one protein target.
 
+
+
+## Output format
+
+NetSyn will create different output files:
+
+  - A .txt: NetSyn log file
+
+  - A .graphML file: final graph which can be read by graph visualization tools like Gephi or cytoscape
+
+  - A .yaml file: summary file of the parameters used
+
+  - A .html file : final graph which can be opened into your web browser to explore the results
+
+<p align="center"><img src="/images/netsyn_app.png" width="100%"></p>
+
+The html file is generated with the D3.js library.The NetSyn web interface is divided into 4 panels. The final graph is displayed into the central panel. The nodes can be colored according to the target proteins attributes like the cluster to which belongs the protein, taxonomy information, metadata given by the users. The upper left panel is the legend of the graph. When a user clicks on a colored spot of the legend, two other  panels appear, one on the right of the graph and the second below. The right panel shows a schematic view of the context of the select nodes. Each context is centered on the target protein with the five genes before and after it. Genes belonging to the same MMSEQ family have the same color. If the users pass his cursor above the one the gene, a pop up shows some information about this gene like the protein_ac, the organism where the gene comes from and annotation found into the INSDC file. The last panel below the graph gives data for families generated by MMSEQ as the number of synteny the family is involved in, the number of protein belonging to this family, the number of species, of strain and genome with protein belonging to this family. These datas concern only the protein of the selected graph cluster.
+
+
+NetSyn will also create a directory where it will store results on protein families defined by MMseqs2. For each network clustering methods, 2 tabulate files will be created:
+
+(Clustering_Methods_name)_interCluster_family_netsyn.tsv: for each protein family, it give the number of network cluster and their identification number it has been found, if a target protein belongs to, the number of syntenies it is involved, the number of species it has been found, the number of strain it has been found, the number of organisms it has been found and the Product, genes names, EC number, locus tag, protein acession, metadata associated to proteins in this family
+
+(Clustering_Methods_name)_intraCluster_family_netsyn.tsv: for each couple of network cluster and mmseq family, it give the following information: if this family contain a target protein, the number of syntenies this family is involve into this cluster, the number of strain, the number of organism, the list of the organisms, the number of protein in synteny, the product, gene names, EC numbers, locus tag, proteins accession number and metadata of the proteins in this family in this cluster
+
 ## Data and multiple analysis inside a project
 
-A NetSyn project is defined by the `-o/--outputDirName` option (output directory) and the input file(s) (`-u/--UniProtList` and/or `-c/--CorrespondencesFiles`).
+A NetSyn analyse corresponds to a NetSyn run with specific parameters. If the user want to lauch netsyn with the input, NetSyn will launch a new analyse using, when possible, the already computed results and start from the corresponding step in the change. The results of each analysis will be stored in a new directory created into the same output directory.
 
-A NetSyn analyse corresponds to a NetSyn run with specific parameters. One NetSyn parameter change will launch a new analyse from the corresponding step in the change. The results of each analysis will be in a directory inside the output directory. Each of these analysis directory will contain:
-
-  - A result file in graphML format
-
-  - A file to open with your web browser to explore the results
-
-  - A resume file of the analyse
-
-  - A summary file of the parameters used
-
-  - A directory with synthesis files by NetSyn clustering
-
-Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 might be separated into 5 steps: 1) GetINSDCFiles, 2) ParseINSDCFiles_GetTaxonomy, 3) ClusteringIntoFamilies, 4) SyntenyFinder and then 5) DataExport. At the end of each part, a check on the generated files is done. It is possible to launch each of these steps independently. Below the details of the input file by step:
+Besides the results files, NetSyn creates some intermediate files. NetSyn2 might be separated into 5 steps: 1) GetINSDCFiles, 2) ParseINSDCFiles_GetTaxonomy, 3) ClusteringIntoFamilies, 4) SyntenyFinder and then 5) DataExport. At the end of each part, a check on the generated files is done. It is possible to launch each of these steps independently. Below the details of the input file by step:
 
 ### GetINSDCFiles step
 
-  - The UniProt accession list, same as netsyn  `--UniProtList` option.
+At This step, Netsyn dowload the INSDC file from the EBI server for each UniProt accession given as input.
 
 ### ParseINSDCFiles_GetTaxonomy step
 
-  - The file of correspondences, same as netsyn  `--CorrespondencesFile` option.
+NetSyn parse the INSDC file dowloaded in the previous step or given by the with a correspondence file. It will retrieve all the protein sequences of the genomic context of the protein target and taxonomic informations in the INSDC file. These taxonomic informations can be display on the final network. All protein sequences are writen in a fasta file and json format file.
 
 ### ClusteringIntoFamilies step
+
+The fasta file is given to MMseqs2 which will group proteins into family with the parameters given by the user. Proteins belonging to a same MMseqs2 family are considered as homologous. This homologous relation is used by the synteny finder step
 
   - The file of protein sequences in fasta format.
     ```
@@ -244,7 +253,7 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
     MNDQLFKKVLGYIESESYLMAYRELHKLADEYMPLATRMDFDALHSSLSIIIGERSGYPDIADQLADTAGFYERLAYLLTKKLLGDDEAGEKADTLMLCVVAFGNHRRN
     ```
 
-  - The file of protein data in json format (see … for more information).
+  - The file of protein data in json format.
     ```json
     [
         {
@@ -264,9 +273,9 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
     ]
     ```
 
-### Synteny Finder step
+At the end of this step a new json file of protein data is created where the family identifier is added (see example below)
 
-  - The file of protein data in json format (see … for more information).
+- The file of protein data in json format.
     ```json
     [
         {
@@ -287,24 +296,12 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
     ]
     ```
 
-  - The file of target data in json format (see … for information).
-    ```json
-    {
-        "5": { // protein index from proteins_parsingsStep.json
-            "id": "833",
-            "organism_id": 1,
-            "context": ["828","829 ", "830", "831", "832", "833", "834", "835", "836", "837", "838"], // proteins unique identifier list from proteins_parsingsStep.json
-            "context_idx": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], // proteins index list from proteins_parsingsStep.json
-            "UniProt_AC": "B3QMV9",
-            "protein_AC": "ACF11262.1",
-            "organism_idx": 0  // organism index from organisms_taxonomyStep.json
-        }
-    }
-    ```
 
-### DataExport step
+### Synteny Finder step
 
-  - The file of node data in json format (see … for more information).
+At this step, NetSyn compute synteny between each pair of protein target. The definition of a synteny between genomic contexts of two target proteins is computed by the exact graph-theoretical approach which has been described by Boyer et al 2015. At this step the  This step create 2 files :
+
+ - The file of node data in json format.
     ```json
     [
         {
@@ -323,7 +320,7 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
     ]
     ```
 
-  - The file of edge data in json format (see … for more information).
+- The file of edge data in json format.
     ```json
     [
         {
@@ -336,28 +333,14 @@ Besides the results files, NetSyn2 creates some intermediate files. NetSyn2 migh
     ]
     ```
 
-  - The file of protein data in json format (see … for more information).
-    ```json
-    [
-        {
-            "id": "1195", // protein unique identifier
-            "protein_AC": "EAY64945.1",
-            "begin": 452015,
-            "end": 452842,
-            "strand": "-1",
-            "products": "Arginine 3rd transport system periplasmic binding protein",
-            "ec_numbers": "NA",
-            "UniProt_AC": "A2VYZ9",
-            "gene_names": "NA",
-            "locus_tag": "BCPG_03285",
-            "targets": ["1200"], // protein unique identifier list from this file
-            "targets_idx": ["5"], // protein index list from this file
-            "family": 2230  // family identifier
-        }
-    ]
-    ```
 
-  - The file of organism data in json format (see … for more information).
+
+
+### DataExport step
+
+This step export the data on the network. To the 3 previous file, NetSyn add a file with the organism data. 
+
+  - The file of organism data in json format.
     ```json
     [
         {
