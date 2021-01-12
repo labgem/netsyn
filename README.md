@@ -70,7 +70,9 @@ These parameters control the MMseqs2 call (more details in the Dependencies part
 
   - `-ws/--WindowSize`: Number of genes considered into the comparing genomic contexts. The value must be an odd number between 3 to 11. The target protein is considered at the middle of the genomic context. If the target is close to a border of a contig (i.e. near a end of a INSDC file), the larger existing genomic context is taken. By default, the larger genomic context is taken (11)
 
-  - `-sg/--SyntenyGap`: minimal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is, the less stringent the definition of conserved synteny is. Target genes do not enter into consideration in this setting. The default value is equal to 3.
+<p align="center"><img src="/images/windows_size.jpg" width="100%"></p>
+
+  - `-sg/--SyntenyGap`: maximal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is, the less stringent the definition of conserved synteny is. The default value is equal to 3.
 
 
 <p align="center"><img src="/images/gap.jpg" width="100%"></p>
