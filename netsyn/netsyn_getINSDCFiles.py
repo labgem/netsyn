@@ -65,9 +65,11 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
         'Beginning of the correspondence between the UniProt and ENA identifiers...')
     while uniprotAccessions:
         accessions = '+OR+id:'.join(uniprotAccessions[:batchesSize])
+#        print("accesions {}".format(accessions))
         res = common.httpRequest(
             PoolManager, 'GET', 'https://www.uniprot.org/uniprot/?query=id:{}&columns=id,database(EMBL),database(EMBL_CDS)&format=tab'.format(accessions))
         crossReference = resultsFormat(res, crossReference)
+#        logger.info('uniprot {} crossref {}'.format(accessions, crossReference))
         nbEntriesProcessed += len(uniprotAccessions[:batchesSize])
         del uniprotAccessions[:batchesSize]
         logger.info(
@@ -100,11 +102,13 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
             time.sleep(2)
         trialNb -= 1
         res = common.httpRequest(
-            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
+#            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
+            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true'.format(nucleicAccession))
         contentType = res.info()['Content-Type']
         if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
             logger.error(res.data.decode('utf-8'))
-            exit(1)
+#            exit(1)
+            break
         with open(nucleicFilePath, 'w') as file:
             if contentType == 'text/plain;charset=UTF-8':
                 file.write(res.data.decode('utf-8'))
@@ -116,10 +120,12 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
                 file.write(res.data.decode('utf-8'))
                 trial = False
             else:
-                if not trialNb:
+                if trialNb == 0 :
                     logger.critical(
                         'Unsupported content type ({}).'.format(contentType))
-                    exit(1)
+                    break
+#                    trial = False
+#                    exit(1)
     logger.info('{} downloaded.'.format(nucleicFilePath))
 
 
@@ -185,8 +191,11 @@ def run(InputName):
                         else:
                             if not trialNb:
                                 logger.error(
-                                    '{}: improper file format.'.format(nucleicFilePath))
-                                exit(1)
+                                    '{}: improper modif file format.'.format(nucleicFilePath))
+                                assemblyLength = 0
+                                toAppend = []
+                                break
+#                                exit(1)
                 if assemblyLength > maxAssemblyLength:
                     maxAssemblyLength = assemblyLength
                     toAppend = [
@@ -197,7 +206,10 @@ def run(InputName):
                         'embl',
                         nucleicFilePath
                     ]
-            outputContent.append(toAppend)
+            if not toAppend:
+                none = 0
+            else:
+                outputContent.append(toAppend)
         withoutENAfilesNb = len(crossReference)-len(outputContent)
         reportingMessages.append(
             'Targets without EMBL file number: {}/{}'.format(withoutENAfilesNb, len(accessions)))
@@ -222,7 +234,7 @@ def run(InputName):
         common.reportingFormat(logger, boxName, reportingMessages)
     else:
         logger.error('Input header unrecognized.')
-        exit(1)
+#        exit(1)
 
 
 def argumentsParser():
