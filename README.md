@@ -72,7 +72,7 @@ These parameters control the MMseqs2 call (more details in the Dependencies part
 
 <p align="center"><img src="/images/windows_size.jpg" width="100%"></p>
 
-  - `-sg/--SyntenyGap`: maximal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The higher the value is, the less stringent the definition of conserved synteny is. The default value is equal to 3.
+  - `-sg/--SyntenyGap`: maximal number of genes without homologue in the second synteny between two genes with homologue genes into the second synteny to be considered as part of the synteny. The definition of conserved synteny is less stringent when this value is higher. The default value is equal to 3.
 
 
 <p align="center"><img src="/images/gap.jpg" width="100%"></p>
@@ -406,3 +406,9 @@ UniProt: allows to recover the protein accession and nucleic accession from a Un
 EBI-ENA: allows to recover the INSDC file (embl format) from a nucleic accession (into the GetINSDCFiles part).
 
 NCBI-taxonomy: allows to recover the lineage taxonomic from a taxon identifier (into the ParseINSDCFles_GetTaxonomy part).
+
+##. CONTRIBUTORS
+Celine CHEVALIER
+Jordan LANGLOIS
+Mark STAM
+
