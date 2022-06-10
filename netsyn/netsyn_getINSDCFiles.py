@@ -198,14 +198,20 @@ def run(InputName):
 #                                exit(1)
                 if assemblyLength > maxAssemblyLength:
                     maxAssemblyLength = assemblyLength
-                    toAppend = [
-                        entry,
-                        crossReference[entry]['Cross-reference (embl)'][index],
-                        'protein_id',
-                        nucleicAccession,
-                        'embl',
-                        nucleicFilePath
-                    ]
+                    for index2, nucleicAccession2 in enumerate(crossReference[entry]['Cross-reference (embl)']):
+                        tmp_file = open(nucleicFilePath, 'r')
+                        if nucleicAccession2 in tmp_file.read():
+                            toAppend = [
+                                entry,
+                                crossReference[entry]['Cross-reference (embl)'][index],
+                                'protein_id',
+                                nucleicAccession,
+                                'embl',
+                                nucleicFilePath
+                            ]
+                            tmp_file.close()
+                            break
+                        tmp_file.close()
             if not toAppend:
                 none = 0
             else:
