@@ -203,7 +203,7 @@ def run(InputName):
                         if nucleicAccession2 in tmp_file.read():
                             toAppend = [
                                 entry,
-                                crossReference[entry]['Cross-reference (embl)'][index],
+                                crossReference[entry]['Cross-reference (embl)'][index2],
                                 'protein_id',
                                 nucleicAccession,
                                 'embl',
