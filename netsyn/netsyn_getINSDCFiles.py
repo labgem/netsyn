@@ -215,7 +215,8 @@ def run(InputName):
             if not toAppend:
                 none = 0
             else:
-                outputContent.append(toAppend)
+                if not toAppend in outputContent:
+                    outputContent.append(toAppend)
         withoutENAfilesNb = len(crossReference)-len(outputContent)
         reportingMessages.append(
             'Targets without EMBL file number: {}/{}'.format(withoutENAfilesNb, len(accessions)))
