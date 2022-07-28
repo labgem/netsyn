@@ -18,6 +18,26 @@ import networkx as nx
 # Functions #
 #############
 
+def fix_dendrogram(graph, cl):
+    already_merged = set()
+    for merge in cl.merges:
+        already_merged.update(merge)
+
+    num_dendrogram_nodes = graph.vcount() + len(cl.merges)
+    not_merged_yet = sorted(set(range(num_dendrogram_nodes)) - already_merged)
+    if len(not_merged_yet) < 2:
+        return (graph, cl)
+
+    v1, v2 = not_merged_yet[:2]
+    cl._merges.append((v1, v2))
+    del not_merged_yet[:2]
+
+    missing_nodes = range(num_dendrogram_nodes,
+            num_dendrogram_nodes + len(not_merged_yet))
+    cl._merges.extend(zip(not_merged_yet, missing_nodes))
+    cl._nmerges = graph.vcount()-1
+    return (graph, cl)
+
 
 def get_userGC(targets_info, windowSize):
     ''' reduce the genomic context to the user parameter '--WindowSize'
@@ -398,7 +418,6 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         PROTEINS, common.getProteinsFamiliesStepSchema())
     targets_info = common.readJSON(
         TARGETS, common.getTargetsTaxonomyStepschema())
-
     targets_syntons = {}
     no_synteny = 0
     # logger.info('Length of the targets list: {}'.format(len(targets_info)))
@@ -461,8 +480,10 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
         # Walktrap clustering
         logger.info('Walktrap clustering...')
+        print("graph {}".format(maxi_graph))
         graph_walktrap = maxi_graph.community_walktrap(
             weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
+        maxi_graph, graph_walktrap = fix_dendrogram(maxi_graph, graph_walktrap)
         walktrap_clustering = graph_walktrap.as_clustering()
 
         for cluster in range(len(walktrap_clustering)):
@@ -521,7 +542,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(
             x[0], x[1])]['weight']) for x in maxi_graph.get_edgelist()])
 
-        matrix_adjacency = nx.to_scipy_sparse_matrix(nxGraph, weight='weight')
+        matrix_adjacency = nx.to_scipy_sparse_array(nxGraph, weight='weight')
+#to_scipy_sparse_array remplace to_scipy_sparse_matrix
 
         result = mc.run_mcl(
             matrix_adjacency,

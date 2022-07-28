@@ -26,6 +26,20 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 
   - biopython
 
+  - requests
+
+You can easely install using an virtual environment (command lines example below):
+virtualenv venv_netsyn
+source venv_netsyn/bin/activate
+pip install pyyaml
+pip install python-igraph
+pip install jsonschema
+pip install networkx
+pip install markov_clustering
+pip install urllib3
+git clone https://github.com/labgem/netsyn
+python3 setup.py install
+
 ## Basic Usage
 
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u` option), while the other one is a correspondences file (`-c` option). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:

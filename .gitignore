@@ -3,3 +3,8 @@ scripts_test/
 **/*__pycache__/
 .vscode/
 files_example/
+.gitignore
+build/
+netsyn.egg-info/
+netsyn/log
+dist/
