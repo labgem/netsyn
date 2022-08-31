@@ -29,16 +29,26 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
   - requests
 
 You can easely install using an virtual environment (command lines example below):
-virtualenv venv_netsyn
-source venv_netsyn/bin/activate
-pip install pyyaml
-pip install python-igraph
-pip install jsonschema
-pip install networkx
-pip install markov_clustering
-pip install urllib3
-git clone https://github.com/labgem/netsyn
-python3 setup.py install
+
+  - virtualenv venv_netsyn
+
+  - source venv_netsyn/bin/activate
+
+  - pip install pyyaml
+
+  - pip install python-igraph
+
+  - pip install jsonschema
+
+  - pip install networkx
+
+  - pip install markov_clustering
+
+  - pip install urllib3
+
+  - git clone https://github.com/labgem/netsyn
+
+  - python3 setup.py install
 
 ## Basic Usage
 
