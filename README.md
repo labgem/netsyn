@@ -14,7 +14,7 @@ For the installation of MMseqs2 please refer to https://github.com/soedinglab/MM
 
   - pyyaml
 
-  - python-igraph
+  - igraph
 
   - jsonschema
 
@@ -36,7 +36,7 @@ You can easely install NetSyn using an virtual environment with pip (command lin
 
   - pip install pyyaml
 
-  - pip install python-igraph
+  - pip install igraph
 
   - pip install jsonschema
 
