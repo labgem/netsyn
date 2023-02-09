@@ -20,10 +20,11 @@ setup(
         'pyyaml',
         'python-igraph',
         'jsonschema',
-        'networkx',
+        'networkx>=2.8',
         'markov_clustering',
         'urllib3',
         'biopython',
+        'requests'
     ],
 
     include_package_data=True,
@@ -31,7 +32,7 @@ setup(
     url='http://github.com/labgem/netsyn',
 
     classifiers=[
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'License :: OSI Approved :: CEA CNRS Inria Logiciel Libre License, version 2.1 (CeCILL-2.1)',
         'Topic :: Scientific/Engineering :: Bio-Informatics'
     ],
