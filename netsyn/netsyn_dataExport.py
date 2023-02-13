@@ -9,6 +9,7 @@ import argparse
 import logging
 import os
 import igraph as ig
+import networkx as nx
 import re
 #############
 # Functions #
@@ -638,7 +639,11 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
 
     mergeResultIntoHTML(
         htmlOut, common.global_dict['htmlTemplate'], common.global_dict['jsTemplate'], netsynResult)
-    full_graph.write_graphml(graphmlOut)
+    
+    # full_graph.write_graphml(graphmlOut)
+    logger.debug('Writting graphML output...')
+    full_graph_nx = full_graph.to_networkx()
+    nx.write_graphml_lxml(full_graph_nx, graphmlOut, named_key_ids=True)
 
     # COM: Storage of information to write ClusteringSynthesis files
     logger.info('Analysis synthesis process...')
