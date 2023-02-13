@@ -1,60 +1,45 @@
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/netsyn/README.html)
+[![installs](https://img.shields.io/conda/dn/bioconda/netsyn.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/netsyn)
+
 # NetSyn: detect synteny conservation among a list of protein targets
 
 NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation) among a set of protein (call protein targets). Synteny are computed using a re-implementation of the method described in Boyer *et al.* article ([https://doi.org/10.1093/bioinformatics/bti711](https://doi.org/10.1093/bioinformatics/bti711)).
 
 ## Installation
 
-Prerequisites: python 3.8 and MMseqs2.
 
-Netsyn installation: `python3 setup.py install`
+### Installation with BioConda
 
-For the installation of MMseqs2 please refer to https://github.com/soedinglab/MMseqs2/wiki#installation
+Netsyn can be easilly installed with bioconda
 
- Python library list:
+```bash 
 
-  - pyyaml
+conda create -n netsyn -c bioconda netsyn
 
-  - igraph
 
-  - jsonschema
+```
 
-  - networkx (>= 2.8)
 
-  - markov_clustering
+### Manual installation
 
-  - urllib3
+You can easely install NetSyn with pip. Netsyn requires python >= 3.8
 
-  - biopython
+```bash
 
-  - requests
+git clone https://github.com/labgem/netsyn
 
-You can easely install NetSyn using an virtual environment with pip (command lines example below):
+pip install netsyn/
 
-  - virtualenv venv_netsyn
+```
 
-  - source venv_netsyn/bin/activate
+Netsyn requires MMseqs2 as a 3rd party software which must be installed and executable. For the installation of MMseqs2 please refer to https://github.com/soedinglab/MMseqs2/wiki#installation
 
-  - pip install pyyaml
-
-  - pip install igraph
-
-  - pip install jsonschema
-
-  - pip install networkx
-
-  - pip install markov_clustering
-
-  - pip install urllib3
-
-  - git clone https://github.com/labgem/netsyn
-
-  - python3 setup.py install
 
 ## Basic Usage
 
 NetSyn can be used with 2 different input file formats. One is a file containing a list of UniProt accessions (`-u` option), while the other one is a correspondences file (`-c` option). The two types of file are described in the Input Data part. It is possible to start an analysis with both input file formats. It leads to 3 NetSyn basic usage callings:
 
-  - with the UniProt accessions list:
+  - with the UniProt accessions list: 
     `netsyn -u <UniProtAC.list> -o <OutputDirName>`
 
   - with the correspondences file:
