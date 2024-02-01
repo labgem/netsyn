@@ -291,8 +291,11 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
         trialNb -= 1
         res = common.httpRequest(
 #            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
-            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true'.format(nucleicAccession))
+#            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true'.format(nucleicAccession))
+            PoolManager, 'GET', 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={}&rettype=genbank&retmode=text'.format(nucleicAccession)) 
         contentType = res.info()['Content-Type']
+        print("contentType {}".format(contentType))
+#        print("https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true".format(nucleicAccession))
         if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
             logger.error(res.data.decode('utf-8'))
 #            exit(1)
@@ -344,13 +347,13 @@ def run(InputName):
             list(accessions), 200, http)
         withoutENAidNb = len(accessions)-len(crossReference)
         reportingMessages.append(
-            'Targets without ENA correspondence number: {}/{}'.format(withoutENAidNb, len(accessions)))
+            'Targets without GENBANK correspondence number: {}/{}'.format(withoutENAidNb, len(accessions)))
         if withoutENAidNb:
-            reportingMessages.append('Targets without ENA correspondence: {}'.format(
+            reportingMessages.append('Targets without GENBANK correspondence: {}'.format(
                 set(accessions).difference(set(crossReference.keys()))
             ))
         outputContent = []
-        logger.info('Beginning of EMBL file downloading...')
+        logger.info('Beginning of GENBANK file downloading...')
         for entry in crossReference:
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
@@ -372,7 +375,8 @@ def run(InputName):
                             '{} already existing.'.format(nucleicFilePath))
                     with open(nucleicFilePath, 'r') as file:
                         m = re.search(
-                            r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
+#                            r'ID\s+{};.*; (?P<length>[0-9]+) BP\.\n'.format(nucleicAccession), file.read())
+                            r'LOCUS\s+{}\s+ (?P<length>[0-9]+) bp'.format(nucleicAccession), file.read())  
                         if m:
                             assemblyLength = int(m.group('length'))
                             trial = False
@@ -394,7 +398,7 @@ def run(InputName):
                                 crossReference[entry]['Cross-reference (embl)'][index2],
                                 'protein_id',
                                 nucleicAccession,
-                                'embl',
+                                'genbank',
                                 nucleicFilePath
                             ]
                             tmp_file.close()
@@ -409,7 +413,7 @@ def run(InputName):
         reportingMessages.append(
             'Targets without EMBL file number: {}/{}'.format(withoutENAfilesNb, len(accessions)))
         if withoutENAfilesNb:
-            reportingMessages.append('Targets without EMBL file: {}'.format(
+            reportingMessages.append('Targets without GENBANK file: {}'.format(
                 set(crossReference.keys()).difference(
                     set([line[0] for line in outputContent]))
             ))

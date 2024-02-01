@@ -634,7 +634,7 @@ global_dict = {
     'maxGCSize': 11,  # MAXGCSIZE
     'minGCSize': 3,
     'sscDefault': 3.0,
-    'filesExtension': 'embl',
+    'filesExtension': 'genbank',
     'formatOfFilesToParse': ['embl', 'gb', 'genbank'],
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
