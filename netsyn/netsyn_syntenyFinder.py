@@ -542,9 +542,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         nxGraph.add_weighted_edges_from([(names[x[0]], names[x[1]], maxi_graph.es[maxi_graph.get_eid(
             x[0], x[1])]['weight']) for x in maxi_graph.get_edgelist()])
 
-        matrix_adjacency = nx.to_scipy_sparse_array(nxGraph, weight='weight')
-#to_scipy_sparse_array remplace to_scipy_sparse_matrix
 
+        #to_scipy_sparse_array replace to_scipy_sparse_matrix
+        # matrix_adjacency = nx.to_scipy_sparse_array(nxGraph, weight='weight', format="lil")
+        # bug "numpy.linalg.LinAlgError: 0-dimensional array given. Array must be at least two-dimensional" when using the sparse matrix
+        # Use to_numpy_array instead
+        matrix_adjacency = nx.to_numpy_array(nxGraph,  weight='weight')
+        
         result = mc.run_mcl(
             matrix_adjacency,
             inflation=advanced_settings[common.global_dict['MCL']
