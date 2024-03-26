@@ -567,12 +567,14 @@ def runBox(nameBox, resultsDirectory, analysisNumber, ORDERBOX, args):
     elif nameBox == 'DataExport':
         nodesFile = common.global_dict['files']['SyntenyFinder']['nodes']
         edgesFile = common.global_dict['files']['SyntenyFinder']['edges']
+        metricsFile = common.global_dict['files']['SyntenyFinder']['metrics']
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
-        netsyn_dataExport.run(nodesFile,
+        netsyn_dataExport.ruaddn(nodesFile,
                               edgesFile,
                               organimsFile,
                               proteinsFile,
+                              metricsFile,
                               args.MetaDataFile,
                               args.GroupingOnLabel,
                               args.GroupingOnTaxonomy,

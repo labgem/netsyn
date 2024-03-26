@@ -13,6 +13,7 @@ import igraph as ig
 import shutil
 import markov_clustering as mc
 import networkx as nx
+from collections import defaultdict
 
 #############
 # Functions #
@@ -381,6 +382,25 @@ def get_proteins_in_synteny(families, targetAinfo, targetBinfo, prots_info):
 #     cl._nmerges = graph.vcount()-1
 #     return cl
 
+def  compute_alpha_index(maxi_graph, cluster_vertexs):
+    '''
+    Compute the alpha index as a metric to evaluate the connectivity of the cluster in the graph.
+    The formula is explain in this website: https://transportgeography.org/contents/methods/graph-theory-measures-indices/
+
+
+    '''
+    cluster_graph = maxi_graph.subgraph(cluster_vertexs)
+
+    nb_component = len(cluster_graph.components()) # should be 0
+    nb_nodes = len(cluster_vertexs)
+    nb_edges = cluster_graph.ecount()
+
+    nb_cycle = nb_edges - nb_nodes + nb_component
+
+    alpha_index = nb_cycle / (2 * nb_edges - 5)
+
+    return round(alpha_index, 2)
+
 
 def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
     '''
@@ -393,6 +413,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
     nodesOut = common.global_dict['files']['SyntenyFinder']['nodes']
     edgesOut = common.global_dict['files']['SyntenyFinder']['edges']
     protsOut = common.global_dict['files']['SyntenyFinder']['proteins']
+    metricOut = common.global_dict['files']['SyntenyFinder']['metrics']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     reportingMessages = []
@@ -466,6 +487,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                 no_synteny += 1
     maxi_graph, params = build_maxi_graph(targets_syntons, params)
     if maxi_graph.vcount() != 0:
+        method_to_clstr2alpha_index = {
+            'MCL':{},
+            "Infomap":{},
+            "Louvain":{},
+            "WalkTrap":{},
+        }
+
         # Edge-betweenness clustering
         # graph_edge_btwness = maxi_graph.community_edge_betweenness(directed=False)
         # print(graph_edge_btwness)
@@ -480,7 +508,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
         # Walktrap clustering
         logger.info('Walktrap clustering...')
-        print("graph {}".format(maxi_graph))
+        # print("graph {}".format(maxi_graph))
         graph_walktrap = maxi_graph.community_walktrap(
             weights='weight', steps=advanced_settings[common.global_dict['WalkTrap']]['walktrap_step'])
         maxi_graph, graph_walktrap = fix_dendrogram(maxi_graph, graph_walktrap)
@@ -490,6 +518,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
             for vertex in walktrap_clustering[cluster]:
                 maxi_graph.vs[vertex]['cluster_WT'] = cluster
 
+            method_to_clstr2alpha_index["WalkTrap"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs= walktrap_clustering[cluster])
+
         # Louvain clustering
         logger.info('Louvain clustering...')
         graph_louvain = maxi_graph.community_multilevel(weights='weight')
@@ -497,6 +527,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         for cluster in range(len(graph_louvain)):
             for vertex in graph_louvain[cluster]:
                 maxi_graph.vs[vertex]['cluster_Louvain'] = cluster
+
+            method_to_clstr2alpha_index["Louvain"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=graph_louvain[cluster])
 
         # ### Spinglass clustering
         # # algorithm dont le résultat peut varier (changements mineurs)
@@ -526,6 +558,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         for cluster in range(len(graph_infomap)):
             for vertex in graph_infomap[cluster]:
                 maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
+                method_to_clstr2alpha_index["Infomap"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=graph_infomap[cluster])
 
         # ### Leading EigenVector Clustering
         # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
@@ -564,6 +597,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
             for vertex in clusters[cluster]:
                 maxi_graph.vs[vertex]['cluster_MCL'] = cluster
 
+                method_to_clstr2alpha_index["MCL"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=clusters[cluster])
+
         logger.info('Graph formatting...')
         targetsNumber = len(targets_info)
         targets_info, prots_info = proteinsRemoval(
@@ -591,11 +626,12 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                                         maxi_graph.vs[target_node.index]['cluster_MCL']
                                     },
                     'families': targets_info[target_idx]['families'],
-                    'Size': 1
+                    'Size': 1,
                     }
             list_of_nodes.append(dico)
 
         list_of_edges = []
+
         for edge in maxi_graph.es:
             node_0_idx = maxi_graph.vs[edge.tuple[0]].index
             node_1_idx = maxi_graph.vs[edge.tuple[1]].index
@@ -626,9 +662,13 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     }
             list_of_edges.append(dico)
 
+        
+        cluster_metrics = {"alpha_index": method_to_clstr2alpha_index}
+
         common.write_json(prots_info, protsOut)
         common.write_json(list_of_nodes, nodesOut)
         common.write_json(list_of_edges, edgesOut)
+        common.write_json(cluster_metrics, metricOut)
 
         if os.listdir(dataDirectoryProcess) == []:
             shutil.rmtree(dataDirectoryProcess)

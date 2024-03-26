@@ -559,12 +559,13 @@ def mergeResultIntoHTML(outputName, htmlTemplate, jsTemplate, jsonResults):
         file.write(htmlContent)
 
 
-def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
+def run(nodesFile, edgesFile, organismsFile, proteinsFile, metricsFile, metadataFile, redundancyRemovalLabel, redundancyRemovalTaxonomy, clusteringMethod):
     # Constants
     boxName = common.global_dict['boxName']['DataExport']
     # Outputs
     graphmlOut = common.global_dict['files']['DataExport']['graphML']
     htmlOut = common.global_dict['files']['DataExport']['html']
+    htmlOut = "netsyn_app.html"
     synthesisDirectory = common.global_dict['synthesisDataExport']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
@@ -574,6 +575,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
     # Process
     nodesContent = common.readJSON(nodesFile, common.getNodesListStepschema())
     edgesContent = common.readJSON(edgesFile, common.getEdgesListStepschema())
+    metricsContent = common.readJSON(metricsFile, common.getMetricsStepschema())
     organismsContent = common.readJSON(
         organismsFile, common.getOrganismsTaxonomyStepschema())
     proteinsContent = common.readJSON(
@@ -624,7 +626,8 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metadataFile, redunda
         'nodes': nodesContent,
         'edges': edgesContent,
         'proteins': proteinsContent,
-        'organisms': organismsContent
+        'organisms': organismsContent,
+        'cluster_metrics':metricsContent,
     }
 
     full_graph = createFullGraph(

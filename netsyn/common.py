@@ -306,6 +306,7 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'nodes': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'nodes_list.json'),
             'edges': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'edges_list.json'),
             'proteins': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'proteins_syntenyStep.json'),
+            'metrics': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'cluster_metrics.json'),
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'report.txt')
         },
         global_dict['boxName']['DataExport']: {
@@ -361,6 +362,30 @@ def getEdgesListStepschema():
 
         },
     }
+
+def getMetricsStepschema():
+    return {
+            "type": "object",
+            "properties": {
+                "alpha_index": {
+                "type": "object",
+                "properties": {
+                    "cluster_MCL": {
+                    "type": "object",
+                    },
+                    "cluster_Infomap": {
+                    "type": "object",
+                    },
+                    "cluster_Louvain": {
+                    "type": "object",
+                    },
+                    "cluster_WT": {
+                    "type": "object",
+                    }
+                }
+                }
+            }
+            }
 
 
 def getNodesListStepschema():
