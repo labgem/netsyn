@@ -570,7 +570,7 @@ def runBox(nameBox, resultsDirectory, analysisNumber, ORDERBOX, args):
         metricsFile = common.global_dict['files']['SyntenyFinder']['metrics']
         organimsFile = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['organisms_2']
         proteinsFile = common.global_dict['files']['SyntenyFinder']['proteins']
-        netsyn_dataExport.ruaddn(nodesFile,
+        netsyn_dataExport.run(nodesFile,
                               edgesFile,
                               organimsFile,
                               proteinsFile,
