@@ -565,7 +565,7 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metricsFile, metadata
     # Outputs
     graphmlOut = common.global_dict['files']['DataExport']['graphML']
     htmlOut = common.global_dict['files']['DataExport']['html']
-    htmlOut = "netsyn_app.html"
+
     synthesisDirectory = common.global_dict['synthesisDataExport']
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
