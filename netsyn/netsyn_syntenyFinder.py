@@ -597,7 +597,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
             for vertex in clusters[cluster]:
                 maxi_graph.vs[vertex]['cluster_MCL'] = cluster
 
-                method_to_clstr2alpha_index["MCL"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=clusters[cluster])
+            method_to_clstr2alpha_index["MCL"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=clusters[cluster])
 
         logger.info('Graph formatting...')
         targetsNumber = len(targets_info)
