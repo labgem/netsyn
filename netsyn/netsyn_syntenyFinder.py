@@ -395,15 +395,23 @@ def  compute_alpha_index(maxi_graph, cluster_vertexs):
 
     nb_nodes = len(cluster_vertexs)
     nb_edges = cluster_graph.ecount()
+    nb_component = len(cluster_graph.connected_components())
 
-    alpha_index = (nb_edges -  nb_nodes) / ( (nb_nodes * (nb_nodes -1) / 2 ) - (nb_nodes - 1) )
+    if nb_nodes <= 2: 
+        # use to prevent div by zero
+        alpha_index_non_planar = 0
+        
+    else:
+        alpha_index_non_planar = (nb_edges -  nb_nodes + nb_component) / ( (nb_nodes * (nb_nodes -1) / 2 ) - (nb_nodes - 1) )
 
-    # # Formula for planar graph
-    # nb_component = len(cluster_graph.components()) # should be 0
-    # nb_cycle = nb_edges - nb_nodes + nb_component
-    # alpha_index = nb_cycle / (2 * nb_edges - 5)
 
-    return round(alpha_index, 2)
+    print('alpha index, non planar graph', alpha_index_non_planar)
+    # Formula for planar graph
+    nb_cycle = nb_edges - nb_nodes + nb_component
+    alpha_index_planar = nb_cycle / (2 * nb_nodes - 5)
+
+    print('alpha index, planar graph', alpha_index_planar)
+    return f'planar: {round(alpha_index_planar, 2)}, non planar: {round(alpha_index_non_planar, 2)}' 
 
 
 def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
