@@ -387,17 +387,21 @@ def  compute_alpha_index(maxi_graph, cluster_vertexs):
     Compute the alpha index as a metric to evaluate the connectivity of the cluster in the graph.
     The formula is explain in this website: https://transportgeography.org/contents/methods/graph-theory-measures-indices/
 
-
+    number of nodes (v)
+    links (e)
+    
     '''
     cluster_graph = maxi_graph.subgraph(cluster_vertexs)
 
-    nb_component = len(cluster_graph.components()) # should be 0
     nb_nodes = len(cluster_vertexs)
     nb_edges = cluster_graph.ecount()
 
-    nb_cycle = nb_edges - nb_nodes + nb_component
+    alpha_index = (nb_edges -  nb_nodes) / ( (nb_nodes * (nb_nodes -1) / 2 ) - (nb_nodes - 1) )
 
-    alpha_index = nb_cycle / (2 * nb_edges - 5)
+    # # Formula for planar graph
+    # nb_component = len(cluster_graph.components()) # should be 0
+    # nb_cycle = nb_edges - nb_nodes + nb_component
+    # alpha_index = nb_cycle / (2 * nb_edges - 5)
 
     return round(alpha_index, 2)
 
