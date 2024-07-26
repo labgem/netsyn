@@ -403,10 +403,10 @@ def  compute_alpha_index(maxi_graph, cluster_vertexs):
     else:
         alpha_index_non_planar = (nb_edges -  nb_nodes + nb_component) / ( (nb_nodes * (nb_nodes -1) / 2 ) - (nb_nodes - 1) )
 
-    # Formula for planar graph
+    # # Formula for planar graph
     # nb_cycle = nb_edges - nb_nodes + nb_component
     # alpha_index_planar = nb_cycle / (2 * nb_nodes - 5)
-
+    
     return round(alpha_index_non_planar, 2)
 
 
