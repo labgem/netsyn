@@ -358,8 +358,14 @@ def run(InputName):
             maxAssemblyLength = 0
             for index, nucleicAccession in enumerate(crossReference[entry]['Cross-reference (EMBL)']):
                 filesExtension = common.global_dict['filesExtension']
-                nucleicFilePath = '{}.{}'.format(os.path.join(
-                    dataDirectoryProcess, getNucleicFileName(nucleicAccession)), filesExtension)
+
+                # Previously, we were using the function `getNucleicFileName` as shown below:
+                # nucleicFilePath = f'{os.path.join(dataDirectoryProcess, getNucleicFileName(nucleicAccession))}.{filesExtension}'
+                # However, this caused issues because `getNucleicFileName` was removing too much from the accession,
+                # resulting in incorrect file paths. We decided to use the accession directly instead.
+                # This change can be reverted if needed in the future.
+
+                nucleicFilePath = f'{os.path.join(dataDirectoryProcess, nucleicAccession)}.{filesExtension}'
                 trial = True
                 consTrialNb = 2
                 trialNb = consTrialNb
