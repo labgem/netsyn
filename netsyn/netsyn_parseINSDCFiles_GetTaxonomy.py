@@ -822,7 +822,7 @@ def run(INPUT_II, pseudogenes):
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     reportingMessages = []
-    print('')
+
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(dataDirectoryProcess):
