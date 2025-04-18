@@ -255,8 +255,15 @@ def getENAidMatchingToUniProtid(uniprotAccessions, batchesSize, PoolManager):
             results = get_id_mapping_results_search(link)
             session.close()
             data=results['results']
+            
             for row in data:
                  if row['from'] in crossReference:
+                     if row['to'] in crossReference[row['from']]['Cross-reference (embl)']:
+                         logger.info(f"This id {row['to']} has been mapped to {row['from']} by "
+                                        "uniprot mapping in DB EMBL-GenBank-DDBJ_CDS and in DB EMBL-GenBank-DDBJ. "
+                                        f"This is unexpected. We will keep the EMBL-GenBank-DDBJ_CDS mapping.")
+                         
+                         continue
                      crossReference[row['from']]['Cross-reference (EMBL)'].append(row['to'])
 
         del uniprotAccessions[:batchesSize]
@@ -294,7 +301,6 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
 #            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true'.format(nucleicAccession))
             PoolManager, 'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={}&rettype=genbank&retmode=text'.format(nucleicAccession)) 
         contentType = res.info()['Content-Type']
-        print("contentType {}".format(contentType))
 #        print("https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true".format(nucleicAccession))
         if contentType == 'text/plain;charset=UTF-8' and res.data.decode('utf-8') == 'Entry: {} display type is either not supported or entry is not found.\n'.format(nucleicAccession):
             logger.error(res.data.decode('utf-8'))
