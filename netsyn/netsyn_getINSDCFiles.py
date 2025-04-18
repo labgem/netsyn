@@ -292,7 +292,7 @@ def getEMBLfromENA(nucleicAccession, nucleicFilePath, PoolManager):
         res = common.httpRequest(
 #            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/data/view/{}&display=text&set=true'.format(nucleicAccession))
 #            PoolManager, 'GET', 'https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true'.format(nucleicAccession))
-            PoolManager, 'GET', 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={}&rettype=genbank&retmode=text'.format(nucleicAccession)) 
+            PoolManager, 'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={}&rettype=genbank&retmode=text'.format(nucleicAccession)) 
         contentType = res.info()['Content-Type']
         print("contentType {}".format(contentType))
 #        print("https://www.ebi.ac.uk/ena/browser/api/text/{}?lineLimit=0&annotationOnly=false&set=true".format(nucleicAccession))
