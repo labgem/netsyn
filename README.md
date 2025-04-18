@@ -7,32 +7,26 @@ NetSyn is a tool to detect conserved genomic contexts (i.e. synteny conservation
 
 ## Installation
 
+### Via Bioconda
 
-### Installation with BioConda
-
-Netsyn can be easilly installed with bioconda
-
-```bash 
-
-conda create -n netsyn -c bioconda netsyn
-
-
-```
-
-
-### Manual installation
-
-You can easely install NetSyn with pip. Netsyn requires python >= 3.8
+The easiest way to install NetSyn is with conda:
 
 ```bash
-
-git clone https://github.com/labgem/netsyn
-
-pip install netsyn/
-
+conda create -n netsyn -c bioconda netsyn
 ```
 
-Netsyn requires MMseqs2 as a 3rd party software which must be installed and executable. For the installation of MMseqs2 please refer to https://github.com/soedinglab/MMseqs2/wiki#installation
+### Manual Installation
+
+If you prefer, you can install NetSyn manually by cloning the repository and installing it with `pip`.
+
+**Requirements**: Python ≥ 3.8
+
+```bash
+git clone https://github.com/labgem/netsyn
+pip install ./netsyn
+```
+
+NetSyn requires [MMseqs2](https://github.com/soedinglab/MMseqs2/wiki#installation) to be installed and available in your `PATH`.
 
 
 ## Basic Usage
@@ -416,7 +410,7 @@ EBI-ENA: allows to recover the INSDC file (embl format) from a nucleic accession
 
 NCBI-taxonomy: allows to recover the lineage taxonomic from a taxon identifier (into the ParseINSDCFles_GetTaxonomy part).
 
-##. CONTRIBUTORS
+## CONTRIBUTORS
 Celine CHEVALIER
 Jordan LANGLOIS
 Mark STAM
