@@ -11,6 +11,7 @@ import math
 import shutil
 import xml.etree.ElementTree as ET
 import urllib3
+from urllib3.exceptions import HTTPError
 import logging
 import argparse
 from Bio import SeqIO
@@ -709,7 +710,7 @@ def get_taxo_from_web(taxonIDs, dataDirectoryProcess, orgs_info):
     http = urllib3.PoolManager()
     ids = ','.join(taxonIDs)
     xml = common.httpRequest(
-        http, 'GET', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={}&retmode=xml'.format(ids))
+        http, 'GET', f'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id={ids}&retmode=xml')
     return get_lineage(xml.data.decode('utf-8'), taxonIDs, orgs_info)
 
 
@@ -822,7 +823,7 @@ def run(INPUT_II, pseudogenes):
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     reportingMessages = []
-    print('')
+
     logger.info('{} running...'.format(boxName))
     # Process
     if not os.path.isdir(dataDirectoryProcess):

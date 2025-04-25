@@ -9,10 +9,14 @@ import jsonschema
 import os
 import logging
 import urllib3
+from urllib3.exceptions import (
+    NewConnectionError, MaxRetryError, TimeoutError, HTTPError
+)
 import subprocess
 import errno
 import re
 import yaml
+
 
 #############
 # Functions #
@@ -242,21 +246,57 @@ def checkFilledFile(fileName, error=False):
         logger.error('{} empty'.format(fileName))
     return error
 
-
 def httpRequest(poolManager, method, url):
     '''
-    Return http request result.
+    Perform an HTTP request and return the result.
+    
+    Parameters:
+        poolManager (urllib3.PoolManager): The HTTP connection pool manager.
+        method (str): The HTTP method ('GET', 'POST', etc.).
+        url (str): The URL for the request.
+        timeout (int, optional): Timeout in seconds for the request. Defaults to 10 seconds.
+    
+    Returns:
+        urllib3.response.HTTPResponse: The HTTP response object.
+    
+    Raises:
+        RuntimeError: If an error occurs during the HTTP request.
     '''
-    logger = logging.getLogger('{}.{}'.format(
-        httpRequest.__module__, httpRequest.__name__))
+    logger = logging.getLogger(f'{httpRequest.__module__}.{httpRequest.__name__}')
+    
     retry = urllib3.util.Retry(
-        read=5, connect=5, backoff_factor=0.5, status_forcelist=set([504]))
+        read=5,
+        connect=5,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504],  # Common server errors for retry
+    )
+    
     try:
-        res = poolManager.request(method, url, retries=retry)
-    except urllib3.exceptions.NewConnectionError:
-        logger.error('Connection failed.')
-        exit(1)
-    return res
+        # Make the HTTP request with retries
+        response = poolManager.request(method, url, retries=retry)
+        
+        # Check the status code for unsuccessful responses
+        if response.status >= 400:
+            logger.error(f"HTTP request failed with status code {response.status}: {url}")
+            raise RuntimeError(f"Request to {url} failed with status code {response.status}")
+
+        return response
+
+    except NewConnectionError as e:
+        logger.error(f"Failed to establish a new connection: {e}")
+        raise RuntimeError(f"Connection error while requesting {url}") from e
+    except MaxRetryError as e:
+        logger.error(f"Max retries exceeded: {e}")
+        raise RuntimeError(f"Max retries exceeded for {url}") from e
+    except TimeoutError as e:
+        logger.error(f"Request timed out: {e}")
+        raise RuntimeError(f"Request to {url} timed out") from e
+    except HTTPError as e:
+        logger.error(f"HTTP error occurred: {e}")
+        raise RuntimeError(f"HTTP error while requesting {url}") from e
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise RuntimeError(f"An unexpected error occurred while requesting {url}") from e
 
 
 def constantsInitialization(outputDirName, uniprotACList, correspondingFile):
@@ -306,6 +346,7 @@ def filesNameInitialization(resultsDirectory, outputDirName, analysisNumber):
             'nodes': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'nodes_list.json'),
             'edges': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'edges_list.json'),
             'proteins': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'proteins_syntenyStep.json'),
+            'metrics': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'cluster_metrics.json'),
             'report': os.path.join(global_dict['dataDirectory'], global_dict['boxName']['SyntenyFinder'], 'report.txt')
         },
         global_dict['boxName']['DataExport']: {
@@ -361,6 +402,30 @@ def getEdgesListStepschema():
 
         },
     }
+
+def getMetricsStepschema():
+    return {
+            "type": "object",
+            "properties": {
+                "alpha_index": {
+                "type": "object",
+                "properties": {
+                    "cluster_MCL": {
+                    "type": "object",
+                    },
+                    "cluster_Infomap": {
+                    "type": "object",
+                    },
+                    "cluster_Louvain": {
+                    "type": "object",
+                    },
+                    "cluster_WT": {
+                    "type": "object",
+                    }
+                }
+                }
+            }
+            }
 
 
 def getNodesListStepschema():
@@ -634,7 +699,7 @@ global_dict = {
     'maxGCSize': 11,  # MAXGCSIZE
     'minGCSize': 3,
     'sscDefault': 3.0,
-    'filesExtension': 'embl',
+    'filesExtension': 'genbank',
     'formatOfFilesToParse': ['embl', 'gb', 'genbank'],
     'boxName': {
         'GetINSDCFiles': 'GetINSDCFiles',
