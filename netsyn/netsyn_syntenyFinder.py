@@ -524,7 +524,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
 
         for cluster in range(len(walktrap_clustering)):
             for vertex in walktrap_clustering[cluster]:
-                maxi_graph.vs[vertex]['cluster_WT'] = cluster
+                maxi_graph.vs[vertex]['cluster_WalkTrap'] = cluster
 
             method_to_clstr2alpha_index["WalkTrap"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs= walktrap_clustering[cluster])
 
@@ -566,7 +566,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         for cluster in range(len(graph_infomap)):
             for vertex in graph_infomap[cluster]:
                 maxi_graph.vs[vertex]['cluster_Infomap'] = cluster
-                method_to_clstr2alpha_index["Infomap"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=graph_infomap[cluster])
+            method_to_clstr2alpha_index["Infomap"][cluster] = compute_alpha_index(maxi_graph, cluster_vertexs=graph_infomap[cluster])
 
         # ### Leading EigenVector Clustering
         # # donne le même résultat que WalkTrap (sur données UniProtAC, pas avec BKACE !)
@@ -611,11 +611,23 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         targetsNumber = len(targets_info)
         targets_info, prots_info = proteinsRemoval(
             prots_info, targets_info, maxi_graph)
-
+        # Determine clustering order. Clustering methods with less clusters are considered first
+        # If equal order is WalkTrap > Louvain > Infomap > MCL
+        method_to_cluster_count = {"WalkTrap": len(walktrap_clustering),
+                                      "Louvain": len(graph_louvain),
+                                      "Infomap": len(graph_infomap),
+                                      "MCL": len(clusters),
+        }
+        clustering_methods_sorted = sorted(method_to_cluster_count, key=method_to_cluster_count.get)
         list_of_nodes = []
         for target_node in maxi_graph.vs:
             target_idx = int(target_node['name'])
             protein_idx = int(targets_info[target_idx]['protein_idx'])
+
+            # Create clusterings dict in the sorted order
+            clusterings_ordered = {f'{method}': maxi_graph.vs[target_node.index][f'cluster_{method}']
+                                   for method in clustering_methods_sorted}
+            
             dico = {'protein_idx': protein_idx,
                     'id': prots_info[protein_idx]['id'],
                     'UniProt_AC': prots_info[protein_idx]['UniProt_AC'],
@@ -624,15 +636,7 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
                     'context_idx': targets_info[target_idx]['context_idx'],
                     'organism_id': targets_info[target_idx]['organism_id'],
                     'organism_idx': targets_info[target_idx]['organism_idx'],
-                    'clusterings': {'WalkTrap':
-                                    maxi_graph.vs[target_node.index]['cluster_WT'],
-                                    'Louvain':
-                                        maxi_graph.vs[target_node.index]['cluster_Louvain'],
-                                    'Infomap':
-                                        maxi_graph.vs[target_node.index]['cluster_Infomap'],
-                                    'MCL':
-                                        maxi_graph.vs[target_node.index]['cluster_MCL']
-                                    },
+                    'clusterings': clusterings_ordered,
                     'families': targets_info[target_idx]['families'],
                     'Size': 1,
                     }
