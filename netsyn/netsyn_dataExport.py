@@ -541,8 +541,6 @@ def mergeResultIntoHTML(outputName, htmlTemplate, jsTemplate, jsonResults):
     Inserts the netsyn results (json) into the javascript template.
     Then inserts the javascript (from template + json) into html template.
     '''
-    # logger = logging.getLogger('{}.{}'.format(mergeResultIntoHTML.__module__, mergeResultIntoHTML.__name__))
-
     jsHook = r'\/\* BEGIN HOOK FOR WF >const src_data = <END HOOK FOR WF \*\/'
     jsReplace = '{}{};'.format(jsHook.split('<')[0].split('>')[1], jsonResults)
     with open(jsTemplate, 'r') as file:
@@ -570,7 +568,6 @@ def run(nodesFile, edgesFile, organismsFile, proteinsFile, metricsFile, metadata
     # Logger
     logger = logging.getLogger('{}.{}'.format(run.__module__, run.__name__))
     reportingMessages = []
-    print('')
     logger.info('{} running...'.format(boxName))
     # Process
     nodesContent = common.readJSON(nodesFile, common.getNodesListStepschema())
