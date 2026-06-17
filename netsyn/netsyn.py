@@ -549,10 +549,10 @@ def runBox(nameBox, resultsDirectory, analysisNumber, ORDERBOX, args):
             inputBoxII, args.IncludedPseudogenes)
         if 'GetINSDCFiles' in ORDERBOX:
             if not args.conserveDownloadedINSDC:
-                logger.info('Removing downloded files in GetINSDC step')
+                logger.info('Removing downloaded files in GetINSDC step')
                 removeDownloadedINSDC()
             else:
-                logger.info('Conserving downloded files in GetINSDC step')
+                logger.info('Conserving downloaded files in GetINSDC step')
     elif nameBox == 'ClusteringIntoFamilies':
         fasta = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['faa']
         proteins = common.global_dict['files']['ParseINSDCFiles_GetTaxonomy']['proteins_1']
