@@ -694,8 +694,8 @@ def run(PROTEINS, TARGETS, GCUSER, GAP, CUTOFF, ADVANCEDSETTINGSFILENAME):
         reportingMessages.append('Protein targets number with a conserved genomic context: {}/{}'.format(
             len(list_of_nodes), targetsNumber
         ))
-        reportingMessages.append(
-            'Conserved genomic context found: {}'.format(len(list_of_edges)))
+        # reportingMessages.append(
+        #    'Conserved genomic context found: {}'.format(len(list_of_edges)))
         reportingMessages.append(
             'NetSyn Walktrap: {}'.format(walktrap_clustering.summary()))
         reportingMessages.append(
