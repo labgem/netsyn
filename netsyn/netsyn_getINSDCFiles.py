@@ -429,7 +429,7 @@ def run(InputName):
                 set(crossReference.keys()).difference(
                     set([line[0] for line in outputContent]))
             ))
-        reportingMessages.append('EMBL files number/organisms number downloded: {}'.format(
+        reportingMessages.append('EMBL files number/organisms number downloaded: {}'.format(
             len(set([line[5] for line in outputContent]))
         ))
         with open(outputName, 'w') as file:
