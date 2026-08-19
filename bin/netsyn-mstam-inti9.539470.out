@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/env/export/cns_n02_agc/agc/home/mstam/netsyn/git/version_1_0_3/netsyn/bin/./netsyn", line 3, in <module>
+    from netsyn.netsyn import main
+ModuleNotFoundError: No module named 'netsyn'
