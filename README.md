@@ -84,6 +84,8 @@ These parameters control the MMseqs2 call (more details in the Dependencies part
 
 ### Graph reduction settings
 
+Sometimes, the resulting network can be difficult to interpret. In such cases, NetSyn provides an option to group nodes together and thereby reduce network complexity. To do so, users must select a clustering method (e.g., Walktrap, MCL, etc.) as well as a metadata category (either user-provided metadata or a taxonomic rank). The taxonomic lineage is automatically retrieved from the genome files collected by NetSyn. Nodes belonging to the same cluster and sharing the same metadata (or the same taxonomic rank) are merged into a single node. This approach simplifies the network, making it possible to identify clusters containing a high degree of taxonomic redundancy and to assess the impact of merging at different taxonomic levels without modifying the original clustering. The simplified network can then be used to select a representative subset of target proteins before rerunning NetSyn, if appropriate. When a taxonomic rank is used, this approach can also highlight NetSyn clusters encompassing taxonomically diverse organisms, thereby supporting the hypothesis of functional rather than taxonomic conservation.
+
 In order to reduce the graph complexity, target nodes identified as belonging to the same synteny cluster (several clustering methods are available) and sharing a given property (indicated by the `-gl` option) will be merged into a unique node. The merging can be applied on only one property at a time. It is not allowed to specify a taxonomic rank (with the `-gt` option) and a metadata label (with the `-gl` option) in a single analysis. In order to define which synteny cluster repartition to use to compute the redundancy removal, a clustering method (`-cm`) must be provided.
 
   - `-cm/--ClusteringMethod`: clustering method used to group syntenies sharing hight similarity. Several clustering methods are available: {MCL, Infomap, Louvain, WalkTrap, All}. By default this option is set to all. In order to reduce the graph, only one method must be chosen.
@@ -215,7 +217,18 @@ UniProt_AC	A0A1V9GD33	2	classification_4
 
 NetSyn will create different output files:
 
-  - A .txt: NetSyn log file
+  - A .txt: NetSyn log file :
+
+The Report file provides comprehensive information about the four major steps of the analysis process.  Information provided by the report file is the following:  
+step1: accession numbers for which NetSyn was unable to retrieve corresponding GenBank entries or genome files (A) and taxonomy reporting (B). The number of distinct taxa at each taxonomic rank is summarized giving insight into whether the input dataset displays sufficient taxonomic diversity (e.g., encompasses multiple genera and families);
+
+step2: report of the families protein clustering;
+
+step3:  synteny computation report;
+
+step4: network clustering report .  . .
+The number of target proteins retained for the next step is indicated at the end each steps.  This  facilitates the identification of potentially limiting steps in the analysis workflow, i.e., those that retain only a relatively small number of target proteins compared with the initial number..  
+
 
   - A .graphML file: final graph which can be read by graph visualization tools like Gephi or cytoscape
 
