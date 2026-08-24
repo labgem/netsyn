@@ -1,0 +1,43 @@
+###########################
+# GetINSDCFiles reporting #
+###########################
+Targets without ENA correspondence number: 159/725
+Targets without ENA correspondence: {'B2H4E4', 'C3WJN8', 'A4KHN0', 'A9GL07', 'D1TCY9', 'A9EIV2', 'A9ET73', 'B5JAA6', 'A9GTK1', 'A3MFH5', 'A3Q5V2', 'B9QXY1', 'D0J0F6', 'A1UXG3', 'B7CZA7', 'A4LV75', 'C8SWR6', 'C6U4K2', 'B9QUK9', 'A9AN52', 'A3MGW9', 'C5NA15', 'A9HSN9', 'B4B7L9', 'A8KGY0', 'C1YRM0', 'B5S7G9', 'C5ZRC4', 'A3SEJ8', 'A9AJY3', 'C6U4Z0', 'Q8CTX4', 'C5QB57', 'B9QY13', 'D1UU49', 'C0Y268', 'A5WN37', 'Q62D63', 'B2HAS0', 'C0YDK7', 'A9K2V9', 'A1UVS7', 'A3LM24', 'C5NK36', 'D1SAE2', 'B5HBU6', 'D1UCL6', 'A5XWG8', 'C6U9A9', 'A8KI11', 'C5ZPT2', 'D3C665', 'Q629S5', 'A3S779', 'Q1BQ94', 'A1KJD5', 'A9HDK4', 'B9CDN3', 'C8SII8', 'D0BS35', 'A5TD73', 'Q7TZQ6', 'C4SJE4', 'A3MFU8', 'A9JZD2', 'A5JBH8', 'C8SI24', 'A3SES5', 'D1TK71', 'C8SN56', 'D1WPU5', 'B9C654', 'A1UWE2', 'B7CG13', 'C3WT25', 'D3CH25', 'A4LHL9', 'A4LG88', 'C9NT32', 'Q62DG5', 'B7CWJ1', 'A9GCI6', 'A5TFX4', 'A9HUU5', 'C0Y7A1', 'B5KCM1', 'C3WZN8', 'A5J2F2', 'Q1BN83', 'A5XMK5', 'A4LQX4', 'C8SFA5', 'A9H7X2', 'C5ZSW7', 'C0Y1C7', 'B5KEK6', 'D1T2E2', 'A6AQ57', 'B2H4R7', 'C1YG16', 'B2H8J8', 'D1S7G4', 'A9K371', 'A8KR21', 'C5NJG1', 'Q62CH9', 'A8KFW7', 'A5JCV7', 'D1WSZ2', 'Q1VAE1', 'C5QZ78', 'A3LFZ8', 'B7CZZ8', 'D0IUT6', 'B9QST2', 'Q02DX5', 'B5KEI7', 'C6U1U4', 'A9AKI5', 'D2M5U7', 'C1XV06', 'D1T5K5', 'Q1B3P7', 'A9F664', 'A4LP04', 'B4BPT1', 'Q7WJQ6', 'B5SEV3', 'B5KAL9', 'D0XME6', 'A3MEC9', 'Q02HW6', 'B7CQ94', 'A9FWD6', 'B2H6S6', 'C1ANZ1', 'C1M917', 'A9K3M0', 'C6DRV4', 'A3L579', 'A0B091', 'C6JPM7', 'C5ZQS7', 'D1XUM6', 'D2LG99', 'B7UYE7', 'A3L1N9', 'Q3IQN5', 'A0B2A9', 'A8KE19', 'B7V5S9', 'C6UAA0', 'A2VIK1', 'A5JAI3', 'D1TEB1', 'C0YCX5', 'C5ZNX8', 'B9C2I4', 'A5XXU1'}
+Targets without EMBL file number: 0/725
+EMBL files number/organisms number downloded: 316
+Targets number conserved at end this step: 566/725
+
+#########################################
+# ParseINSDCFiles_GetTaxonomy reporting #
+#########################################
+Different superkingdom number: 4
+Different phylum number: 12
+Different class number: 22
+Different order number: 49
+Different family number: 79
+Different genus number: 132
+Different species number: 228
+Proteins number extracted (targets and neighbors): 6109
+Targets number conserved at end this step: 566/566
+
+####################################
+# ClusteringIntoFamilies reporting #
+####################################
+Genomic context size processed: 11
+Proteins number processed: 6109
+Proteins families number: 564
+Proteins singleton number: 1594
+Proteins cluster number: 2158
+
+###########################
+# SyntenyFinder reporting #
+###########################
+Genomic context size: 11
+Protein targets number with a conserved genomic context: 480/566
+Conserved genomic context found: 5768
+NetSyn Walktrap: Clustering with 480 elements and 48 clusters
+NetSyn Louvain: Clustering with 480 elements and 33 clusters
+NetSyn Infomap: Clustering with 480 elements and 47 clusters
+NetSyn MCL: Clustering with 481 elements and 64 clusters
+
+*
