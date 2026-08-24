@@ -215,7 +215,7 @@ UniProt_AC	A0A1V9GD33	2	classification_4
 
 ## Output format
 
-NetSyn will create different output files:
+NetSyn will create different output files (see an example in the examples section):
 
   - A .txt: NetSyn log file :
 
